@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/mawsis/unlaravel/internal/analyze"
 	"github.com/mawsis/unlaravel/internal/detector"
+	modelextract "github.com/mawsis/unlaravel/internal/extract/model"
 	"github.com/mawsis/unlaravel/internal/extract/schema"
 	"github.com/mawsis/unlaravel/internal/model"
 	"github.com/mawsis/unlaravel/internal/render/er"
@@ -17,6 +20,18 @@ import (
 // migrationsSubdir is the conventional location of Laravel migration files,
 // relative to the project root.
 var migrationsSubdir = filepath.Join("database", "migrations")
+
+// modelsSubdir is the conventional location of Eloquent model classes in a
+// modern Laravel layout, relative to the project root. appSubdir is the classic
+// layout where models live directly under app/. Both are scanned (the extractor
+// decides which files are actually Eloquent models).
+var (
+	modelsSubdir = filepath.Join("app", "Models")
+	appSubdir    = "app"
+)
+
+// phpGlob matches PHP source files within a directory.
+const phpGlob = "*.php"
 
 // rootCmd represents the base command when called without any subcommands
 // In Cobra, commands are organized in a tree structure with a root command at the top
@@ -94,14 +109,21 @@ and generate analysis reports for:
 }
 
 // analyzeProject handles the analyze command. It runs the real analysis
-// pipeline for this slice — Schema extraction only (ADR scope) — and reports
-// exactly what happened, with no fabricated success messages.
+// pipeline for this slice — Schema extraction plus Eloquent Model extraction
+// (ADR scope) — and reports exactly what happened, with no fabricated success
+// messages.
 //
 // Pipeline:
 //  1. Detect the Laravel project (artisan + composer.json) via the detector.
 //  2. Locate database/migrations and extract Table nodes from their AST.
-//  3. Assemble a model.ProjectModel from the detector + extracted tables.
-//  4. Optionally write the JSON contract (--output), then render the ER diagram.
+//  3. Locate app/Models (and classic app/) and extract Eloquent Model nodes
+//     with their relationships from their AST.
+//  4. Correlate Models against the Schema to surface Disagreements — a
+//     relationship referencing a table or foreign-key column the Schema lacks.
+//  5. Assemble a model.ProjectModel from the detector + tables + models +
+//     disagreements.
+//  6. Optionally write the JSON contract (--output), then render the ER diagram
+//     (which now includes Eloquent relationship lines alongside the FK lines).
 func analyzeProject(cmd *cobra.Command, args []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	routesOnly, _ := cmd.Flags().GetBool("routes")
@@ -149,10 +171,19 @@ func analyzeProject(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// 3. Assemble the Project Model.
-	pm := buildProjectModel(project, tables)
+	// 3. Extract the Eloquent models from app/Models (and classic app/).
+	models, err := extractModels(projectPath, green, yellow)
+	if err != nil {
+		return err
+	}
 
-	// 4a. Optionally write the JSON output contract.
+	// 4. Correlate Models against the Schema to surface Disagreements.
+	disagreements := analyze.FindDisagreements(models, tables)
+
+	// 5. Assemble the Project Model.
+	pm := buildProjectModel(project, tables, models, disagreements)
+
+	// 6a. Optionally write the JSON output contract.
 	if outputPath != "" {
 		if err := writeProjectModel(pm, outputPath); err != nil {
 			return err
@@ -160,11 +191,15 @@ func analyzeProject(cmd *cobra.Command, args []string) error {
 		green.Printf("✅ Wrote analysis to %s\n", outputPath)
 	}
 
-	// 4b. Render and print the ER diagram.
+	// 6b. Report the Disagreement findings, if any.
+	reportDisagreements(disagreements, green, yellow)
+
+	// 6c. Render and print the ER diagram (FK + Eloquent relationship lines).
 	yellow.Println("\n📊 Entity-Relationship diagram (Mermaid):")
 	fmt.Println(er.Render(pm))
 
-	cyan.Printf("🎉 Analysis complete: %d table(s) found in %s\n", len(tables), projectPath)
+	cyan.Printf("🎉 Analysis complete: %d table(s), %d model(s) found in %s\n",
+		len(tables), len(models), projectPath)
 	return nil
 }
 
@@ -194,12 +229,102 @@ func extractSchema(projectPath string, green, yellow *color.Color) ([]model.Tabl
 	return tables, nil
 }
 
+// extractModels locates the Eloquent model files under projectPath and extracts
+// the Model nodes (with their relationships) from their AST. Both the modern
+// app/Models layout and the classic app/ layout are scanned; the extractor
+// itself decides which PHP files are actually Eloquent models, so non-model
+// files (and missing directories) are reported honestly and yield no models
+// rather than an error.
+//
+// Files from both directories are gathered, de-duplicated, and sorted so
+// discovery order is deterministic regardless of which layout a project uses.
+func extractModels(projectPath string, green, yellow *color.Color) ([]model.Model, error) {
+	paths, err := collectModelFiles(projectPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(paths) == 0 {
+		yellow.Printf("⚠️  No PHP files found under %s; no Eloquent models to analyze.\n",
+			filepath.Join(projectPath, appSubdir))
+		return nil, nil
+	}
+
+	models, err := modelextract.Extract(paths)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract Eloquent models: %w", err)
+	}
+
+	green.Printf("✅ Extracted %d Eloquent model(s)\n", len(models))
+	return models, nil
+}
+
+// collectModelFiles gathers the candidate PHP files for model extraction from
+// both the modern app/Models directory and the classic app/ directory under
+// projectPath. Each directory is scanned non-recursively for *.php; a missing
+// directory is skipped silently (it simply contributes no files). The returned
+// paths are de-duplicated and sorted lexically so discovery order is
+// deterministic.
+func collectModelFiles(projectPath string) ([]string, error) {
+	dirs := []string{
+		filepath.Join(projectPath, modelsSubdir),
+		filepath.Join(projectPath, appSubdir),
+	}
+
+	seen := make(map[string]struct{})
+	var paths []string
+	for _, dir := range dirs {
+		matches, err := filepath.Glob(filepath.Join(dir, phpGlob))
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan %s for PHP files: %w", dir, err)
+		}
+		for _, p := range matches {
+			if _, dup := seen[p]; dup {
+				continue
+			}
+			seen[p] = struct{}{}
+			paths = append(paths, p)
+		}
+	}
+
+	sort.Strings(paths)
+	return paths, nil
+}
+
+// reportDisagreements prints the Disagreement findings. With no findings it
+// prints a single reassuring line; otherwise it prints a warning header and one
+// line per finding, naming the Model, its relationship, and the reason. It makes
+// no claim beyond what the correlation found.
+func reportDisagreements(disagreements []model.Disagreement, green, yellow *color.Color) {
+	if len(disagreements) == 0 {
+		green.Println("✅ No Model↔Schema disagreements found.")
+		return
+	}
+
+	yellow.Printf("\n⚠️  Disagreements (%d):\n", len(disagreements))
+	for _, d := range disagreements {
+		yellow.Printf("  • %s::%s — %s\n", d.Model, d.Relationship, d.Reason)
+	}
+}
+
 // buildProjectModel assembles a Project Model from the detected project and the
-// extracted tables, choosing the best available project name.
-func buildProjectModel(project *detector.LaravelProject, tables []model.Table) *model.ProjectModel {
+// extracted tables, models, and disagreements, choosing the best available
+// project name. Insertion order is preserved for deterministic output.
+func buildProjectModel(
+	project *detector.LaravelProject,
+	tables []model.Table,
+	models []model.Model,
+	disagreements []model.Disagreement,
+) *model.ProjectModel {
 	pm := model.New(projectName(project), project.Version)
 	for _, t := range tables {
 		pm.AddTable(t)
+	}
+	for _, m := range models {
+		pm.AddModel(m)
+	}
+	for _, d := range disagreements {
+		pm.AddDisagreement(d)
 	}
 	return pm
 }

@@ -34,18 +34,64 @@ const (
 
 	// relParentToChild is the Mermaid cardinality for a one-to-many
 	// relationship: the referenced (parent) entity has exactly one row, the
-	// referencing (child, FK-bearing) entity has zero-or-more.
+	// referencing (child, FK-bearing) entity has zero-or-more. It is also the
+	// cardinality drawn for an Eloquent hasMany (the current model is the "one").
 	relParentToChild = "||--o{"
+
+	// relOneToOne is the Mermaid cardinality for a one-to-one relationship,
+	// drawn for an Eloquent hasOne (the current model is the "one", the target
+	// is the "one" too).
+	relOneToOne = "||--||"
+
+	// relChildToParent is the Mermaid cardinality drawn for an Eloquent
+	// belongsTo: the current (child) model is the "many" and points at the
+	// target (parent) "one". Reads left-to-right as "many belong to one".
+	relChildToParent = "}o--||"
+
+	// relManyToMany is the Mermaid cardinality drawn for an Eloquent
+	// belongsToMany: both endpoints are "zero-or-more".
+	relManyToMany = "}o--o{"
 )
 
-// Render turns a whole Project Model into a Mermaid erDiagram string. It is a
-// thin wrapper over RenderSchema operating on m.Schemas. A nil model renders an
-// empty diagram (just the header) rather than panicking.
+// Eloquent relationship kinds recognized by the renderer. These mirror the
+// model.Relationship.Kind values; defined here so the renderer never hardcodes
+// the literals when mapping a kind to a Mermaid cardinality.
+const (
+	kindHasMany       = "hasMany"
+	kindHasOne        = "hasOne"
+	kindBelongsTo     = "belongsTo"
+	kindBelongsToMany = "belongsToMany"
+)
+
+// Render turns a whole Project Model into a Mermaid erDiagram string.
+//
+// It renders the Schema exactly as RenderSchema does — foreign-key relationship
+// lines, then one entity block per table — and then appends one relationship
+// line per Eloquent association declared on the model's Models. The FK lines and
+// the Eloquent lines coexist: FK lines describe what the database schema
+// declares, Eloquent lines describe what the application code declares, and a
+// reader can see both views at once. A nil model renders an empty diagram (just
+// the header) rather than panicking.
+//
+// Unlike RenderSchema, Render reads m.Models, so only Render draws Eloquent
+// edges. The renderer reads ONLY the in-memory model (ADR 0004); it never loads
+// source files or the parser.
 func Render(m *model.ProjectModel) string {
 	if m == nil {
 		return diagramHeader + "\n"
 	}
-	return RenderSchema(m.Schemas)
+
+	var b strings.Builder
+	b.WriteString(diagramHeader)
+	b.WriteString("\n")
+
+	writeRelationships(&b, m.Schemas)
+	writeEloquentRelationships(&b, m.Models)
+	for _, t := range m.Schemas {
+		writeEntity(&b, t)
+	}
+
+	return b.String()
 }
 
 // RenderSchema renders a slice of Tables into a Mermaid erDiagram string.
@@ -106,6 +152,95 @@ func writeRelationships(b *strings.Builder, tables []model.Table) {
 			b.WriteString("\n")
 		}
 	}
+}
+
+// writeEloquentRelationships emits one Mermaid relationship line per Eloquent
+// association declared on the model's Models. Each line connects the declaring
+// Model's table to the target Model's table, using the Mermaid cardinality that
+// matches the relationship kind (hasMany → ||--o{, hasOne → ||--||, belongsTo →
+// }o--||, belongsToMany → }o--o{).
+//
+// The target Model's table is resolved from the same Models slice: a Model name
+// is mapped to its Table. A relationship whose target Model was not extracted
+// (so its table is unknown) is skipped, mirroring how writeRelationships drops
+// foreign keys pointing at tables the diagram does not contain — this keeps the
+// renderer free of any table-naming convention and free of a dependency on the
+// extractor. A relationship of an unrecognized kind is likewise skipped.
+//
+// Lines are emitted in Model-discovery order, then relationship-declaration
+// order within each Model (the slices' natural order), and de-duplicated on the
+// full line so repeated edges never appear twice. The output is deterministic.
+func writeEloquentRelationships(b *strings.Builder, models []model.Model) {
+	tableByModel := modelTableSet(models)
+	seen := make(map[string]struct{})
+
+	for _, m := range models {
+		for _, rel := range m.Relationships {
+			cardinality, ok := relationshipCardinality(rel.Kind)
+			if !ok {
+				continue
+			}
+			targetTable, known := tableByModel[rel.Target]
+			if !known || targetTable == "" || m.Table == "" {
+				continue
+			}
+
+			line := eloquentRelationshipLine(rel, m.Table, targetTable, cardinality)
+			if _, dup := seen[line]; dup {
+				continue
+			}
+			seen[line] = struct{}{}
+
+			b.WriteString(entityIndent)
+			b.WriteString(line)
+			b.WriteString("\n")
+		}
+	}
+}
+
+// relationshipCardinality maps an Eloquent relationship kind to its Mermaid
+// cardinality token, with the boolean reporting whether the kind is recognized.
+// An unrecognized kind yields ("", false) so the caller can skip it rather than
+// emit a malformed line.
+func relationshipCardinality(kind string) (string, bool) {
+	switch kind {
+	case kindHasMany:
+		return relParentToChild, true
+	case kindHasOne:
+		return relOneToOne, true
+	case kindBelongsTo:
+		return relChildToParent, true
+	case kindBelongsToMany:
+		return relManyToMany, true
+	default:
+		return "", false
+	}
+}
+
+// eloquentRelationshipLine builds a single Mermaid relationship statement for an
+// Eloquent association of the form
+//
+//	SOURCE <cardinality> TARGET : "<method> (<kind>)"
+//
+// The label names the relationship method and kind so a reader can tell apart
+// multiple Eloquent edges between the same pair of tables and distinguish them
+// from the schema's foreign-key edges.
+func eloquentRelationshipLine(rel model.Relationship, sourceTable, targetTable, cardinality string) string {
+	label := rel.Method + " (" + rel.Kind + ")"
+	return entityName(sourceTable) + " " + cardinality + " " +
+		entityName(targetTable) + " : " + quoteLabel(label)
+}
+
+// modelTableSet maps each Model name to the table it declares, so a
+// relationship's target Model name can be resolved to a table entity in the
+// diagram. A target name absent from this map is a Model the diagram cannot
+// place, and its relationship lines are skipped.
+func modelTableSet(models []model.Model) map[string]string {
+	set := make(map[string]string, len(models))
+	for _, m := range models {
+		set[m.Name] = m.Table
+	}
+	return set
 }
 
 // relationshipLine builds a single Mermaid relationship statement of the form

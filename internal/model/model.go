@@ -22,7 +22,11 @@ import (
 // (ADR 0004) so consumers can detect incompatibilities. Bump it following
 // semantic versioning when the JSON shape changes. Defined once here; never
 // hardcode the literal elsewhere.
-const CurrentSchemaVersion = "1.0.0"
+//
+// Bumped to 1.1.0 when the Eloquent slice added the "models" and
+// "disagreements" arrays to the contract (ADR 0004): the shape grew
+// backward-compatibly, so consumers can detect the richer output.
+const CurrentSchemaVersion = "1.1.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.
@@ -36,21 +40,26 @@ const jsonIndent = "  "
 // in source-declaration order); nothing here is sorted, and no Go map is
 // serialized, so the output is deterministic for golden-file tests.
 type ProjectModel struct {
-	SchemaVersion  string  `json:"schema_version"`
-	ProjectName    string  `json:"project_name"`
-	LaravelVersion string  `json:"laravel_version"`
-	Schemas        []Table `json:"schemas"`
+	SchemaVersion  string         `json:"schema_version"`
+	ProjectName    string         `json:"project_name"`
+	LaravelVersion string         `json:"laravel_version"`
+	Schemas        []Table        `json:"schemas"`
+	Models         []Model        `json:"models"`
+	Disagreements  []Disagreement `json:"disagreements"`
 }
 
 // New constructs a ProjectModel for the named project, stamping it with the
-// CurrentSchemaVersion. Schemas is initialized to a non-nil empty slice so an
-// analysis that finds no tables serializes "schemas": [] rather than null.
+// CurrentSchemaVersion. Schemas, Models, and Disagreements are each initialized
+// to a non-nil empty slice so an analysis that finds none of them serializes
+// "schemas": [], "models": [], and "disagreements": [] rather than null.
 func New(projectName, laravelVersion string) *ProjectModel {
 	return &ProjectModel{
 		SchemaVersion:  CurrentSchemaVersion,
 		ProjectName:    projectName,
 		LaravelVersion: laravelVersion,
 		Schemas:        []Table{},
+		Models:         []Model{},
+		Disagreements:  []Disagreement{},
 	}
 }
 
@@ -59,6 +68,22 @@ func New(projectName, laravelVersion string) *ProjectModel {
 // preserved in the serialized output.
 func (p *ProjectModel) AddTable(t Table) *ProjectModel {
 	p.Schemas = append(p.Schemas, t)
+	return p
+}
+
+// AddModel appends a Model to the model in discovery order and returns the
+// receiver so calls can be chained. Insertion order is meaningful and is
+// preserved in the serialized output.
+func (p *ProjectModel) AddModel(m Model) *ProjectModel {
+	p.Models = append(p.Models, m)
+	return p
+}
+
+// AddDisagreement appends a Disagreement finding in the order it was detected
+// and returns the receiver so calls can be chained. Insertion order is
+// preserved in the serialized output.
+func (p *ProjectModel) AddDisagreement(d Disagreement) *ProjectModel {
+	p.Disagreements = append(p.Disagreements, d)
 	return p
 }
 

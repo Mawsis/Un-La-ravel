@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mawsis/unlaravel/internal/model"
@@ -21,13 +22,30 @@ var update = flag.Bool("update", false, "regenerate golden files")
 const goldenPath = "testdata/golden.mermaid"
 
 // buildFixtureModel constructs a small but representative Project Model that
-// exercises the Renderer's externally observable behavior:
+// exercises the Renderer's externally observable behavior across both the
+// schema (FK) view and the Eloquent (Model) view:
+//
+// Schema view:
 //   - a parent table (users) with a primary key,
 //   - a child table (posts) with a primary key, a foreign key that references
 //     a table present in the model (users) — which must produce a relationship
 //     line — and a foreign key that references an absent table (legacy_authors)
 //     — which must be silently dropped from the relationships,
+//   - a join table (roles) so a belongsToMany endpoint can resolve,
 //   - a plain non-key column to confirm ordinary attributes render.
+//
+// Eloquent view (the Models slice):
+//   - User hasMany Post via posts(): a "one" → "many" edge (||--o{),
+//   - User belongsToMany Role via roles(): a "many" ⇄ "many" edge (}o--o{),
+//   - Post belongsTo User via author(): a "many" → "one" edge (}o--||),
+//   - Post hasOne PinnedComment via pinned(): the target Model is NOT extracted,
+//     so the Renderer must silently drop this edge — mirroring how the FK to an
+//     absent table is dropped. This proves Eloquent edges to unknown Models do
+//     not produce dangling Mermaid lines.
+//
+// The FK edge USERS→POSTS and the Eloquent hasMany edge USERS→POSTS coexist by
+// design (schema view vs. application view) and are NOT deduplicated, because
+// their labels differ ("references (author_id)" vs. "posts (hasMany)").
 //
 // It is a pure in-memory fixture: no files, no parser, no I/O.
 func buildFixtureModel() *model.ProjectModel {
@@ -57,9 +75,42 @@ func buildFixtureModel() *model.ProjectModel {
 		{Name: "title", Type: "string"},
 	}
 
+	roles := model.NewTable("roles")
+	roles.Columns = []model.Column{
+		{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
+		{Name: "name", Type: "string"},
+	}
+
+	userModel := model.NewModel("User")
+	userModel.Table = "users"
+	userModel.Relationships = []model.Relationship{
+		{Kind: "hasMany", Method: "posts", Target: "Post"},
+		{Kind: "belongsToMany", Method: "roles", Target: "Role"},
+	}
+
+	postModel := model.NewModel("Post")
+	postModel.Table = "posts"
+	postModel.Relationships = []model.Relationship{
+		{Kind: "belongsTo", Method: "author", Target: "User", ForeignKey: "author_id"},
+		{
+			// Targets a Model the analysis did not extract; the Renderer must
+			// skip the edge (no dangling Mermaid line).
+			Kind:   "hasOne",
+			Method: "pinned",
+			Target: "PinnedComment",
+		},
+	}
+
+	roleModel := model.NewModel("Role")
+	roleModel.Table = "roles"
+
 	return model.New("blog", "11.x").
 		AddTable(users).
-		AddTable(posts)
+		AddTable(posts).
+		AddTable(roles).
+		AddModel(userModel).
+		AddModel(postModel).
+		AddModel(roleModel)
 }
 
 // TestRenderGolden asserts external behavior: a fixed Project Model renders to
@@ -76,6 +127,45 @@ func TestRenderGolden(t *testing.T) {
 	want := readGolden(t)
 	if got != want {
 		t.Errorf("rendered Mermaid does not match golden file.\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+}
+
+// TestRenderEloquentRelationshipLines pins the exact Mermaid relationship lines
+// the Eloquent (Model) view must emit, independently of the golden file. It
+// guards the cardinality→kind mapping and label format so a careless golden
+// regeneration cannot silently accept a wrong arrow direction or label, and it
+// asserts both the additive coexistence of the FK and Eloquent USERS→POSTS edges
+// and the silent dropping of an edge whose target Model was not extracted.
+func TestRenderEloquentRelationshipLines(t *testing.T) {
+	got := Render(buildFixtureModel())
+
+	mustContain := []string{
+		// FK (schema) view and Eloquent (application) view coexist for the same
+		// table pair because their labels differ.
+		`USERS ||--o{ POSTS : "references (author_id)"`,
+		`USERS ||--o{ POSTS : "posts (hasMany)"`,
+		// belongsToMany: zero-or-more on both endpoints.
+		`USERS }o--o{ ROLES : "roles (belongsToMany)"`,
+		// belongsTo: the "many" child points at the "one" parent.
+		`POSTS }o--|| USERS : "author (belongsTo)"`,
+	}
+	for _, want := range mustContain {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendered output missing expected relationship line:\n\t%s\n--- got ---\n%s", want, got)
+		}
+	}
+
+	// The hasOne edge targets a Model that was not extracted (PinnedComment), so
+	// no line for it must appear — neither by method name nor by kind.
+	mustNotContain := []string{
+		"pinned",
+		"hasOne",
+		"PINNED_COMMENT",
+	}
+	for _, bad := range mustNotContain {
+		if strings.Contains(got, bad) {
+			t.Errorf("rendered output unexpectedly contains dropped-edge token %q:\n%s", bad, got)
+		}
 	}
 }
 

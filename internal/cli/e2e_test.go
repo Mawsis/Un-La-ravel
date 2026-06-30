@@ -19,7 +19,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mawsis/unlaravel/internal/analyze"
 	"github.com/mawsis/unlaravel/internal/detector"
+	modelextract "github.com/mawsis/unlaravel/internal/extract/model"
 	"github.com/mawsis/unlaravel/internal/extract/schema"
 	"github.com/mawsis/unlaravel/internal/model"
 	"github.com/mawsis/unlaravel/internal/render/er"
@@ -100,8 +102,46 @@ func TestE2E_FixtureApp_ModelShape(t *testing.T) {
 	}
 }
 
-// analyzeFixture drives the same pipeline analyzeProject runs (detect → extract →
-// assemble model), but headlessly, returning the assembled Project Model.
+// TestE2E_FixtureApp_EloquentShape asserts the Eloquent half of the contract
+// that the goldens encode: the three Models (in lexical discovery order
+// Category, Post, User) with their relationships, and the single deliberate
+// Model↔Schema Disagreement (Post.editor referencing the missing editor_id
+// column). A careless -update that corrupts model extraction or the correlation
+// still fails here.
+func TestE2E_FixtureApp_EloquentShape(t *testing.T) {
+	root := repoRoot(t)
+	pm := analyzeFixture(t, filepath.Join(root, fixtureAppRel))
+
+	wantModels := []string{"Category", "Post", "User"}
+	if got := modelNames(pm); !equalStrings(got, wantModels) {
+		t.Fatalf("models = %v, want %v", got, wantModels)
+	}
+
+	post := findModel(t, pm, "Post")
+	wantRels := []model.Relationship{
+		{Kind: "belongsTo", Method: "author", Target: "User", ForeignKey: "user_id"},
+		{Kind: "belongsTo", Method: "category", Target: "Category"},
+		{Kind: "belongsTo", Method: "editor", Target: "User", ForeignKey: "editor_id"},
+	}
+	if got := post.Relationships; !equalRelationships(got, wantRels) {
+		t.Errorf("Post relationships = %+v, want %+v", got, wantRels)
+	}
+
+	// Exactly one Disagreement: Post.editor's explicit editor_id FK never
+	// created on the posts table.
+	if got, want := len(pm.Disagreements), 1; got != want {
+		t.Fatalf("disagreements count = %d, want %d: %+v", got, want, pm.Disagreements)
+	}
+	d := pm.Disagreements[0]
+	if d.Model != "Post" || d.Relationship != "editor" || d.Kind != model.DisagreementMissingFKColumn {
+		t.Errorf("disagreement = %+v, want Post/editor/%s", d, model.DisagreementMissingFKColumn)
+	}
+}
+
+// analyzeFixture drives the same pipeline analyzeProject runs (detect → extract
+// schema → extract models → correlate disagreements → assemble model), but
+// headlessly, returning the assembled Project Model. It mirrors the production
+// orchestration so the goldens pin what the real binary emits.
 func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 	t.Helper()
 
@@ -116,9 +156,23 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 		t.Fatalf("extract schema from %s: %v", migrationsDir, err)
 	}
 
+	modelsDir := filepath.Join(fixtureApp, "app", "Models")
+	models, err := modelextract.ExtractDir(modelsDir)
+	if err != nil {
+		t.Fatalf("extract models from %s: %v", modelsDir, err)
+	}
+
+	disagreements := analyze.FindDisagreements(models, tables)
+
 	pm := model.New(project.ComposerAnalysis.ProjectName, project.Version)
 	for _, tb := range tables {
 		pm.AddTable(tb)
+	}
+	for _, m := range models {
+		pm.AddModel(m)
+	}
+	for _, d := range disagreements {
+		pm.AddDisagreement(d)
 	}
 	return pm
 }
@@ -192,6 +246,37 @@ func findTable(t *testing.T, pm *model.ProjectModel, name string) model.Table {
 	}
 	t.Fatalf("table %q not found in model", name)
 	return model.Table{}
+}
+
+func modelNames(pm *model.ProjectModel) []string {
+	names := make([]string, 0, len(pm.Models))
+	for _, m := range pm.Models {
+		names = append(names, m.Name)
+	}
+	return names
+}
+
+func findModel(t *testing.T, pm *model.ProjectModel, name string) model.Model {
+	t.Helper()
+	for _, m := range pm.Models {
+		if m.Name == name {
+			return m
+		}
+	}
+	t.Fatalf("model %q not found in project model", name)
+	return model.Model{}
+}
+
+func equalRelationships(a, b []model.Relationship) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func equalStrings(a, b []string) bool {

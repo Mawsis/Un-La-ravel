@@ -1,5 +1,8 @@
 erDiagram
 	USERS ||--o{ POSTS : "references (author_id)"
+	USERS ||--o{ POSTS : "posts (hasMany)"
+	USERS }o--o{ ROLES : "roles (belongsToMany)"
+	POSTS }o--|| USERS : "author (belongsTo)"
 	USERS {
 		bigInteger id PK
 		string name
@@ -9,4 +12,8 @@ erDiagram
 		bigInteger author_id FK
 		bigInteger legacy_author_id FK
 		string title
+	}
+	ROLES {
+		bigInteger id PK
+		string name
 	}

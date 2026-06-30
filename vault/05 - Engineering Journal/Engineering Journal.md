@@ -9,6 +9,26 @@ Dated log of decisions and findings, newest first. Decisions that are hard-to-re
 
 ---
 
+## 2026-06-30 — Milestone 2 slice 1 SHIPPED: Eloquent Models + relationship-aware ER
+
+PRD [#2](https://github.com/Mawsis/Un-La-ravel/issues/2) implemented and verified. The ER diagram is now a map of the **application's data model**, not just its physical schema — and the tool now catches a class of real bug.
+
+### What landed
+- **`internal/model/eloquent.go`** — Model, Relationship, and the new **Disagreement** finding types. `schema_version` bumped to **1.1.0** (contract grew with `models` + `disagreements` arrays).
+- **`internal/extract/model`** — Eloquent Model extractor: `hasMany`/`hasOne`/`belongsTo`/`belongsToMany`, `X::class` and string targets, explicit `$table` vs inferred table-name (with English pluralization), non-Model classes ignored.
+- **`internal/analyze/disagreement.go`** — light in-memory Model↔Schema correlation (NOT the ADR 0006 symbol table). Flags relationships whose target table or explicit FK column the Schema lacks.
+- **`internal/render/er`** — extended to draw Eloquent relationship lines with cardinality + method-name labels, alongside the existing FK lines.
+- **`internal/cli`** — wired Models + Disagreements into `analyze`; prints model count and a Disagreements section.
+- **`CONTEXT.md`** — added **Relationship** and **Disagreement** (a *finding*, not an error/bug/mismatch).
+
+### De-risking that paid off (again)
+The spike caught a **real bug before any agent saw it**: `php-parser` keeps the leading `$` on variable names (`ExprVariable.Name.Value` is `"$this"`, not `"this"`). Comparing to `"this"`/`"table"` without stripping `$` would have made the relationship extractor silently extract nothing. Centralized the fix in `phpast.VariableName`.
+
+### Verified (clean, uncached, -race)
+Build + vet + gofmt clean. All tests PASS. Target-module coverage: extract/model **95.0%**, model **92.3%**, analyze **100%**, render/er **85.3%** — all over 80%. Live binary run shows real Eloquent edges (`POSTS }o--|| USERS : "author (belongsTo)"`) and the **false-positive discipline holds**: of Post's four relationships only `Post::editor` is flagged (explicit `editor_id` absent), while the implicit-FK `category` relationship is correctly silent. PRD #1 schema output fully intact (no regression). Known gap: `phpast` coverage dipped to 60.3% (new helpers under-tested) — non-blocking, a follow-up polish item.
+
+---
+
 ## 2026-06-30 — Milestone 0 + 1 SHIPPED: the vertical slice works
 
 PRD [#1](https://github.com/Mawsis/Un-La-ravel/issues/1) (M0 + M1) implemented and verified. The repo now **builds, runs, and tells the truth**.

@@ -12,7 +12,11 @@ import (
 // It exercises every interesting JSON shape: a stamped schema version, a table
 // with a primary-key column and a nullable foreign-key column carrying a
 // References target, and a second table with no columns (to prove empty
-// collections serialize as [] rather than null).
+// collections serialize as [] rather than null); a Model carrying relationships
+// of every supported kind (one with an explicit foreign key, one with explicit
+// keys, the rest implicit) plus a relationship-less Model (to prove
+// "relationships": [] serializes as [] not null); and a Disagreement of each
+// kind (to lock the new 1.1.0 contract fields models and disagreements).
 func buildKnownModel() *ProjectModel {
 	users := NewTable("users")
 	users.Columns = append(users.Columns,
@@ -33,26 +37,121 @@ func buildKnownModel() *ProjectModel {
 		},
 	)
 
+	post := NewModel("Post")
+	post.Table = "posts"
+	post.Relationships = append(post.Relationships,
+		Relationship{Kind: "belongsTo", Method: "author", Target: "User", ForeignKey: "author_id"},
+		Relationship{Kind: "hasMany", Method: "comments", Target: "Comment"},
+	)
+
+	user := NewModel("User")
+	user.Table = "users"
+	user.Relationships = append(user.Relationships,
+		Relationship{Kind: "hasMany", Method: "posts", Target: "Post"},
+		Relationship{Kind: "belongsToMany", Method: "roles", Target: "Role", ForeignKey: "user_id", LocalKey: "id"},
+	)
+
 	pm := New("blog", "11.x")
 	pm.AddTable(users)
 	pm.AddTable(NewTable("posts"))
+	pm.AddModel(post)
+	pm.AddModel(user)
+	pm.AddDisagreement(Disagreement{
+		Model:        "Post",
+		Relationship: "author",
+		Reason:       `foreign key column "author_id" not found on table "posts"`,
+		Kind:         DisagreementMissingFKColumn,
+	})
+	pm.AddDisagreement(Disagreement{
+		Model:        "User",
+		Relationship: "roles",
+		Reason:       `target model "Role" is not among the extracted models, so its table cannot be resolved`,
+		Kind:         DisagreementMissingTable,
+	})
 	return pm
 }
 
 // TestNewStampsSchemaVersion verifies the constructor sets the versioned
 // contract field (ADR 0004) to CurrentSchemaVersion without the caller doing
-// anything, and initializes Schemas to a non-nil empty slice.
+// anything, and initializes Schemas, Models, and Disagreements to non-nil empty
+// slices so they serialize as [] rather than null.
 func TestNewStampsSchemaVersion(t *testing.T) {
 	pm := New("blog", "11.x")
 
 	if pm.SchemaVersion != CurrentSchemaVersion {
 		t.Errorf("New() SchemaVersion = %q, want %q", pm.SchemaVersion, CurrentSchemaVersion)
 	}
-	if pm.Schemas == nil {
-		t.Error("New() Schemas is nil, want non-nil empty slice")
+
+	collections := []struct {
+		name   string
+		isNil  bool
+		length int
+	}{
+		{"Schemas", pm.Schemas == nil, len(pm.Schemas)},
+		{"Models", pm.Models == nil, len(pm.Models)},
+		{"Disagreements", pm.Disagreements == nil, len(pm.Disagreements)},
 	}
-	if len(pm.Schemas) != 0 {
-		t.Errorf("New() Schemas has %d entries, want 0", len(pm.Schemas))
+	for _, c := range collections {
+		if c.isNil {
+			t.Errorf("New() %s is nil, want non-nil empty slice", c.name)
+		}
+		if c.length != 0 {
+			t.Errorf("New() %s has %d entries, want 0", c.name, c.length)
+		}
+	}
+}
+
+// TestNewModelHasNonNilRelationships verifies NewModel initializes a non-nil
+// empty Relationships slice so a relationship-less model serializes
+// "relationships": [] not null.
+func TestNewModelHasNonNilRelationships(t *testing.T) {
+	m := NewModel("Post")
+
+	if m.Name != "Post" {
+		t.Errorf("NewModel() Name = %q, want %q", m.Name, "Post")
+	}
+	if m.Relationships == nil {
+		t.Error("NewModel() Relationships is nil, want non-nil empty slice")
+	}
+}
+
+// TestAddModelPreservesDiscoveryOrder verifies AddModel appends in call order
+// and returns the receiver for chaining.
+func TestAddModelPreservesDiscoveryOrder(t *testing.T) {
+	pm := New("blog", "11.x")
+
+	got := pm.AddModel(NewModel("Post")).AddModel(NewModel("User"))
+
+	if got != pm {
+		t.Error("AddModel() did not return the receiver for chaining")
+	}
+	if len(pm.Models) != 2 {
+		t.Fatalf("AddModel() produced %d models, want 2", len(pm.Models))
+	}
+	if pm.Models[0].Name != "Post" || pm.Models[1].Name != "User" {
+		t.Errorf("AddModel() order = [%q, %q], want [Post, User]",
+			pm.Models[0].Name, pm.Models[1].Name)
+	}
+}
+
+// TestAddDisagreementPreservesDetectionOrder verifies AddDisagreement appends in
+// call order and returns the receiver for chaining.
+func TestAddDisagreementPreservesDetectionOrder(t *testing.T) {
+	pm := New("blog", "11.x")
+
+	first := Disagreement{Model: "Post", Relationship: "author", Kind: DisagreementMissingFKColumn}
+	second := Disagreement{Model: "User", Relationship: "roles", Kind: DisagreementMissingTable}
+
+	got := pm.AddDisagreement(first).AddDisagreement(second)
+
+	if got != pm {
+		t.Error("AddDisagreement() did not return the receiver for chaining")
+	}
+	if len(pm.Disagreements) != 2 {
+		t.Fatalf("AddDisagreement() produced %d disagreements, want 2", len(pm.Disagreements))
+	}
+	if pm.Disagreements[0] != first || pm.Disagreements[1] != second {
+		t.Errorf("AddDisagreement() did not preserve detection order: got %+v", pm.Disagreements)
 	}
 }
 

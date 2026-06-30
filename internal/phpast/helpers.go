@@ -80,6 +80,78 @@ func FirstStringArg(args []Vertex) string {
 	return ""
 }
 
+// VariableName returns the name of an *ast.ExprVariable WITHOUT its leading
+// "$". Returns "" for any other node type.
+//
+// GOTCHA (verified against the parser, do not re-learn): ExprVariable.Name is
+// an *ast.Identifier whose .Value INCLUDES the dollar sign — "$this" stays
+// "$this", "$table" stays "$table". This helper strips that "$" so callers can
+// compare against the bare PHP variable name ("this", "table") without ever
+// touching the raw, dollar-prefixed form. ALWAYS go through this helper rather
+// than reading ExprVariable.Name directly, or the "$" will silently break
+// every name comparison.
+func VariableName(v Vertex) string {
+	ev, ok := v.(*ast.ExprVariable)
+	if !ok {
+		return ""
+	}
+	id, ok := ev.Name.(*ast.Identifier)
+	if !ok {
+		return ""
+	}
+	return strings.TrimPrefix(string(id.Value), "$")
+}
+
+// ClassConstClass returns the class name of an *ast.ExprClassConstFetch — the
+// shape of a PHP "Class::const" expression such as User::class. The name is
+// resolved from the node's .Class field via IdentifierName, so it handles both
+// a bare *ast.Identifier (User) and a namespaced *ast.Name
+// (App\Models\User → "App\Models\User"). Returns "" for any other node type.
+//
+// Note this returns the class part only and ignores which constant is fetched;
+// for Eloquent relationship targets the constant is always "class".
+func ClassConstClass(v Vertex) string {
+	ccf, ok := v.(*ast.ExprClassConstFetch)
+	if !ok {
+		return ""
+	}
+	return IdentifierName(ccf.Class)
+}
+
+// NthStringArg returns the unquoted value of the argument at index n in an Args
+// list when that argument is a string literal (e.g. the 'author_id' in
+// $this->belongsTo(User::class, 'author_id') is at n == 1). Unlike
+// FirstStringArg, which scans for the first string anywhere, this addresses a
+// specific positional slot. Returns "" when n is out of range or the argument
+// at n is not a string literal.
+func NthStringArg(args []Vertex, n int) string {
+	if n < 0 || n >= len(args) {
+		return ""
+	}
+	if s, ok := stringArgValue(args[n]); ok {
+		return s
+	}
+	return ""
+}
+
+// NthArgClassConst returns the class name of the argument at index n when that
+// argument is a "Class::class" expression (*ast.ExprClassConstFetch), e.g. the
+// User in $this->belongsTo(User::class) at n == 0. Returns "" when n is out of
+// range, the argument is not an *ast.Argument, or its expression is not a
+// class-const fetch. Pair with NthStringArg to resolve a relationship target
+// that may be given either as User::class or as the string 'App\Models\User',
+// without the caller ever type-switching on a parser node.
+func NthArgClassConst(args []Vertex, n int) string {
+	if n < 0 || n >= len(args) {
+		return ""
+	}
+	a, ok := args[n].(*ast.Argument)
+	if !ok {
+		return ""
+	}
+	return ClassConstClass(a.Expr)
+}
+
 // joinNameParts joins the segments of an *ast.Name's parts with a backslash,
 // matching PHP's namespace separator.
 func joinNameParts(parts []ast.Vertex) string {

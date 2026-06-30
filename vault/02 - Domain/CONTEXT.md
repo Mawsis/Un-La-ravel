@@ -41,8 +41,16 @@ _Avoid_: Table (a Schema contains tables), Migration (the Migration is the *sour
 A single `database/migrations/*.php` file describing a change to the **Schema**. Distinct from the **Schema** it contributes to.
 
 **Model**:
-An Eloquent model class (`app/Models/*.php`), with its inferred table and its relationships to other **Models**.
+An Eloquent model class (`app/Models/*.php`), with its inferred table and its **Relationships** to other **Models**.
 _Avoid_: Entity, table (a Model *maps to* a table; it is not the table)
+
+**Relationship**:
+An Eloquent association a **Model** declares on another **Model**, via a `$this-><kind>(...)` call wrapped in one of the Model's own methods. The kinds we model are `hasMany`, `hasOne`, `belongsTo`, and `belongsToMany`. A Relationship carries the declaring method name, the target Model, and any explicit foreign/local key the source supplied. It is the **Edge** between two **Models**.
+_Avoid_: association (acceptable casually, but **Relationship** is canonical), link, foreign key (the FK is a *column* the Relationship may reference, not the Relationship itself)
+
+**Disagreement**:
+A **Model** **Relationship** that references a table or foreign-key column absent from the **Schema**; surfaced as a finding, not an error. Because the **Schema** is extracted from **Migrations** and a **Model** is an independent *mapping* onto it, the two can disagree — a Relationship may point at a table no Migration creates, or name an explicit foreign-key column that table lacks. Reporting that disagreement is the feature.
+_Avoid_: error, bug, mismatch (a Disagreement is a *finding* about two valid sources that conflict, not a failure), broken relation
 
 **Route**:
 A single HTTP endpoint declared in `routes/*.php` — method + URI + the **Controller** action and **Middleware** it binds to.
@@ -75,7 +83,8 @@ A suspected performance problem (N+1, missing eager-load). Deferred — static d
 - A **Migration** contributes to the **Schema**; a **Model** maps to a table in the **Schema**
 - A **Route** binds to exactly one **Action** (on a **Controller**) and zero-or-more **Middleware**
 - A **Route** may bind to one **FormRequest** (via its **Action**'s type-hinted argument)
-- A **Model** relates to other **Models** via Eloquent relationships (`hasMany`, `belongsTo`, …)
+- A **Model** relates to other **Models** via **Relationships** (`hasMany`, `hasOne`, `belongsTo`, `belongsToMany`)
+- A **Relationship** that references a table or foreign-key column the **Schema** lacks produces a **Disagreement** finding
 
 ## Example dialogue
 
@@ -90,3 +99,4 @@ A suspected performance problem (N+1, missing eager-load). Deferred — static d
 - **"Feature"** was used to mean both *engine capability* and *user-facing output*. **Resolved:** the engine has **Extractors** and **Node types**, never "features." User-facing outputs are **Renderers**. The word "feature" is banned in architecture discussion. See [[ADR 0001 - Project Model as the core abstraction]].
 - **"Schema" vs "Migration" vs "Model"** were used loosely for "the database." **Resolved:** three distinct concepts above. The **Schema** is the *result* of **Migrations**; a **Model** is a *mapping* onto it.
 - **"Everything"** (as a scope) was resolved to mean "every output is a **Renderer** over one **Project Model**," not "30 parallel feature builds." See [[ADR 0002 - Six-node MVP scope]].
+- **"Mismatch" / "broken relationship"** were used for the case where a **Model** **Relationship** points at something the **Schema** lacks. **Resolved:** this is a **Disagreement** — a *finding* about two independently-valid sources (the **Migration**-derived **Schema** and the **Model**) that conflict, never an "error" or "bug." The tool reports it; it does not fail on it.

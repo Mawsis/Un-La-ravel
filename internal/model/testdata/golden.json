@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "project_name": "blog",
+  "laravel_version": "11.x",
+  "schemas": [
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false
+        },
+        {
+          "name": "team_id",
+          "type": "bigInteger",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true,
+          "references": {
+            "table": "teams",
+            "column": "id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "posts",
+      "columns": []
+    }
+  ]
+}

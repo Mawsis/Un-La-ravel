@@ -1,0 +1,12 @@
+erDiagram
+	USERS ||--o{ POSTS : "references (author_id)"
+	USERS {
+		bigInteger id PK
+		string name
+	}
+	POSTS {
+		bigInteger id PK
+		bigInteger author_id FK
+		bigInteger legacy_author_id FK
+		string title
+	}

@@ -3,6 +3,7 @@ module github.com/mawsis/unlaravel
 go 1.18
 
 require (
+	github.com/VKCOM/php-parser v0.8.2
 	github.com/fatih/color v1.18.0
 	github.com/spf13/cobra v1.9.1
 )

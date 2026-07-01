@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/symbol"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/symbol"
 )
 
 // controllerWith builds a model.Controller with the given FQN and public action

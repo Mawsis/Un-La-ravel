@@ -1,6 +1,6 @@
 package schema
 
-import "github.com/mawsis/unlaravel/internal/model"
+import "github.com/Mawsis/Un-La-ravel/internal/model"
 
 // This file holds the pure logic for applying chained Blueprint modifiers to
 // the column(s) a base builder declared. A "modifier" is a method invoked on the

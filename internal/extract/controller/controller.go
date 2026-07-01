@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	domain "github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/phpast"
+	domain "github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // Package controller extracts Controller nodes (ADR 0001) from a Laravel

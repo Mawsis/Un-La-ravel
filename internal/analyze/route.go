@@ -31,9 +31,9 @@ package analyze
 import (
 	"fmt"
 
-	"github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/phpast"
-	"github.com/mawsis/unlaravel/internal/symbol"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
+	"github.com/Mawsis/Un-La-ravel/internal/symbol"
 )
 
 // DefaultControllerNamespace is Laravel's conventional namespace for controllers

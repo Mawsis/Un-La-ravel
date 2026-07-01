@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mawsis/unlaravel/internal/extract/controller"
-	"github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/symbol"
+	"github.com/Mawsis/Un-La-ravel/internal/extract/controller"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/symbol"
 )
 
 // resolvedRoute is a terse constructor for a route that has already been through

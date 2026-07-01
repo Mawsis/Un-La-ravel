@@ -3,8 +3,8 @@ package schema
 import (
 	"github.com/VKCOM/php-parser/pkg/ast"
 
-	"github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/phpast"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // This file contains the only AST-aware code in the package. Per ADR 0003 the

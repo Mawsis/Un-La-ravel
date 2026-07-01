@@ -1,6 +1,6 @@
 package schema
 
-import "github.com/mawsis/unlaravel/internal/model"
+import "github.com/Mawsis/Un-La-ravel/internal/model"
 
 // This file holds the pure, AST-free knowledge of how a Laravel Blueprint
 // column-builder method maps to model.Column values. Keeping it free of any

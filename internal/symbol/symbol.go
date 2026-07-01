@@ -26,7 +26,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mawsis/unlaravel/internal/phpast"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // namespaceSep is PHP's namespace separator, joining a namespace to a short

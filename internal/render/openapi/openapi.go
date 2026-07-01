@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 const (

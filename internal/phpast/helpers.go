@@ -152,6 +152,270 @@ func NthArgClassConst(args []Vertex, n int) string {
 	return ClassConstClass(a.Expr)
 }
 
+// NamespaceName returns the namespace declared by a file, resolved from the
+// first *ast.StmtNamespace under the AST root (e.g. "App\Http\Controllers" for
+// `namespace App\Http\Controllers;`). It returns "" when root is not an
+// *ast.Root or the file declares no namespace (global namespace).
+//
+// This is Phase-1 input for the symbol table (ADR 0006): a declared class's FQN
+// is this namespace joined to the class's short name. Only the first namespace
+// statement is honoured, which matches the single-namespace-per-file convention
+// Laravel application code follows; bracketed multi-namespace files are out of
+// scope.
+func NamespaceName(root Vertex) string {
+	r, ok := root.(*ast.Root)
+	if !ok {
+		return ""
+	}
+	for _, st := range r.Stmts {
+		if ns, ok := st.(*ast.StmtNamespace); ok {
+			return IdentifierName(ns.Name)
+		}
+	}
+	return ""
+}
+
+// UseImports returns a file's `use` import map as short name → fully-qualified
+// name, built from every *ast.StmtUse under the top-level *ast.StmtUseList nodes
+// (e.g. `use App\Http\Controllers\PostController;` yields
+// "PostController" → "App\Http\Controllers\PostController"). When a use has an
+// alias (`use App\...\Foo as Bar;`), the alias is the key and the full name the
+// value ("Bar" → "App\...\Foo"). Returns an empty, non-nil map when root is not
+// an *ast.Root or the file has no imports.
+//
+// This is the CRITICAL Phase-2 resolver for ADR 0006: a route's short
+// controller name is resolved to an FQN through the ROUTE FILE's import map
+// (never by short name alone), so two controllers sharing a short name in
+// different namespaces never collapse into a wrong edge.
+func UseImports(root Vertex) map[string]string {
+	imports := make(map[string]string)
+	r, ok := root.(*ast.Root)
+	if !ok {
+		return imports
+	}
+	for _, st := range r.Stmts {
+		list, ok := st.(*ast.StmtUseList)
+		if !ok {
+			continue
+		}
+		for _, u := range list.Uses {
+			use, ok := u.(*ast.StmtUse)
+			if !ok {
+				continue
+			}
+			fqn := IdentifierName(use.Use)
+			if fqn == "" {
+				continue
+			}
+			short := IdentifierName(use.Alias)
+			if short == "" {
+				short = lastNameSegment(fqn)
+			}
+			imports[short] = fqn
+		}
+	}
+	return imports
+}
+
+// ArrayItems returns the value expressions of an *ast.ExprArray's items — the
+// .Val of each *ast.ExprArrayItem, in source order (e.g. the two entries of
+// [PostController::class, 'index'] as [class-const-fetch, string-literal]). Keys
+// are ignored, so this yields values for both list-style and keyed arrays.
+// Returns nil when v is not an *ast.ExprArray; an item with a nil value is
+// skipped so callers can index the result safely.
+//
+// Lets the route extractor read an array-callable action without importing the
+// parser: ArrayItems(arg)[0] → the controller via ClassConstClass, [1] → the
+// method via a following string-arg helper.
+func ArrayItems(v Vertex) []Vertex {
+	arr, ok := v.(*ast.ExprArray)
+	if !ok {
+		return nil
+	}
+	items := make([]Vertex, 0, len(arr.Items))
+	for _, it := range arr.Items {
+		item, ok := it.(*ast.ExprArrayItem)
+		if !ok || item.Val == nil {
+			continue
+		}
+		items = append(items, item.Val)
+	}
+	return items
+}
+
+// ClosureStmts returns the body statements of an *ast.ExprClosure — the .Stmts
+// of a `function () { ... }` expression, in source order. Returns nil when v is
+// not a closure.
+//
+// The route extractor uses this to descend into a `->group(function () { ... })`
+// body and re-walk the nested route statements with the group's inherited
+// prefix and middleware (the group-flattening algorithm, ADR 0006 / ROUTE_FACTS).
+func ClosureStmts(v Vertex) []Vertex {
+	cl, ok := v.(*ast.ExprClosure)
+	if !ok {
+		return nil
+	}
+	return cl.Stmts
+}
+
+// StaticCallParts decomposes an *ast.ExprStaticCall into its three parts: the
+// class expression (e.g. the "Route" of Route::get, readable via IdentifierName),
+// the call target (the "get", readable via CallName), and the argument list
+// (each entry an *ast.Argument, consumable by FirstStringArg / NthStringArg /
+// NthArgClassConst / ArgExpr). The bool is false — with zero-value returns —
+// when v is not an *ast.ExprStaticCall.
+//
+// This lets the route extractor identify and read facade calls
+// (Route::get / Route::apiResource / Route::resource) without importing the
+// parser; pair it with ArgExpr to reach an array-callable or closure argument.
+func StaticCallParts(v Vertex) (class Vertex, call Vertex, args []Vertex, ok bool) {
+	sc, ok := v.(*ast.ExprStaticCall)
+	if !ok {
+		return nil, nil, nil, false
+	}
+	return sc.Class, sc.Call, sc.Args, true
+}
+
+// MethodCallParts decomposes an *ast.ExprMethodCall into its three parts: the
+// receiver expression (.Var — the inner call a chained modifier wraps, walked
+// inward to unwind a route or group chain), the method target (readable via
+// CallName, e.g. "middleware" / "prefix" / "name" / "group"), and the argument
+// list (each an *ast.Argument). The bool is false — with zero-value returns —
+// when v is not an *ast.ExprMethodCall.
+//
+// This drives the chain-walking half of the group-flattening algorithm: on
+// method == "group", collect inherited prefix/middleware by recursing through
+// .Var, then descend into the closure argument (ClosureStmts) with that context.
+func MethodCallParts(v Vertex) (recv Vertex, method Vertex, args []Vertex, ok bool) {
+	mc, ok := v.(*ast.ExprMethodCall)
+	if !ok {
+		return nil, nil, nil, false
+	}
+	return mc.Var, mc.Method, mc.Args, true
+}
+
+// ArgExpr returns the underlying expression of the argument at index n in an
+// Args list — the .Expr of the *ast.Argument (e.g. the *ast.ExprArray behind
+// the second argument of Route::get('/x', [C::class, 'm'])). Returns nil when n
+// is out of range or the entry is not an *ast.Argument.
+//
+// The string- and class-const-typed accessors (NthStringArg, NthArgClassConst)
+// cover scalar arguments; ArgExpr reaches the remaining composite argument
+// shapes — array callables (feed to ArrayItems) and group closures (feed to
+// ClosureStmts) — so extractors still never type-switch on a parser node.
+func ArgExpr(args []Vertex, n int) Vertex {
+	if n < 0 || n >= len(args) {
+		return nil
+	}
+	a, ok := args[n].(*ast.Argument)
+	if !ok {
+		return nil
+	}
+	return a.Expr
+}
+
+// StringLiteral returns the unquoted value of a bare *ast.ScalarString
+// expression (e.g. the "index" of the array callable [C::class, 'index'], or an
+// element of a ['auth', 'throttle'] middleware list). Returns "" for any other
+// node type.
+//
+// The Nth/First string-arg helpers read a string that is wrapped in an
+// *ast.Argument; StringLiteral reaches the string values that appear UNWRAPPED —
+// inside an array's items (via ArrayItems) — so the route extractor can read an
+// array-callable action or a middleware-array element without a php-parser
+// import. Like the argument helpers, it strips the surrounding quote characters
+// the parser leaves on ScalarString.Value.
+func StringLiteral(v Vertex) string {
+	s, ok := v.(*ast.ScalarString)
+	if !ok {
+		return ""
+	}
+	return strings.Trim(string(s.Value), quoteChars)
+}
+
+// RootStmts returns the top-level statements of a parsed file — the .Stmts of
+// the *ast.Root, in source order. Returns nil when root is not an *ast.Root.
+//
+// The route extractor walks these statements manually rather than with a
+// tree-wide traverser: a route's enclosing group context (prefix, middleware)
+// flows strictly top-down through the source, so recursion over statements in
+// order — descending into each group closure with the inherited context — is the
+// natural shape, and keeps that extractor free of any php-parser import.
+func RootStmts(root Vertex) []Vertex {
+	r, ok := root.(*ast.Root)
+	if !ok {
+		return nil
+	}
+	return r.Stmts
+}
+
+// ExpressionStmt returns the wrapped expression of an *ast.StmtExpression — the
+// .Expr of an expression statement such as `Route::get(...);`. Returns nil when
+// v is not an *ast.StmtExpression.
+//
+// Every top-level route declaration is an expression statement wrapping a
+// Route:: static call (or a chained ->group()/->middleware()/->name() on one);
+// this unwraps that statement so the route extractor can hand the inner call to
+// StaticCallParts / MethodCallParts without naming the parser's statement type.
+func ExpressionStmt(v Vertex) Vertex {
+	stmt, ok := v.(*ast.StmtExpression)
+	if !ok {
+		return nil
+	}
+	return stmt.Expr
+}
+
+// DeclaredClasses returns the short names of every class declared in a file, in
+// source order (e.g. ["PostController"] for a file declaring `class
+// PostController extends Controller { ... }`). Classes nested inside a
+// *ast.StmtNamespace are found as well as top-level ones, so the result is
+// complete regardless of whether the file uses the `namespace X;` or the
+// bracketed `namespace X { ... }` form. Anonymous classes (which have no name)
+// and non-class declarations are excluded. Returns nil when root is not an
+// *ast.Root.
+//
+// This is Phase-1 input for the symbol table (ADR 0006): joined to
+// NamespaceName(root), each short name yields a declared class's FQN. Reading
+// declarations through this helper keeps the symbol table — like every other
+// consumer — free of any php-parser import.
+func DeclaredClasses(root Vertex) []string {
+	r, ok := root.(*ast.Root)
+	if !ok {
+		return nil
+	}
+	var names []string
+	collectClassNames(r.Stmts, &names)
+	return names
+}
+
+// collectClassNames appends the short name of each *ast.StmtClass found among
+// stmts (descending one level into any *ast.StmtNamespace to reach classes
+// declared inside a bracketed namespace block) to out. Unnamed classes are
+// skipped.
+func collectClassNames(stmts []Vertex, out *[]string) {
+	for _, st := range stmts {
+		switch n := st.(type) {
+		case *ast.StmtClass:
+			if name := IdentifierName(n.Name); name != "" {
+				*out = append(*out, name)
+			}
+		case *ast.StmtNamespace:
+			collectClassNames(n.Stmts, out)
+		}
+	}
+}
+
+// lastNameSegment returns the final backslash-delimited segment of a
+// fully-qualified name (e.g. "PostController" from
+// "App\Http\Controllers\PostController"), i.e. its PHP short name. Names with no
+// backslash are returned unchanged.
+func lastNameSegment(fqn string) string {
+	if i := strings.LastIndex(fqn, `\`); i >= 0 {
+		return fqn[i+1:]
+	}
+	return fqn
+}
+
 // joinNameParts joins the segments of an *ast.Name's parts with a backslash,
 // matching PHP's namespace separator.
 func joinNameParts(parts []ast.Vertex) string {

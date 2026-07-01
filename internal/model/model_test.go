@@ -15,8 +15,11 @@ import (
 // collections serialize as [] rather than null); a Model carrying relationships
 // of every supported kind (one with an explicit foreign key, one with explicit
 // keys, the rest implicit) plus a relationship-less Model (to prove
-// "relationships": [] serializes as [] not null); and a Disagreement of each
-// kind (to lock the new 1.1.0 contract fields models and disagreements).
+// "relationships": [] serializes as [] not null); a Disagreement of each kind
+// (to lock the 1.1.0 contract fields models and disagreements); and — to lock
+// the new 1.2.0 fields routes, controllers, and dead_routes — a resolved Route
+// (FQN and Name populated), a Controller carrying its actions, and a DeadRoute
+// of each kind.
 func buildKnownModel() *ProjectModel {
 	users := NewTable("users")
 	users.Columns = append(users.Columns,
@@ -68,13 +71,45 @@ func buildKnownModel() *ProjectModel {
 		Reason:       `target model "Role" is not among the extracted models, so its table cannot be resolved`,
 		Kind:         DisagreementMissingTable,
 	})
+
+	postController := NewController("PostController", `App\Http\Controllers\PostController`)
+	postController.Actions = append(postController.Actions, "index", "show")
+	pm.AddController(postController)
+
+	pm.AddRoute(Route{
+		Method:     "GET",
+		URI:        "/posts",
+		Controller: "PostController",
+		Action:     "index",
+		Middleware: []string{"web", "auth"},
+		Name:       "posts.index",
+		FQN:        `App\Http\Controllers\PostController`,
+	})
+
+	pm.AddDeadRoute(DeadRoute{
+		Method:     "GET",
+		URI:        "/ghost",
+		Controller: "GhostController",
+		Action:     "index",
+		Reason:     `controller "App\Http\Controllers\GhostController" not found`,
+		Kind:       DeadRouteMissingController,
+	})
+	pm.AddDeadRoute(DeadRoute{
+		Method:     "POST",
+		URI:        "/posts",
+		Controller: "PostController",
+		Action:     "store",
+		Reason:     `action "store" not found on controller "App\Http\Controllers\PostController"`,
+		Kind:       DeadRouteMissingAction,
+	})
 	return pm
 }
 
 // TestNewStampsSchemaVersion verifies the constructor sets the versioned
 // contract field (ADR 0004) to CurrentSchemaVersion without the caller doing
-// anything, and initializes Schemas, Models, and Disagreements to non-nil empty
-// slices so they serialize as [] rather than null.
+// anything, and initializes Schemas, Models, Disagreements, Routes,
+// Controllers, and DeadRoutes to non-nil empty slices so they serialize as []
+// rather than null.
 func TestNewStampsSchemaVersion(t *testing.T) {
 	pm := New("blog", "11.x")
 
@@ -90,6 +125,9 @@ func TestNewStampsSchemaVersion(t *testing.T) {
 		{"Schemas", pm.Schemas == nil, len(pm.Schemas)},
 		{"Models", pm.Models == nil, len(pm.Models)},
 		{"Disagreements", pm.Disagreements == nil, len(pm.Disagreements)},
+		{"Routes", pm.Routes == nil, len(pm.Routes)},
+		{"Controllers", pm.Controllers == nil, len(pm.Controllers)},
+		{"DeadRoutes", pm.DeadRoutes == nil, len(pm.DeadRoutes)},
 	}
 	for _, c := range collections {
 		if c.isNil {

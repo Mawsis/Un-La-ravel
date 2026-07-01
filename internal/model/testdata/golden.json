@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
   "project_name": "blog",
   "laravel_version": "11.x",
   "schemas": [
@@ -80,6 +80,48 @@
       "relationship": "roles",
       "reason": "target model \"Role\" is not among the extracted models, so its table cannot be resolved",
       "kind": "missing_table"
+    }
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "uri": "/posts",
+      "controller": "PostController",
+      "action": "index",
+      "middleware": [
+        "web",
+        "auth"
+      ],
+      "name": "posts.index",
+      "fqn": "App\\Http\\Controllers\\PostController"
+    }
+  ],
+  "controllers": [
+    {
+      "name": "PostController",
+      "fqn": "App\\Http\\Controllers\\PostController",
+      "actions": [
+        "index",
+        "show"
+      ]
+    }
+  ],
+  "dead_routes": [
+    {
+      "method": "GET",
+      "uri": "/ghost",
+      "controller": "GhostController",
+      "action": "index",
+      "reason": "controller \"App\\Http\\Controllers\\GhostController\" not found",
+      "kind": "missing_controller"
+    },
+    {
+      "method": "POST",
+      "uri": "/posts",
+      "controller": "PostController",
+      "action": "store",
+      "reason": "action \"store\" not found on controller \"App\\Http\\Controllers\\PostController\"",
+      "kind": "missing_action"
     }
   ]
 }

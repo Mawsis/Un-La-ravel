@@ -1,0 +1,12 @@
+METHOD  URI                   CONTROLLER@ACTION          MIDDLEWARE
+GET     /posts                PostController@index       -
+GET     /posts/{id}           PostController@show        -
+POST    /posts                PostController@store       auth
+GET     /legacy               PostController@show        -
+GET     /admin/users          UserController@index       auth:sanctum, throttle:api
+GET     /admin/comments       CommentController@index    auth:sanctum, throttle:api
+POST    /admin/comments       CommentController@store    auth:sanctum, throttle:api
+GET     /admin/comments/{id}  CommentController@show     auth:sanctum, throttle:api
+PUT     /admin/comments/{id}  CommentController@update   auth:sanctum, throttle:api
+DELETE  /admin/comments/{id}  CommentController@destroy  auth:sanctum, throttle:api
+DELETE  /admin/users/{id}     UserController@destroy     auth:sanctum, throttle:api  ⚠ DEAD

@@ -9,6 +9,27 @@ Dated log of decisions and findings, newest first. Decisions that are hard-to-re
 
 ---
 
+## 2026-06-30 — Milestone 2 slice 2 SHIPPED: Routes + Controllers + symbol table + dead routes
+
+PRD [#4](https://github.com/Mawsis/Un-La-ravel/issues/4) implemented and verified. This is the **ADR 0006 milestone** — the first time the two-phase symbol table exists — and the point where Un(la)ravel "un-ravels a whole app," not just its database.
+
+### What landed
+- **`internal/symbol`** — the two-phase symbol table ([[ADR 0006 - Two-phase extraction with symbol table|0006]]). Phase 1 collects declared FQNs + per-file `use` maps; Phase 2 resolves short controller names → FQN **via the naming file's imports** (no by-short-name shortcut — the anti-wrong-edge property). 100% covered.
+- **`internal/extract/controller`** — Controller nodes: FQN (namespace + class) + public Actions (excludes `__construct`/private/protected; keeps `__invoke`). 100% covered.
+- **`internal/extract/route`** — the hardest extractor: verb routes, **route-group flattening** (inherited prefix + accumulated middleware through nested closures), **apiResource/resource expansion**, legacy `'C@m'` strings, `{param}` preservation, per-route `->middleware()/->name()`. 91.1% covered.
+- **`internal/analyze`** (route.go) — resolves Route→Controller@Action and emits **Dead Route** findings (`missing_controller` / `missing_action`), false-positive-safe. 98.8% covered.
+- **`internal/render/routemap`** — aligned route-map table with a `⚠ DEAD` marker. 100% covered.
+- **`internal/cli`** — two-phase pipeline wired (collect controllers → build symbol table → extract+resolve routes); route map + dead-routes sections printed.
+- **`CONTEXT.md`** — added **Dead Route**. `schema_version` bumped 1.1.0 → 1.2.0 (`routes`/`controllers`/`dead_routes` arrays).
+
+### De-risking that paid off (three times running)
+The route spike proved the *entire* hard path before agents touched it: group-prefix inheritance (`/admin/users`), apiResource expansion, legacy-string splitting, and `use`-based dead-route resolution — all correct against running code. It also surfaced the AST subtlety that `Route::middleware(...)` is a **static** call (first link of a `Route::x()->y()` chain), not a method call — which later tripped one test assumption; caught and corrected.
+
+### Verified (clean, uncached, -race)
+Build + vet + gofmt clean. All tests PASS. Live run: 11 routes with group prefixes flattened, middleware inherited, apiResource expanded, and exactly **one genuine dead route** (`DELETE /admin/users/{id}` → `UserController@destroy`, which only declares `index()`) with **zero false positives** — every live route carries a resolved FQN. PRD #1/#2 fully intact (schema, models, disagreements, ER diagram). Two post-verify coverage gaps (routemap 0%→100%, phpast 48%→93%) closed before commit. Every module now >80%.
+
+---
+
 ## 2026-06-30 — Milestone 2 slice 1 SHIPPED: Eloquent Models + relationship-aware ER
 
 PRD [#2](https://github.com/Mawsis/Un-La-ravel/issues/2) implemented and verified. The ER diagram is now a map of the **application's data model**, not just its physical schema — and the tool now catches a class of real bug.

@@ -1,0 +1,244 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "acme/blog",
+    "version": "^11.0"
+  },
+  "paths": {
+    "/admin/comments": {
+      "get": {
+        "operationId": "CommentController_index",
+        "tags": [
+          "CommentController"
+        ],
+        "summary": "CommentController@index",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "operationId": "CommentController_store",
+        "tags": [
+          "CommentController"
+        ],
+        "summary": "CommentController@store",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/admin/comments/{id}": {
+      "delete": {
+        "operationId": "CommentController_destroy",
+        "tags": [
+          "CommentController"
+        ],
+        "summary": "CommentController@destroy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "get": {
+        "operationId": "CommentController_show",
+        "tags": [
+          "CommentController"
+        ],
+        "summary": "CommentController@show",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "operationId": "CommentController_update",
+        "tags": [
+          "CommentController"
+        ],
+        "summary": "CommentController@update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "operationId": "UserController_index",
+        "tags": [
+          "UserController"
+        ],
+        "summary": "UserController@index",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "delete": {
+        "operationId": "UserController_destroy",
+        "tags": [
+          "UserController"
+        ],
+        "summary": "UserController@destroy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/legacy": {
+      "get": {
+        "operationId": "PostController_show",
+        "tags": [
+          "PostController"
+        ],
+        "summary": "PostController@show",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/posts": {
+      "get": {
+        "operationId": "PostController_index",
+        "tags": [
+          "PostController"
+        ],
+        "summary": "PostController@index",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "operationId": "posts.store",
+        "tags": [
+          "PostController"
+        ],
+        "summary": "PostController@store",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "published": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "type": "string",
+                    "nullable": true,
+                    "enum": [
+                      "draft",
+                      "published"
+                    ]
+                  },
+                  "tags": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "rule: alpha_dash"
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 255
+                  }
+                },
+                "required": [
+                  "title",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/posts/{id}": {
+      "get": {
+        "operationId": "PostController_show",
+        "tags": [
+          "PostController"
+        ],
+        "summary": "PostController@show",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}

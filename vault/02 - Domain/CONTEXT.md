@@ -60,6 +60,10 @@ _Avoid_: Endpoint (acceptable casually, but **Route** is canonical), path
 A controller **class** in `app/Http/Controllers`. An **Action** is one public method on it that a **Route** points to. We say "Controller" for the class, "Action" for the method.
 _Avoid_: handler
 
+**Dead Route**:
+A **Route** whose **Controller** or **Action** can't be resolved — the two-phase symbol-table resolution ([[ADR 0006 - Two-phase extraction with a symbol table]]) could not match the route's controller reference to a declared **Controller** class (`missing_controller`), or matched the class but not the named **Action** method (`missing_action`). A Dead Route is a dangling **Edge** in the **Project Model**, surfaced as a **finding**, not an error — the tool reports it; it does not fail on it. Like a **Disagreement**, it is a fact about two valid sources (the route files and the controller classes) that don't line up.
+_Avoid_: broken route, 404 (a 404 is a *runtime* miss; a Dead Route is a *static* dangling edge), error, bug
+
 **Middleware**:
 A request/response pipeline stage. Its **alias** is declared in the HTTP **Kernel**; its **application** is declared on a **Route** or route group.
 _Avoid_: filter, interceptor
@@ -85,6 +89,7 @@ A suspected performance problem (N+1, missing eager-load). Deferred — static d
 - A **Route** may bind to one **FormRequest** (via its **Action**'s type-hinted argument)
 - A **Model** relates to other **Models** via **Relationships** (`hasMany`, `hasOne`, `belongsTo`, `belongsToMany`)
 - A **Relationship** that references a table or foreign-key column the **Schema** lacks produces a **Disagreement** finding
+- A **Route** whose **Controller**/**Action** edge cannot be resolved against the declared **Controller** classes produces a **Dead Route** finding
 
 ## Example dialogue
 
@@ -100,3 +105,4 @@ A suspected performance problem (N+1, missing eager-load). Deferred — static d
 - **"Schema" vs "Migration" vs "Model"** were used loosely for "the database." **Resolved:** three distinct concepts above. The **Schema** is the *result* of **Migrations**; a **Model** is a *mapping* onto it.
 - **"Everything"** (as a scope) was resolved to mean "every output is a **Renderer** over one **Project Model**," not "30 parallel feature builds." See [[ADR 0002 - Six-node MVP scope]].
 - **"Mismatch" / "broken relationship"** were used for the case where a **Model** **Relationship** points at something the **Schema** lacks. **Resolved:** this is a **Disagreement** — a *finding* about two independently-valid sources (the **Migration**-derived **Schema** and the **Model**) that conflict, never an "error" or "bug." The tool reports it; it does not fail on it.
+- **"Broken route" / "404"** were used for a **Route** whose **Controller**/**Action** doesn't resolve. **Resolved:** this is a **Dead Route** — a *finding* (a dangling **Edge**) from the two-phase resolution ([[ADR 0006 - Two-phase extraction with a symbol table]]), never an "error." A 404 is a *runtime* miss; a Dead Route is a *static* one. The tool reports it; it does not fail on it.

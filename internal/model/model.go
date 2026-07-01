@@ -26,7 +26,14 @@ import (
 // Bumped to 1.1.0 when the Eloquent slice added the "models" and
 // "disagreements" arrays to the contract (ADR 0004): the shape grew
 // backward-compatibly, so consumers can detect the richer output.
-const CurrentSchemaVersion = "1.1.0"
+//
+// Bumped to 1.2.0 when the Routes slice added the "routes", "controllers", and
+// "dead_routes" arrays: another backward-compatible growth of the contract.
+//
+// Bumped to 1.3.0 when the FormRequest slice added the "form_requests" array
+// and the optional "form_request" field on each Route linking it to its
+// request class: another backward-compatible growth of the contract.
+const CurrentSchemaVersion = "1.3.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.
@@ -46,12 +53,17 @@ type ProjectModel struct {
 	Schemas        []Table        `json:"schemas"`
 	Models         []Model        `json:"models"`
 	Disagreements  []Disagreement `json:"disagreements"`
+	Routes         []Route        `json:"routes"`
+	Controllers    []Controller   `json:"controllers"`
+	DeadRoutes     []DeadRoute    `json:"dead_routes"`
+	FormRequests   []FormRequest  `json:"form_requests"`
 }
 
 // New constructs a ProjectModel for the named project, stamping it with the
-// CurrentSchemaVersion. Schemas, Models, and Disagreements are each initialized
-// to a non-nil empty slice so an analysis that finds none of them serializes
-// "schemas": [], "models": [], and "disagreements": [] rather than null.
+// CurrentSchemaVersion. Every slice is initialized to a non-nil empty slice so
+// an analysis that finds none of a given kind serializes "schemas": [],
+// "models": [], "disagreements": [], "routes": [], "controllers": [],
+// "dead_routes": [], and "form_requests": [] rather than null.
 func New(projectName, laravelVersion string) *ProjectModel {
 	return &ProjectModel{
 		SchemaVersion:  CurrentSchemaVersion,
@@ -60,6 +72,10 @@ func New(projectName, laravelVersion string) *ProjectModel {
 		Schemas:        []Table{},
 		Models:         []Model{},
 		Disagreements:  []Disagreement{},
+		Routes:         []Route{},
+		Controllers:    []Controller{},
+		DeadRoutes:     []DeadRoute{},
+		FormRequests:   []FormRequest{},
 	}
 }
 
@@ -84,6 +100,38 @@ func (p *ProjectModel) AddModel(m Model) *ProjectModel {
 // preserved in the serialized output.
 func (p *ProjectModel) AddDisagreement(d Disagreement) *ProjectModel {
 	p.Disagreements = append(p.Disagreements, d)
+	return p
+}
+
+// AddRoute appends a Route to the model in discovery order and returns the
+// receiver so calls can be chained. Insertion order is meaningful and is
+// preserved in the serialized output.
+func (p *ProjectModel) AddRoute(r Route) *ProjectModel {
+	p.Routes = append(p.Routes, r)
+	return p
+}
+
+// AddController appends a Controller to the model in discovery order and
+// returns the receiver so calls can be chained. Insertion order is meaningful
+// and is preserved in the serialized output.
+func (p *ProjectModel) AddController(c Controller) *ProjectModel {
+	p.Controllers = append(p.Controllers, c)
+	return p
+}
+
+// AddDeadRoute appends a DeadRoute finding in the order it was detected and
+// returns the receiver so calls can be chained. Insertion order is preserved in
+// the serialized output.
+func (p *ProjectModel) AddDeadRoute(d DeadRoute) *ProjectModel {
+	p.DeadRoutes = append(p.DeadRoutes, d)
+	return p
+}
+
+// AddFormRequest appends a FormRequest to the model in discovery order and
+// returns the receiver so calls can be chained. Insertion order is meaningful
+// and is preserved in the serialized output.
+func (p *ProjectModel) AddFormRequest(f FormRequest) *ProjectModel {
+	p.FormRequests = append(p.FormRequests, f)
 	return p
 }
 

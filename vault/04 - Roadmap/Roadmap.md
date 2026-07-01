@@ -43,17 +43,20 @@ testdata/                 # fixture Laravel snippets + golden unlaravel.json + g
 - [ ] Golden-file tests with a fixture Laravel app in `testdata/`.
 - [ ] **Deliverable:** a real Mermaid ER diagram from real migrations — first README screenshot.
 
-### Milestone 2 — Widen the model (remaining extractors)
-Each slots into the proven pipeline, in dependency order:
-- [ ] `extract/model` — Eloquent models + relationships (`hasMany`/`belongsTo`/…). Feeds richer ER edges.
-- [ ] `extract/route` — `routes/*.php`, incl. groups, middleware stacks, and `apiResource` macro expansion.
-- [ ] `extract/controller` — map Route → Controller Action.
-- [ ] `extract/middleware` — aliases from HTTP Kernel + application on routes/groups.
-- [ ] `extract/formrequest` — `rules()` arrays for request bodies.
+### ✅ Milestone 2 — Widen the model (remaining extractors)
+The six-node MVP node set is **COMPLETE** — every extractor slots into the proven pipeline, in dependency order:
+- [x] `extract/model` — Eloquent models + relationships (`hasMany`/`belongsTo`/…). Feeds richer ER edges.
+- [x] `extract/route` — `routes/*.php`, incl. groups, middleware stacks, and `apiResource` macro expansion.
+- [x] `extract/controller` — map Route → Controller Action (+ action param type-hints for the FormRequest link).
+- [x] `extract/middleware` — aliases from HTTP Kernel + application on routes/groups.
+- [x] `extract/formrequest` — `rules()` arrays for request bodies, linked to routes via the ADR 0006 symbol table.
+
+> [!success] Six nodes, all the way through
+> Schema, Model, Route, Controller, Middleware, and FormRequest all extract → model → `unlaravel.json` (schema `1.3.0`).
 
 ### Milestone 3 — The other two renderers
+- [x] `render/openapi` — OpenAPI 3 spec from Route + Controller + FormRequest, via `analyze --openapi <path>`. Pairs with Swagger UI for a demo.
 - [ ] `render/report` — Markdown architecture report (routes, middleware, models, schema).
-- [ ] `render/openapi` — OpenAPI 3 spec from Route + Controller + FormRequest. Pairs with Swagger UI for a demo.
 
 ### Milestone 4 — Polish for portfolio
 - [ ] Killer README: GIF demo, generated-output samples, install instructions.

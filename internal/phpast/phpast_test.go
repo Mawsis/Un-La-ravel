@@ -248,3 +248,84 @@ func TestParseFileMissingFileErrors(t *testing.T) {
 		t.Fatal("ParseFile() on a missing file returned nil error, want an error")
 	}
 }
+
+// classMethodCollector captures every StmtClassMethod so a test can feed each
+// method node to phpast.ParamTypeNames.
+type classMethodCollector struct {
+	phpast.NullVisitor
+	methods []*ast.StmtClassMethod
+}
+
+func (c *classMethodCollector) StmtClassMethod(n *ast.StmtClassMethod) {
+	c.methods = append(c.methods, n)
+}
+
+// paramTypesSnippet declares one method per ParamTypeNames case: an unqualified
+// FormRequest hint, a qualified hint joined with backslashes, a typed hint
+// followed by an untyped route-model param (the untyped one omitted), and a
+// parameter-less method (nil result).
+const paramTypesSnippet = `<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\StorePostRequest;
+
+class PostController
+{
+    public function store(StorePostRequest $request) {}
+    public function admin(\App\Http\Requests\AdminRequest $request) {}
+    public function update(StorePostRequest $request, $id) {}
+    public function index() {}
+}
+`
+
+// TestParamTypeNames proves ParamTypeNames reads a method's typed parameters in
+// order, joins a qualified hint with backslashes, skips untyped parameters, and
+// yields nil for a parameter-less method and for a non-method node.
+func TestParamTypeNames(t *testing.T) {
+	res, err := phpast.Parse([]byte(paramTypesSnippet))
+	if err != nil {
+		t.Fatalf("Parse() error: %v", err)
+	}
+	c := &classMethodCollector{}
+	phpast.Walk(res.Root, c)
+
+	if len(c.methods) != 4 {
+		t.Fatalf("found %d methods, want 4", len(c.methods))
+	}
+
+	cases := []struct {
+		method string
+		want   []string
+	}{
+		{"store", []string{"StorePostRequest"}},
+		{"admin", []string{`App\Http\Requests\AdminRequest`}},
+		{"update", []string{"StorePostRequest"}}, // untyped $id omitted
+		{"index", nil},                           // no parameters
+	}
+	for i, tc := range cases {
+		got := phpast.ParamTypeNames(c.methods[i])
+		if !equalStrings(got, tc.want) {
+			t.Errorf("ParamTypeNames(%s) = %v, want %v", tc.method, got, tc.want)
+		}
+	}
+
+	// A non-StmtClassMethod node yields nil rather than panicking.
+	if got := phpast.ParamTypeNames(res.Root); got != nil {
+		t.Errorf("ParamTypeNames(non-method) = %v, want nil", got)
+	}
+}
+
+// equalStrings reports whether two string slices are element-wise equal,
+// treating nil and empty as equal.
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}

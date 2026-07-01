@@ -9,6 +9,52 @@ Dated log of decisions and findings, newest first. Decisions that are hard-to-re
 
 ---
 
+## 2026-06-30 — SIX-NODE MVP COMPLETE: FormRequests → OpenAPI 3
+
+PRD [#5](https://github.com/Mawsis/Un-La-ravel/issues/5) implemented and verified. This is the **final node type** — all six of Schema, Model, Route, Controller, Middleware, and FormRequest now extract → Project Model → `unlaravel.json`, and the tool emits a **Swagger-loadable `openapi.json`**.
+
+### What landed
+- **`internal/extract/formrequest`** — parses `app/Http/Requests` `rules()` arrays (both `'a|b|c'` string and `['a','b']` array syntaxes; rules with args like `max:255`, `in:a,b,c`) into source-faithful `Rule{Name,Args}`. 91.5% covered.
+- **`internal/extract/controller`** (extended) — now also captures each action's type-hinted parameter classes, so a FormRequest can be linked to its route.
+- **`internal/analyze/formrequest.go`** — links Route→FormRequest via the action's typed param, resolved through the **ADR 0006 symbol table** (its second consumer, validating that investment). False-positive-safe. 99.1% covered.
+- **`internal/render/openapi`** — the showpiece: Project Model → valid OpenAPI 3.0.3 (`paths`, path params, `requestBody` from FormRequest rules, default 200s). Contains the **rules→JSON-Schema mapping**. 92.3% covered.
+- **`internal/cli`** — `--openapi <path>` flag; FormRequests wired into the pipeline. `schema_version` 1.2.0 → 1.3.0.
+- **`Roadmap.md`** — six-node MVP marked COMPLETE.
+
+### De-risking caught two real OpenAPI bugs before implementation
+The mapping spike surfaced, and the agents then fixed + regression-tested, both:
+- **Numeric constraints must be JSON numbers, not strings** — `maxLength: 255`, not `"255"` (invalid OpenAPI). Guarded by a test asserting the number and the absence of the string.
+- **Type must resolve before max/min (order-independence)** — a two-pass mapper, proven by an explicit `max:100` *before* `integer` test dispatching to `maximum` (not `maxLength`).
+
+### Verified (clean, uncached, -race)
+Build + vet + gofmt clean. All 13 packages PASS. Live run: 3 tables, 3 models, 11 routes, 1 dead route, **1 FormRequest** — the full six-node model in one `unlaravel.json`, plus a valid `openapi.json` (3.0.3, 7 paths; `POST /posts` requestBody with `title` maxLength 255 as an int, `status` enum, correct required list). Both spike bugs confirmed fixed by my own asserts. PRD #1/#2/#4 fully intact.
+
+> [!success] The engine is feature-complete for the MVP
+> One Project Model, six node types, three renderers (ER diagram, route map, OpenAPI) — every output a thin view over one core, exactly as [[ADR 0001 - Project Model as the core abstraction|ADR 0001]] set out.
+
+---
+
+## 2026-06-30 — Milestone 2 slice 2 SHIPPED: Routes + Controllers + symbol table + dead routes
+
+PRD [#4](https://github.com/Mawsis/Un-La-ravel/issues/4) implemented and verified. This is the **ADR 0006 milestone** — the first time the two-phase symbol table exists — and the point where Un(la)ravel "un-ravels a whole app," not just its database.
+
+### What landed
+- **`internal/symbol`** — the two-phase symbol table ([[ADR 0006 - Two-phase extraction with symbol table|0006]]). Phase 1 collects declared FQNs + per-file `use` maps; Phase 2 resolves short controller names → FQN **via the naming file's imports** (no by-short-name shortcut — the anti-wrong-edge property). 100% covered.
+- **`internal/extract/controller`** — Controller nodes: FQN (namespace + class) + public Actions (excludes `__construct`/private/protected; keeps `__invoke`). 100% covered.
+- **`internal/extract/route`** — the hardest extractor: verb routes, **route-group flattening** (inherited prefix + accumulated middleware through nested closures), **apiResource/resource expansion**, legacy `'C@m'` strings, `{param}` preservation, per-route `->middleware()/->name()`. 91.1% covered.
+- **`internal/analyze`** (route.go) — resolves Route→Controller@Action and emits **Dead Route** findings (`missing_controller` / `missing_action`), false-positive-safe. 98.8% covered.
+- **`internal/render/routemap`** — aligned route-map table with a `⚠ DEAD` marker. 100% covered.
+- **`internal/cli`** — two-phase pipeline wired (collect controllers → build symbol table → extract+resolve routes); route map + dead-routes sections printed.
+- **`CONTEXT.md`** — added **Dead Route**. `schema_version` bumped 1.1.0 → 1.2.0 (`routes`/`controllers`/`dead_routes` arrays).
+
+### De-risking that paid off (three times running)
+The route spike proved the *entire* hard path before agents touched it: group-prefix inheritance (`/admin/users`), apiResource expansion, legacy-string splitting, and `use`-based dead-route resolution — all correct against running code. It also surfaced the AST subtlety that `Route::middleware(...)` is a **static** call (first link of a `Route::x()->y()` chain), not a method call — which later tripped one test assumption; caught and corrected.
+
+### Verified (clean, uncached, -race)
+Build + vet + gofmt clean. All tests PASS. Live run: 11 routes with group prefixes flattened, middleware inherited, apiResource expanded, and exactly **one genuine dead route** (`DELETE /admin/users/{id}` → `UserController@destroy`, which only declares `index()`) with **zero false positives** — every live route carries a resolved FQN. PRD #1/#2 fully intact (schema, models, disagreements, ER diagram). Two post-verify coverage gaps (routemap 0%→100%, phpast 48%→93%) closed before commit. Every module now >80%.
+
+---
+
 ## 2026-06-30 — Milestone 2 slice 1 SHIPPED: Eloquent Models + relationship-aware ER
 
 PRD [#2](https://github.com/Mawsis/Un-La-ravel/issues/2) implemented and verified. The ER diagram is now a map of the **application's data model**, not just its physical schema — and the tool now catches a class of real bug.

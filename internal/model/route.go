@@ -64,6 +64,12 @@ type Route struct {
 	// the route file's use-imports (ADR 0006). Omitted from JSON when the
 	// controller could not be resolved — a state also recorded as a DeadRoute.
 	FQN string `json:"fqn,omitempty"`
+	// FormRequest is the fully qualified name (or short name) of the FormRequest
+	// class linked to this route, resolved from the dispatched action's typed
+	// parameter (ADR 0006). It makes the Route→FormRequest link visible in
+	// unlaravel.json. Set by the analyzer; omitted from JSON when the action
+	// takes no FormRequest parameter.
+	FormRequest string `json:"form_request,omitempty"`
 }
 
 // Dead-route kinds. These are the stable machine-readable values written to

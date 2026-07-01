@@ -24,13 +24,18 @@ type NullVisitor = visitor.Null
 const quoteChars = `'"`
 
 // IdentifierName returns the textual name of an identifier-like node. It handles
-// the two shapes extractors encounter: a bare *ast.Identifier (e.g. a method
-// name such as create), and a (possibly namespaced) *ast.Name whose parts are
-// joined with a backslash (e.g. Illuminate\Support\Facades\Schema). Any other
-// node type yields "".
+// the shapes extractors encounter: a bare *ast.Identifier (e.g. a method name
+// such as create); an unqualified or namespaced *ast.Name whose parts are joined
+// with a backslash (e.g. Illuminate\Support\Facades\Schema); and a
+// fully-qualified *ast.NameFullyQualified (a leading-backslash hint such as
+// \App\Http\Requests\AdminRequest), whose parts are joined the same way with the
+// leading separator dropped so the result matches the codebase's backslash-FQN
+// convention (no leading backslash). Any other node type yields "".
 func IdentifierName(v Vertex) string {
 	switch n := v.(type) {
 	case *ast.Name:
+		return joinNameParts(n.Parts)
+	case *ast.NameFullyQualified:
 		return joinNameParts(n.Parts)
 	case *ast.Identifier:
 		return string(n.Value)
@@ -403,6 +408,123 @@ func collectClassNames(stmts []Vertex, out *[]string) {
 			collectClassNames(n.Stmts, out)
 		}
 	}
+}
+
+// ParamTypeNames returns the type-hint names of a method's parameters, in
+// declaration order, reading them from an *ast.StmtClassMethod's Params. Each
+// name is the textual form of the parameter's type node (via IdentifierName):
+// an unqualified hint yields its short name (e.g. "StorePostRequest") and a
+// qualified hint yields its backslash-joined name (e.g.
+// "App\Http\Requests\StorePostRequest"). Callers resolve short names to FQNs
+// through the declaring file's `use` imports + the symbol table (ADR 0006).
+//
+// A parameter with NO type hint (e.g. `$id`) has a nil Type and is SKIPPED, so
+// the returned slice contains only the typed parameters — this is precisely how
+// a FormRequest-typed action parameter is told apart from a plain route-model or
+// scalar parameter. The result is nil when method is not an *ast.StmtClassMethod
+// or the method has no typed parameters, so callers can range over it safely.
+//
+// Nullable (`?Type`), union, and intersection hints are out of scope: only a
+// name-shaped type node is read (unqualified/namespaced *ast.Name or
+// fully-qualified *ast.NameFullyQualified, both via IdentifierName); any other
+// type-node shape yields "" and is skipped, matching the FormRequest link's
+// single-class-hint expectation (a controller action takes a FormRequest as a
+// plain, non-nullable parameter).
+func ParamTypeNames(method Vertex) []string {
+	m, ok := method.(*ast.StmtClassMethod)
+	if !ok {
+		return nil
+	}
+	var names []string
+	for _, p := range m.Params {
+		param, ok := p.(*ast.Parameter)
+		if !ok || param.Type == nil {
+			continue
+		}
+		if name := IdentifierName(param.Type); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// ClassExtends returns the textual name of the base class an *ast.StmtClass
+// extends — the .Extends node read via IdentifierName, so an unqualified parent
+// yields its short name (e.g. "FormRequest") and a qualified parent yields its
+// backslash-joined name (e.g. "Illuminate\Foundation\Http\FormRequest"). A class
+// with no `extends` clause, or a node that is not an *ast.StmtClass, yields "".
+//
+// The FormRequest extractor uses this to recognise a request class: a class is a
+// FormRequest when the last backslash segment of its parent name is "FormRequest"
+// (whether written unqualified or fully qualified). Reading the parent through
+// this helper keeps that extractor free of any php-parser import (ADR 0003).
+func ClassExtends(class Vertex) string {
+	c, ok := class.(*ast.StmtClass)
+	if !ok || c.Extends == nil {
+		return ""
+	}
+	return IdentifierName(c.Extends)
+}
+
+// ArrayPair is one key/value entry of an *ast.ExprArray, preserving BOTH sides
+// of the `key => value` mapping. Key is nil for a list-style entry that has no
+// explicit key.
+type ArrayPair struct {
+	Key Vertex
+	Val Vertex
+}
+
+// ArrayPairs returns the key/value entries of an *ast.ExprArray in source order,
+// keeping each *ast.ExprArrayItem's Key alongside its Val. It complements
+// ArrayItems (which yields only values): the FormRequest rules() array is keyed
+// by field name (`'title' => 'required|string'`), so its keys carry meaning and
+// must be read, not discarded.
+//
+// An item with a nil Val is skipped so callers can read Val safely; a nil Key is
+// preserved (a list-style entry). Returns nil when v is not an *ast.ExprArray.
+func ArrayPairs(v Vertex) []ArrayPair {
+	arr, ok := v.(*ast.ExprArray)
+	if !ok {
+		return nil
+	}
+	pairs := make([]ArrayPair, 0, len(arr.Items))
+	for _, it := range arr.Items {
+		item, ok := it.(*ast.ExprArrayItem)
+		if !ok || item.Val == nil {
+			continue
+		}
+		pairs = append(pairs, ArrayPair{Key: item.Key, Val: item.Val})
+	}
+	return pairs
+}
+
+// MethodReturnExpr returns the expression of the FIRST return statement in an
+// *ast.StmtClassMethod's body — the .Expr of the first *ast.StmtReturn among the
+// method body's top-level statements, in source order. Returns nil when method is
+// not an *ast.StmtClassMethod, has no body, or its body has no return statement
+// (e.g. an abstract or void method).
+//
+// The FormRequest extractor uses this to reach a rules() method's returned array
+// (`return [ ... ];`) without naming the parser's statement types: the method
+// body is an *ast.StmtStmtList whose Stmts are scanned for the return. Only the
+// body's own top-level statements are examined — a return nested inside a
+// conditional is out of scope, matching the single-`return [...]` shape a rules()
+// method conventionally has.
+func MethodReturnExpr(method Vertex) Vertex {
+	m, ok := method.(*ast.StmtClassMethod)
+	if !ok {
+		return nil
+	}
+	body, ok := m.Stmt.(*ast.StmtStmtList)
+	if !ok {
+		return nil
+	}
+	for _, st := range body.Stmts {
+		if ret, ok := st.(*ast.StmtReturn); ok {
+			return ret.Expr
+		}
+	}
+	return nil
 }
 
 // lastNameSegment returns the final backslash-delimited segment of a

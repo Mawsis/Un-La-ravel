@@ -13,11 +13,14 @@ import (
 	"github.com/mawsis/unlaravel/internal/analyze"
 	"github.com/mawsis/unlaravel/internal/detector"
 	"github.com/mawsis/unlaravel/internal/extract/controller"
+	formrequestextract "github.com/mawsis/unlaravel/internal/extract/formrequest"
 	modelextract "github.com/mawsis/unlaravel/internal/extract/model"
 	routeextract "github.com/mawsis/unlaravel/internal/extract/route"
 	"github.com/mawsis/unlaravel/internal/extract/schema"
 	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/mawsis/unlaravel/internal/phpast"
 	"github.com/mawsis/unlaravel/internal/render/er"
+	"github.com/mawsis/unlaravel/internal/render/openapi"
 	"github.com/mawsis/unlaravel/internal/render/routemap"
 	"github.com/mawsis/unlaravel/internal/symbol"
 )
@@ -46,6 +49,13 @@ var controllersSubdir = filepath.Join("app", "Http", "Controllers")
 // without this directory simply has no routes to analyze — the pipeline reports
 // zero and continues.
 var routesSubdir = "routes"
+
+// requestsSubdir is the conventional location of Laravel FormRequest classes,
+// relative to the project root. It is scanned RECURSIVELY (like the controllers
+// directory), because a request under app/Http/Requests/Admin carries its
+// subdirectory as a namespace segment. A project without this directory simply
+// has no FormRequests to analyze — the pipeline reports zero and continues.
+var requestsSubdir = filepath.Join("app", "Http", "Requests")
 
 // phpGlob matches PHP source files within a directory.
 const phpGlob = "*.php"
@@ -119,16 +129,17 @@ and generate analysis reports for:
 	analyzeCmd.Flags().BoolP("routes", "r", false, "Analyze routes only")
 	analyzeCmd.Flags().BoolP("database", "d", false, "Analyze database schema only")
 	analyzeCmd.Flags().BoolP("swagger", "s", false, "Generate Swagger documentation")
-	analyzeCmd.Flags().StringP("output", "o", "", "Output file path for analysis results")
+	analyzeCmd.Flags().StringP("output", "o", "", "Output file path for the unlaravel.json analysis contract")
+	analyzeCmd.Flags().String("openapi", "", "Output file path for the generated OpenAPI 3 spec (JSON)")
 
 	// Add the command to root
 	rootCmd.AddCommand(analyzeCmd)
 }
 
-// analyzeProject handles the analyze command. It runs the real analysis
-// pipeline for this slice — Schema extraction, Eloquent Model extraction, and
-// the two-phase Route→Controller resolution (ADR scope) — and reports exactly
-// what happened, with no fabricated success messages.
+// analyzeProject handles the analyze command. It runs the full analysis
+// pipeline across all six MVP node types — Schema, Eloquent Model, Route,
+// Controller, Middleware, and FormRequest — and reports exactly what happened,
+// with no fabricated success messages.
 //
 // Pipeline:
 //  1. Detect the Laravel project (artisan + composer.json) via the detector.
@@ -137,20 +148,26 @@ and generate analysis reports for:
 //     with their relationships from their AST.
 //  4. Correlate Models against the Schema to surface Disagreements — a
 //     relationship referencing a table or foreign-key column the Schema lacks.
-//  5. Run the Route pipeline in two phases (ADR 0006): collect controllers and
-//     build the symbol table (Phase 1), then extract routes and resolve them
-//     against that table to fill in controller FQNs and surface Dead Routes —
-//     routes whose Controller/Action edge dangles (Phase 2).
-//  6. Assemble a model.ProjectModel from the detector + tables + models +
-//     disagreements + routes + controllers + dead routes.
-//  7. Optionally write the JSON contract (--output), then render the ER diagram
-//     (which includes Eloquent relationship lines alongside the FK lines) and
-//     the route map.
+//  5. Run the Route pipeline in two phases (ADR 0006): collect controllers (with
+//     their action-parameter type-hints) and build the symbol table seeded with
+//     controllers, models, and FormRequests (Phase 1), then extract routes and
+//     resolve them against that table to fill in controller FQNs and surface
+//     Dead Routes — routes whose Controller/Action edge dangles (Phase 2).
+//  6. Extract FormRequest nodes from app/Http/Requests and link each resolved
+//     route to the request body its action validates (ADR 0006), setting
+//     Route.FormRequest.
+//  7. Assemble a model.ProjectModel from the detector + tables + models +
+//     disagreements + routes + controllers + dead routes + form requests.
+//  8. Optionally write the JSON contract (--output) and the OpenAPI 3 spec
+//     (--openapi, explicit), then render the ER diagram (which includes Eloquent
+//     relationship lines alongside the FK lines) and the route map, and report
+//     the FormRequest count.
 func analyzeProject(cmd *cobra.Command, args []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	routesOnly, _ := cmd.Flags().GetBool("routes")
 	generateSwagger, _ := cmd.Flags().GetBool("swagger")
 	outputPath, _ := cmd.Flags().GetString("output")
+	openAPIPath, _ := cmd.Flags().GetString("openapi")
 
 	// Determine the project path (default: current directory).
 	projectPath := "."
@@ -169,6 +186,7 @@ func analyzeProject(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  • Routes only: %v\n", routesOnly)
 		fmt.Printf("  • Generate Swagger: %v\n", generateSwagger)
 		fmt.Printf("  • Output path: %s\n", outputPath)
+		fmt.Printf("  • OpenAPI path: %s\n", openAPIPath)
 		fmt.Println()
 	}
 
@@ -205,18 +223,29 @@ func analyzeProject(cmd *cobra.Command, args []string) error {
 	// 4. Correlate Models against the Schema to surface Disagreements.
 	disagreements := analyze.FindDisagreements(models, tables)
 
-	// 5. Run the two-phase Route pipeline (ADR 0006): controllers + symbol table,
-	//    then routes resolved against them, yielding resolved routes and dead
-	//    routes.
-	routes, controllers, deadRoutes, err := extractRoutes(projectPath, models, green, yellow)
+	// 5. Run the two-phase Route pipeline (ADR 0006): controllers + symbol table
+	//    (seeded with the models AND the FormRequest classes so a request-typed
+	//    parameter resolves, per ADR 0006), then routes resolved against them,
+	//    yielding resolved routes and dead routes. The pipeline also returns the
+	//    controllers' action-parameter type-hints, the FQN→file map, and the
+	//    symbol table — the inputs the FormRequest link needs.
+	rp, err := extractRoutes(projectPath, models, green, yellow)
 	if err != nil {
 		return err
 	}
 
-	// 6. Assemble the Project Model.
-	pm := buildProjectModel(project, tables, models, disagreements, routes, controllers, deadRoutes)
+	// 6. Extract the FormRequest nodes from app/Http/Requests, then link each
+	//    resolved route to the request body its action validates (ADR 0006).
+	formRequests, err := extractFormRequests(projectPath, green, yellow)
+	if err != nil {
+		return err
+	}
+	routes := analyze.LinkFormRequests(rp.routes, formRequests, rp.actionParams, rp.symbols, rp.controllerFiles)
 
-	// 7a. Optionally write the JSON output contract.
+	// 7. Assemble the Project Model.
+	pm := buildProjectModel(project, tables, models, disagreements, routes, rp.controllers, rp.deadRoutes, formRequests)
+
+	// 8a. Optionally write the JSON output contract.
 	if outputPath != "" {
 		if err := writeProjectModel(pm, outputPath); err != nil {
 			return err
@@ -224,21 +253,49 @@ func analyzeProject(cmd *cobra.Command, args []string) error {
 		green.Printf("✅ Wrote analysis to %s\n", outputPath)
 	}
 
-	// 7b. Report the Disagreement findings, if any.
+	// 8b. Optionally write the OpenAPI 3 spec. It is explicit: --openapi must be
+	//     given for it to be emitted (it is never inferred from --output), so the
+	//     two artifacts are requested independently.
+	if openAPIPath != "" {
+		if err := writeOpenAPI(pm, openAPIPath); err != nil {
+			return err
+		}
+		green.Printf("✅ Wrote OpenAPI 3 spec to %s\n", openAPIPath)
+	}
+
+	// 8c. Report the Disagreement findings, if any.
 	reportDisagreements(disagreements, green, yellow)
 
-	// 7c. Render and print the ER diagram (FK + Eloquent relationship lines).
+	// 8d. Render and print the ER diagram (FK + Eloquent relationship lines).
 	yellow.Println("\n📊 Entity-Relationship diagram (Mermaid):")
 	fmt.Println(er.Render(pm))
 
-	// 7d. Render and print the route map, then the dead-route findings.
+	// 8e. Render and print the route map, then the dead-route findings.
 	yellow.Printf("\n🗺️  Routes (%d):\n", len(routes))
 	fmt.Println(routemap.Render(pm))
-	reportDeadRoutes(deadRoutes, green, yellow)
+	reportDeadRoutes(rp.deadRoutes, green, yellow)
 
-	cyan.Printf("🎉 Analysis complete: %d table(s), %d model(s), %d route(s) found in %s\n",
-		len(tables), len(models), len(routes), projectPath)
+	// 8f. Report the FormRequest count (the sixth and final MVP node type).
+	green.Printf("✅ FormRequests: %d\n", len(formRequests))
+
+	cyan.Printf("🎉 Analysis complete: %d table(s), %d model(s), %d route(s), %d form request(s) found in %s\n",
+		len(tables), len(models), len(routes), len(formRequests), projectPath)
 	return nil
+}
+
+// routePipeline bundles the artifacts the two-phase Route pipeline produces that
+// downstream steps consume: the resolved routes, the extracted controllers, the
+// dead-route findings, and — for the FormRequest link (ADR 0006) — the
+// controllers' action-parameter type-hints, the project-wide symbol table, and
+// the controller-FQN → source-file map that lets a parameter's short type name
+// resolve against the imports of the file that declared its action.
+type routePipeline struct {
+	routes          []model.Route
+	controllers     []model.Controller
+	deadRoutes      []model.DeadRoute
+	actionParams    controller.ActionParams
+	symbols         *symbol.Table
+	controllerFiles map[string]string
 }
 
 // extractRoutes runs the two-phase Route pipeline (ADR 0006) under projectPath.
@@ -265,53 +322,111 @@ func extractRoutes(
 	projectPath string,
 	models []model.Model,
 	green, yellow *color.Color,
-) ([]model.Route, []model.Controller, []model.DeadRoute, error) {
+) (routePipeline, error) {
 	routesDir := filepath.Join(projectPath, routesSubdir)
 
 	info, err := os.Stat(routesDir)
 	if err != nil || !info.IsDir() {
 		yellow.Printf("⚠️  No routes directory found at %s; no routes to analyze.\n", routesDir)
-		return nil, nil, nil, nil
+		return routePipeline{}, nil
 	}
 
 	// Phase 1a: extract Controller classes (recursively — subdirectories are
-	// namespace segments) from app/Http/Controllers.
+	// namespace segments) from app/Http/Controllers, together with each action's
+	// parameter type-hints (the ActionParams side map feeding the FormRequest
+	// link, ADR 0006) and the FQN→file map its resolution needs.
 	controllersDir := filepath.Join(projectPath, controllersSubdir)
-	controllers, err := controller.ExtractDir(controllersDir)
+	controllers, actionParams, err := controller.ExtractDirWithParams(controllersDir)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to extract controllers from %s: %w", controllersDir, err)
+		return routePipeline{}, fmt.Errorf("failed to extract controllers from %s: %w", controllersDir, err)
 	}
 	green.Printf("✅ Extracted %d controller(s) from %s\n", len(controllers), controllersDir)
 
+	controllerFiles, err := controllerFileMap(controllersDir)
+	if err != nil {
+		return routePipeline{}, err
+	}
+
 	// Phase 1b: build the symbol table from every relevant class file — the
-	// controllers plus the model files (models are cheap to include and let a
-	// route resolve to a class outside app/Http/Controllers without a false
-	// dead-route finding, per ADR 0006).
+	// controllers plus the model files AND the FormRequest files. Including the
+	// models lets a route resolve to a class outside app/Http/Controllers without
+	// a false dead-route finding; including the FormRequests lets a controller
+	// action's request-typed parameter resolve to a declared class so the
+	// Route→FormRequest link can be made (all per ADR 0006).
 	sym, err := buildSymbolTable(projectPath, controllersDir)
 	if err != nil {
-		return nil, nil, nil, err
+		return routePipeline{}, err
 	}
 
 	// Phase 2a: extract the routes (short controller names, groups flattened,
 	// resource macros expanded).
 	routes, err := routeextract.ExtractDir(routesDir)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to extract routes from %s: %w", routesDir, err)
+		return routePipeline{}, fmt.Errorf("failed to extract routes from %s: %w", routesDir, err)
 	}
 
 	// Phase 2b: resolve routes against the controllers + symbol table, filling in
 	// FQNs and surfacing dead routes.
 	routeFiles, err := routeFilePaths(routesDir)
 	if err != nil {
-		return nil, nil, nil, err
+		return routePipeline{}, err
 	}
 	resolved, deadRoutes, err := analyze.ResolveRoutes(routes, controllers, sym, routeFiles)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to resolve routes: %w", err)
+		return routePipeline{}, fmt.Errorf("failed to resolve routes: %w", err)
 	}
 
 	green.Printf("✅ Extracted %d route(s) from %s\n", len(resolved), routesDir)
-	return resolved, controllers, deadRoutes, nil
+	return routePipeline{
+		routes:          resolved,
+		controllers:     controllers,
+		deadRoutes:      deadRoutes,
+		actionParams:    actionParams,
+		symbols:         sym,
+		controllerFiles: controllerFiles,
+	}, nil
+}
+
+// controllerFileMap builds the controller-FQN → source-file map the FormRequest
+// link needs (ADR 0006): a route resolves an action's request-typed parameter
+// through the `use` imports of the very file that declared the action, so the
+// linker must know which file that is. It walks controllersDir recursively (the
+// same set the ActionParams keys come from), parses each PHP file, and records
+// every top-level class it declares under its FQN (file namespace joined to the
+// class short name), pointing at that file's path.
+//
+// A file that cannot be read or catastrophically fails to parse aborts with a
+// wrapped error, mirroring the extractor: a missing entry would leave a real
+// FormRequest link unresolved.
+func controllerFileMap(controllersDir string) (map[string]string, error) {
+	paths, err := discoverPHPFiles(controllersDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan controllers for the FQN→file map: %w", err)
+	}
+
+	files := make(map[string]string, len(paths))
+	for _, path := range paths {
+		res, err := phpast.ParseFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse controller %s for the FQN→file map: %w", path, err)
+		}
+		namespace := phpast.NamespaceName(res.Root)
+		for _, short := range phpast.DeclaredClasses(res.Root) {
+			files[qualifyClass(namespace, short)] = path
+		}
+	}
+	return files, nil
+}
+
+// qualifyClass joins a file namespace to a class short name to form a fully
+// qualified class name (ADR 0006), matching the extractor and symbol-table
+// convention: a class in the global namespace yields the bare short name, never
+// a leading backslash.
+func qualifyClass(namespace, shortName string) string {
+	if namespace == "" {
+		return shortName
+	}
+	return namespace + `\` + shortName
 }
 
 // buildSymbolTable builds the project-wide symbol table (ADR 0006, Phase 1) from
@@ -335,7 +450,17 @@ func buildSymbolTable(projectPath, controllersDir string) (*symbol.Table, error)
 		return nil, err
 	}
 
-	sym, err := symbol.Collect(append(controllerFiles, modelFiles...))
+	requestFiles, err := discoverPHPFiles(filepath.Join(projectPath, requestsSubdir))
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan FormRequests for the symbol table: %w", err)
+	}
+
+	classFiles := make([]string, 0, len(controllerFiles)+len(modelFiles)+len(requestFiles))
+	classFiles = append(classFiles, controllerFiles...)
+	classFiles = append(classFiles, modelFiles...)
+	classFiles = append(classFiles, requestFiles...)
+
+	sym, err := symbol.Collect(classFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build symbol table: %w", err)
 	}
@@ -440,6 +565,35 @@ func extractModels(projectPath string, green, yellow *color.Color) ([]model.Mode
 	return models, nil
 }
 
+// extractFormRequests locates the FormRequest classes under
+// app/Http/Requests (scanned RECURSIVELY, since subdirectories are namespace
+// segments) and extracts the FormRequest nodes — each with the request-body
+// Fields parsed from its rules() method — from their AST. The extractor decides
+// which classes actually extend a FormRequest base, so non-request PHP files
+// (and a missing directory) are reported honestly and yield no FormRequests
+// rather than an error.
+func extractFormRequests(projectPath string, green, yellow *color.Color) ([]model.FormRequest, error) {
+	requestsDir := filepath.Join(projectPath, requestsSubdir)
+
+	paths, err := discoverPHPFiles(requestsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan FormRequests: %w", err)
+	}
+
+	if len(paths) == 0 {
+		yellow.Printf("⚠️  No PHP files found under %s; no FormRequests to analyze.\n", requestsDir)
+		return nil, nil
+	}
+
+	formRequests, err := formrequestextract.Extract(paths)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract FormRequests: %w", err)
+	}
+
+	green.Printf("✅ Extracted %d FormRequest(s) from %s\n", len(formRequests), requestsDir)
+	return formRequests, nil
+}
+
 // collectModelFiles gathers the candidate PHP files for model extraction from
 // both the modern app/Models directory and the classic app/ directory under
 // projectPath. Each directory is scanned non-recursively for *.php; a missing
@@ -517,6 +671,7 @@ func buildProjectModel(
 	routes []model.Route,
 	controllers []model.Controller,
 	deadRoutes []model.DeadRoute,
+	formRequests []model.FormRequest,
 ) *model.ProjectModel {
 	pm := model.New(projectName(project), project.Version)
 	for _, t := range tables {
@@ -537,6 +692,9 @@ func buildProjectModel(
 	for _, dr := range deadRoutes {
 		pm.AddDeadRoute(dr)
 	}
+	for _, fr := range formRequests {
+		pm.AddFormRequest(fr)
+	}
 	return pm
 }
 
@@ -548,6 +706,21 @@ func writeProjectModel(pm *model.ProjectModel, outputPath string) error {
 	}
 	if err := os.WriteFile(outputPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write output file %s: %w", outputPath, err)
+	}
+	return nil
+}
+
+// writeOpenAPI renders the Project Model to an OpenAPI 3 spec (routes +
+// FormRequest bodies, ADR 0004) and writes it to openAPIPath. The renderer reads
+// ONLY the model, so this depends on the FormRequest links already being set on
+// the routes.
+func writeOpenAPI(pm *model.ProjectModel, openAPIPath string) error {
+	data, err := openapi.Render(pm)
+	if err != nil {
+		return fmt.Errorf("failed to render OpenAPI spec: %w", err)
+	}
+	if err := os.WriteFile(openAPIPath, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write OpenAPI file %s: %w", openAPIPath, err)
 	}
 	return nil
 }

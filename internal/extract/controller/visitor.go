@@ -56,9 +56,17 @@ type controllerVisitor struct {
 // domain.Controller once the file's namespace is known. name is the class short
 // name; actions are its public, non-constructor method names in declaration
 // order.
+//
+// actionParams records, per action, the type-hint names of its parameters in
+// declaration order (untyped parameters are omitted — see
+// phpast.ParamTypeNames). This is side data used to link a Route to a
+// FormRequest during phase-two analysis; it is NOT part of the domain.Controller
+// JSON contract, so controller.go exposes it separately from the Controller
+// slice. An action with no typed parameters has no entry here.
 type classBuilder struct {
-	name    string
-	actions []string
+	name         string
+	actions      []string
+	actionParams map[string][]string
 }
 
 // newControllerVisitor returns a visitor ready to walk one file's AST.
@@ -77,7 +85,7 @@ func (v *controllerVisitor) StmtClass(n *ast.StmtClass) {
 		return
 	}
 
-	cb := &classBuilder{name: name}
+	cb := &classBuilder{name: name, actionParams: make(map[string][]string)}
 	v.classes = append(v.classes, cb)
 	v.current = cb
 }
@@ -101,6 +109,9 @@ func (v *controllerVisitor) StmtClassMethod(n *ast.StmtClassMethod) {
 		return
 	}
 	v.current.actions = append(v.current.actions, name)
+	if types := phpast.ParamTypeNames(n); len(types) > 0 {
+		v.current.actionParams[name] = types
+	}
 }
 
 // isPublicMethod reports whether a method's modifier list denotes public

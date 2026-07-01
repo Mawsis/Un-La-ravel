@@ -14,19 +14,24 @@ package cli
 // Review the resulting diff carefully — the goldens ARE the contract.
 
 import (
+	"encoding/json"
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mawsis/unlaravel/internal/analyze"
 	"github.com/mawsis/unlaravel/internal/detector"
 	"github.com/mawsis/unlaravel/internal/extract/controller"
+	formrequestextract "github.com/mawsis/unlaravel/internal/extract/formrequest"
 	modelextract "github.com/mawsis/unlaravel/internal/extract/model"
 	routeextract "github.com/mawsis/unlaravel/internal/extract/route"
 	"github.com/mawsis/unlaravel/internal/extract/schema"
 	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/mawsis/unlaravel/internal/phpast"
 	"github.com/mawsis/unlaravel/internal/render/er"
+	"github.com/mawsis/unlaravel/internal/render/openapi"
 	"github.com/mawsis/unlaravel/internal/render/routemap"
 	"github.com/mawsis/unlaravel/internal/symbol"
 )
@@ -43,6 +48,9 @@ const (
 	goldenJSONRel     = "testdata/fixture-app.golden.json"
 	goldenMermaidRel  = "testdata/fixture-app.golden.mermaid"
 	goldenRouteMapRel = "testdata/fixture-app.golden.routemap"
+	// goldenOpenAPIRel is the committed OpenAPI 3 spec the renderer produces from
+	// the assembled model — the sixth-node showpiece output pinned as a contract.
+	goldenOpenAPIRel = "testdata/fixture-app.openapi.json"
 )
 
 // TestE2E_FixtureApp_Pipeline runs the full pipeline against the fixture app and
@@ -64,9 +72,18 @@ func TestE2E_FixtureApp_Pipeline(t *testing.T) {
 	gotMermaid := []byte(er.Render(pm))
 	gotRouteMap := []byte(routemap.Render(pm))
 
+	gotOpenAPI, err := openapi.Render(pm)
+	if err != nil {
+		t.Fatalf("render OpenAPI spec: %v", err)
+	}
+	// Render omits the trailing newline; the golden is stored with one so it is a
+	// clean POSIX text file and diffs nicely, mirroring the JSON golden.
+	gotOpenAPI = append(gotOpenAPI, '\n')
+
 	assertGolden(t, filepath.Join(root, goldenJSONRel), gotJSON)
 	assertGolden(t, filepath.Join(root, goldenMermaidRel), gotMermaid)
 	assertGolden(t, filepath.Join(root, goldenRouteMapRel), gotRouteMap)
+	assertGolden(t, filepath.Join(root, goldenOpenAPIRel), gotOpenAPI)
 }
 
 // TestE2E_FixtureApp_ModelShape asserts the structural facts that make the
@@ -207,10 +224,135 @@ func TestE2E_FixtureApp_RouteShape(t *testing.T) {
 	}
 }
 
+// TestE2E_FixtureApp_FormRequestShape asserts the FormRequest half of the
+// contract the goldens encode (ADR 0006, PRD #5 — the sixth and final MVP node):
+// the single extracted FormRequest (StorePostRequest) with its five parsed
+// Fields, the source-faithful preservation of the unknown `alpha_dash` rule on
+// `tags`, and the Route→FormRequest link that attaches it to POST /posts via
+// PostController@store's typed parameter. A careless -update that corrupts the
+// rules() parse or the link still fails here.
+func TestE2E_FixtureApp_FormRequestShape(t *testing.T) {
+	root := repoRoot(t)
+	pm := analyzeFixture(t, filepath.Join(root, fixtureAppRel))
+
+	// Exactly one FormRequest, resolved to its conventional FQN.
+	if got, want := len(pm.FormRequests), 1; got != want {
+		t.Fatalf("form requests count = %d, want %d: %+v", got, want, pm.FormRequests)
+	}
+	fr := pm.FormRequests[0]
+	if fr.Name != "StorePostRequest" || fr.FQN != `App\Http\Requests\StorePostRequest` {
+		t.Errorf("form request = %s (%s), want StorePostRequest (App\\Http\\Requests\\StorePostRequest)",
+			fr.Name, fr.FQN)
+	}
+
+	// Its five fields, in source-declaration order.
+	wantFields := []string{"title", "body", "published", "status", "tags"}
+	if got := fieldNames(fr); !equalStrings(got, wantFields) {
+		t.Fatalf("StorePostRequest fields = %v, want %v", got, wantFields)
+	}
+
+	// The unknown/custom rule on `tags` (alpha_dash) must be preserved verbatim,
+	// not dropped — the whole point of the unknown-rule fixture.
+	tags := findField(t, fr, "tags")
+	if got := ruleNames(tags); !equalStrings(got, []string{"nullable", "alpha_dash"}) {
+		t.Errorf("tags rules = %v, want [nullable alpha_dash]", got)
+	}
+
+	// The Route→FormRequest link: POST /posts (posts.store) carries the request's
+	// FQN, resolved through PostController@store's typed parameter (ADR 0006).
+	store := findRoute(t, pm, "POST", "/posts")
+	if store.FormRequest != `App\Http\Requests\StorePostRequest` {
+		t.Errorf("POST /posts form_request = %q, want App\\Http\\Requests\\StorePostRequest",
+			store.FormRequest)
+	}
+}
+
+// TestE2E_FixtureApp_OpenAPIShape asserts the OpenAPI golden's load-bearing
+// facts (FACTS BUG 1 + the rules→JSON-Schema mapping): the golden parses as JSON,
+// the POST /posts Operation carries a requestBody derived from StorePostRequest,
+// `title` gets maxLength 255 emitted as a NUMBER (never the string "255"),
+// `status` carries the in:draft,published enum, and the unknown `alpha_dash`
+// rule survives in `tags`'s description. It reads the committed golden directly
+// so a careless -update that regresses the renderer is caught structurally, not
+// only byte-for-byte.
+func TestE2E_FixtureApp_OpenAPIShape(t *testing.T) {
+	root := repoRoot(t)
+
+	raw, err := os.ReadFile(filepath.Join(root, goldenOpenAPIRel))
+	if err != nil {
+		t.Fatalf("read OpenAPI golden: %v (run with -update to create it)", err)
+	}
+
+	// Parse into json.RawMessage-preserving generic maps so we can assert the
+	// numeric-vs-string distinction the FACTS demand.
+	var doc struct {
+		OpenAPI string `json:"openapi"`
+		Paths   map[string]map[string]struct {
+			RequestBody *struct {
+				Content map[string]struct {
+					Schema struct {
+						Properties map[string]struct {
+							Type        string          `json:"type"`
+							MaxLength   json.RawMessage `json:"maxLength"`
+							Enum        []string        `json:"enum"`
+							Description string          `json:"description"`
+						} `json:"properties"`
+						Required []string `json:"required"`
+					} `json:"schema"`
+				} `json:"content"`
+			} `json:"requestBody"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("OpenAPI golden is not valid JSON: %v", err)
+	}
+
+	if doc.OpenAPI != "3.0.3" {
+		t.Errorf("openapi version = %q, want 3.0.3", doc.OpenAPI)
+	}
+
+	post, ok := doc.Paths["/posts"]["post"]
+	if !ok || post.RequestBody == nil {
+		t.Fatalf("POST /posts has no requestBody in the OpenAPI golden")
+	}
+	media, ok := post.RequestBody.Content["application/json"]
+	if !ok {
+		t.Fatalf("POST /posts requestBody has no application/json content")
+	}
+	props := media.Schema.Properties
+
+	// title: string with maxLength emitted as a bare JSON NUMBER, not a string
+	// (FACTS BUG 1). "255" (quoted) or absence both fail.
+	title, ok := props["title"]
+	if !ok {
+		t.Fatalf("requestBody schema is missing the title property")
+	}
+	if got := strings.TrimSpace(string(title.MaxLength)); got != "255" {
+		t.Errorf("title maxLength raw JSON = %q, want the number 255 (unquoted)", got)
+	}
+
+	// status: the in:draft,published enum survived the mapping.
+	if got := props["status"].Enum; !equalStrings(got, []string{"draft", "published"}) {
+		t.Errorf("status enum = %v, want [draft published]", got)
+	}
+
+	// tags: the unknown alpha_dash rule is preserved in the description, not
+	// dropped (FACTS: unknown rule → description; never crash or drop).
+	if got, want := props["tags"].Description, "rule: alpha_dash"; got != want {
+		t.Errorf("tags description = %q, want %q", got, want)
+	}
+
+	// required lists the two required fields, in declaration order.
+	if got := media.Schema.Required; !equalStrings(got, []string{"title", "body"}) {
+		t.Errorf("requestBody required = %v, want [title body]", got)
+	}
+}
+
 // analyzeFixture drives the same pipeline analyzeProject runs (detect → extract
-// schema → extract models → correlate disagreements → assemble model), but
-// headlessly, returning the assembled Project Model. It mirrors the production
-// orchestration so the goldens pin what the real binary emits.
+// schema → extract models → correlate disagreements → extract routes → extract
+// FormRequests → link → assemble model), but headlessly, returning the assembled
+// Project Model. It mirrors the production orchestration so the goldens pin what
+// the real binary emits.
 func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 	t.Helper()
 
@@ -233,7 +375,15 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 
 	disagreements := analyze.FindDisagreements(models, tables)
 
-	routes, controllers, deadRoutes := resolveFixtureRoutes(t, fixtureApp)
+	rp := resolveFixtureRoutes(t, fixtureApp)
+
+	// Extract the FormRequests and link each resolved route to the request body
+	// its action validates (ADR 0006), exactly as analyzeProject does — so the
+	// goldens pin the sixth node type and the Route.form_request link.
+	formRequests := extractFixtureFormRequests(t, fixtureApp)
+	routes := analyze.LinkFormRequests(
+		rp.routes, formRequests, rp.actionParams, rp.symbols, rp.controllerFiles,
+	)
 
 	pm := model.New(project.ComposerAnalysis.ProjectName, project.Version)
 	for _, tb := range tables {
@@ -245,31 +395,51 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 	for _, d := range disagreements {
 		pm.AddDisagreement(d)
 	}
-	for _, c := range controllers {
+	for _, c := range rp.controllers {
 		pm.AddController(c)
 	}
 	for _, r := range routes {
 		pm.AddRoute(r)
 	}
-	for _, dr := range deadRoutes {
+	for _, dr := range rp.deadRoutes {
 		pm.AddDeadRoute(dr)
+	}
+	for _, fr := range formRequests {
+		pm.AddFormRequest(fr)
 	}
 	return pm
 }
 
+// fixtureRoutePipeline bundles what the headless Route pipeline produces so the
+// FormRequest link (ADR 0006) can run afterwards: the resolved routes, the
+// extracted controllers, the dead-route findings, and the three inputs
+// LinkFormRequests needs — the action-parameter type-hints, the project-wide
+// symbol table, and the controller-FQN → source-file map. It mirrors the
+// production routePipeline struct in root.go.
+type fixtureRoutePipeline struct {
+	routes          []model.Route
+	controllers     []model.Controller
+	deadRoutes      []model.DeadRoute
+	actionParams    controller.ActionParams
+	symbols         *symbol.Table
+	controllerFiles map[string]string
+}
+
 // resolveFixtureRoutes runs the two-phase Route pipeline (ADR 0006) against the
 // fixture app the same way the production extractRoutes helper does, but
-// headlessly: it extracts the Controllers (with their Actions), builds the
-// project-wide symbol table from the controller and model files, extracts the
-// Routes (groups flattened, resource macros expanded), and resolves each Route
-// against the controllers + symbol table — filling in resolvable FQNs and
-// surfacing the deliberate Dead Route. It mirrors the CLI orchestration so the
-// goldens pin what the real binary emits for routes.
-func resolveFixtureRoutes(t *testing.T, fixtureApp string) ([]model.Route, []model.Controller, []model.DeadRoute) {
+// headlessly: it extracts the Controllers (with their Actions AND each action's
+// parameter type-hints), builds the project-wide symbol table from the
+// controller, model, AND FormRequest files, extracts the Routes (groups
+// flattened, resource macros expanded), and resolves each Route against the
+// controllers + symbol table — filling in resolvable FQNs and surfacing the
+// deliberate Dead Route. It also returns the action-parameter type-hints and the
+// controller-FQN → file map so the caller can run the FormRequest link. It
+// mirrors the CLI orchestration so the goldens pin what the real binary emits.
+func resolveFixtureRoutes(t *testing.T, fixtureApp string) fixtureRoutePipeline {
 	t.Helper()
 
 	controllersDir := filepath.Join(fixtureApp, "app", "Http", "Controllers")
-	controllers, err := controller.ExtractDir(controllersDir)
+	controllers, actionParams, err := controller.ExtractDirWithParams(controllersDir)
 	if err != nil {
 		t.Fatalf("extract controllers from %s: %v", controllersDir, err)
 	}
@@ -294,19 +464,94 @@ func resolveFixtureRoutes(t *testing.T, fixtureApp string) ([]model.Route, []mod
 	if err != nil {
 		t.Fatalf("resolve routes: %v", err)
 	}
-	return resolved, controllers, deadRoutes
+
+	return fixtureRoutePipeline{
+		routes:          resolved,
+		controllers:     controllers,
+		deadRoutes:      deadRoutes,
+		actionParams:    actionParams,
+		symbols:         sym,
+		controllerFiles: fixtureControllerFileMap(t, controllersDir),
+	}
+}
+
+// extractFixtureFormRequests extracts the FormRequest nodes from the fixture
+// app's app/Http/Requests directory (scanned recursively, since subdirectories
+// are namespace segments), mirroring the production extractFormRequests helper.
+func extractFixtureFormRequests(t *testing.T, fixtureApp string) []model.FormRequest {
+	t.Helper()
+
+	requestsDir := filepath.Join(fixtureApp, "app", "Http", "Requests")
+	paths := fixturePHPFiles(t, requestsDir)
+
+	formRequests, err := formrequestextract.Extract(paths)
+	if err != nil {
+		t.Fatalf("extract FormRequests from %s: %v", requestsDir, err)
+	}
+	return formRequests
+}
+
+// fixtureControllerFileMap builds the controller-FQN → source-file map the
+// FormRequest link needs (ADR 0006): a parameter's short type name resolves
+// through the `use` imports of the very file that declared its action, so the
+// linker must know which file that is. It mirrors the production
+// controllerFileMap helper in root.go.
+func fixtureControllerFileMap(t *testing.T, controllersDir string) map[string]string {
+	t.Helper()
+
+	files := make(map[string]string)
+	for _, path := range fixturePHPFiles(t, controllersDir) {
+		res, err := phpast.ParseFile(path)
+		if err != nil {
+			t.Fatalf("parse controller %s for the FQN→file map: %v", path, err)
+		}
+		namespace := phpast.NamespaceName(res.Root)
+		for _, short := range phpast.DeclaredClasses(res.Root) {
+			fqn := short
+			if namespace != "" {
+				fqn = namespace + `\` + short
+			}
+			files[fqn] = path
+		}
+	}
+	return files
 }
 
 // fixtureClassFiles gathers the PHP files whose declared classes seed the symbol
 // table: the controller files (scanned recursively, since subdirectories are
-// namespace segments) plus the Eloquent model files. Including the models mirrors
-// the production symbol-table build so a route dispatching to a class outside
-// app/Http/Controllers resolves rather than being flagged a false dead route.
+// namespace segments) plus the Eloquent model files AND the FormRequest files.
+// Including the models mirrors the production symbol-table build so a route
+// dispatching to a class outside app/Http/Controllers resolves rather than being
+// flagged a false dead route; including the FormRequests lets a controller
+// action's request-typed parameter resolve so the Route→FormRequest link is made
+// (ADR 0006).
 func fixtureClassFiles(t *testing.T, fixtureApp, controllersDir string) []string {
 	t.Helper()
 
+	files := fixturePHPFiles(t, controllersDir)
+
+	modelFiles, err := filepath.Glob(filepath.Join(fixtureApp, "app", "Models", "*.php"))
+	if err != nil {
+		t.Fatalf("glob model files: %v", err)
+	}
+	files = append(files, modelFiles...)
+
+	files = append(files, fixturePHPFiles(t, filepath.Join(fixtureApp, "app", "Http", "Requests"))...)
+	return files
+}
+
+// fixturePHPFiles walks dir recursively and returns the paths of every *.php file
+// under it. A missing directory yields no files (not a fatal error), so a fixture
+// without the directory simply contributes nothing.
+func fixturePHPFiles(t *testing.T, dir string) []string {
+	t.Helper()
+
+	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+		return nil
+	}
+
 	var files []string
-	err := filepath.WalkDir(controllersDir, func(path string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -316,14 +561,8 @@ func fixtureClassFiles(t *testing.T, fixtureApp, controllersDir string) []string
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("walk controllers %s: %v", controllersDir, err)
+		t.Fatalf("walk %s: %v", dir, err)
 	}
-
-	modelFiles, err := filepath.Glob(filepath.Join(fixtureApp, "app", "Models", "*.php"))
-	if err != nil {
-		t.Fatalf("glob model files: %v", err)
-	}
-	files = append(files, modelFiles...)
 	return files
 }
 
@@ -457,6 +696,33 @@ func findRoute(t *testing.T, pm *model.ProjectModel, method, uri string) model.R
 	}
 	t.Fatalf("route %s %s not found in project model", method, uri)
 	return model.Route{}
+}
+
+func fieldNames(fr model.FormRequest) []string {
+	names := make([]string, 0, len(fr.Fields))
+	for _, f := range fr.Fields {
+		names = append(names, f.Name)
+	}
+	return names
+}
+
+func findField(t *testing.T, fr model.FormRequest, name string) model.Field {
+	t.Helper()
+	for _, f := range fr.Fields {
+		if f.Name == name {
+			return f
+		}
+	}
+	t.Fatalf("field %q not found on form request %q", name, fr.Name)
+	return model.Field{}
+}
+
+func ruleNames(f model.Field) []string {
+	names := make([]string, 0, len(f.Rules))
+	for _, r := range f.Rules {
+		names = append(names, r.Name)
+	}
+	return names
 }
 
 func equalStrings(a, b []string) bool {

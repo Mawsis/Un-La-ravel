@@ -21,6 +21,7 @@ const (
 	fixtureNoPublicActions = "no_public_actions.php"
 	fixtureTwoClasses      = "two_classes.php"
 	fixtureAnonymousClass  = "anonymous_class.php"
+	fixtureTypedParams     = "typed_params.php"
 )
 
 // td returns the testdata path for a fixture file name.
@@ -153,6 +154,66 @@ func TestExtractProcessesPathsInOrder(t *testing.T) {
 	if cs[0].Name != "LegacyController" || cs[1].Name != "PostController" {
 		t.Errorf("order = [%q, %q], want [LegacyController, PostController]", cs[0].Name, cs[1].Name)
 	}
+}
+
+// TestExtractWithParamsCapturesTypedActionParams proves the ActionParams side
+// map records each action's typed parameter hints in declaration order, omits
+// untyped parameters, and omits actions that have no typed parameters — while
+// the Controller slice keeps its unchanged shape (Actions still lists index too).
+func TestExtractWithParamsCapturesTypedActionParams(t *testing.T) {
+	cs, params, err := ExtractWithParams([]string{td(fixtureTypedParams)})
+	if err != nil {
+		t.Fatalf("ExtractWithParams: %v", err)
+	}
+	c := only(t, cs)
+
+	// The Controller contract is untouched: every public action still appears,
+	// including index, which contributes nothing to the params map.
+	if want := []string{"index", "store", "update"}; !reflect.DeepEqual(c.Actions, want) {
+		t.Errorf("Actions = %v, want %v", c.Actions, want)
+	}
+
+	fqn := `App\Http\Controllers\PostController`
+	got, ok := params[fqn]
+	if !ok {
+		t.Fatalf("ActionParams missing entry for %q; got keys %v", fqn, keysOf(params))
+	}
+
+	want := map[string][]string{
+		"store":  {"StorePostRequest"},
+		"update": {"UpdatePostRequest"}, // the untyped $id is omitted
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("ActionParams[%q] = %v, want %v", fqn, got, want)
+	}
+	if _, present := got["index"]; present {
+		t.Errorf("index has no typed params and must be absent, got %v", got["index"])
+	}
+}
+
+// TestExtractWithParamsEmptyWhenNoTypedParams proves the map is non-nil and
+// empty (never nil) when no action declares a typed parameter, so callers can
+// range over it safely and no controller with only untyped/no params appears.
+func TestExtractWithParamsEmptyWhenNoTypedParams(t *testing.T) {
+	_, params, err := ExtractWithParams([]string{td(fixtureMixedMethods)})
+	if err != nil {
+		t.Fatalf("ExtractWithParams: %v", err)
+	}
+	if params == nil {
+		t.Fatalf("ActionParams must be non-nil even with no typed params")
+	}
+	if len(params) != 0 {
+		t.Errorf("ActionParams = %v, want empty (mixed_methods actions take no typed params)", params)
+	}
+}
+
+// keysOf returns the keys of an ActionParams map for diagnostic output.
+func keysOf(m ActionParams) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	return ks
 }
 
 func TestExtractMissingFileIsWrappedError(t *testing.T) {

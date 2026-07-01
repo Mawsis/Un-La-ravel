@@ -59,12 +59,52 @@ const namespaceSeparator = `\`
 // routes into false dead-route findings. Recoverable per-file syntax diagnostics
 // do NOT abort — the parser is fault-tolerant (ADR 0003).
 func Extract(paths []string) ([]domain.Controller, error) {
+	controllers, _, err := ExtractWithParams(paths)
+	return controllers, err
+}
+
+// ActionParams maps a controller FQN to that controller's action-parameter
+// type-hints: action name → the type-hint short names of that action's typed
+// parameters, in declaration order (untyped parameters such as `$id` are
+// omitted, see phpast.ParamTypeNames). Only actions with at least one typed
+// parameter appear; a controller with no such actions is absent from the map.
+//
+// This is deliberately side data, kept OUT of domain.Controller's JSON contract
+// (ADR 0004): the shipped unlaravel.json shape is unchanged. The analyze step
+// (ADR 0006) consumes it to link a Route to a FormRequest — it resolves each
+// short type name through the controller file's `use` imports + the symbol
+// table, and when a resolved type is a known FormRequest FQN, the route that
+// dispatches to that action gains the FormRequest as its request body.
+//
+// The FQN key matches domain.Controller.FQN exactly (file namespace joined to
+// the class short name), so callers correlate the two by FQN. The inner map is
+// keyed by the same action names that appear in the Controller's Actions slice.
+type ActionParams map[string]map[string][]string
+
+// ExtractWithParams parses each PHP file at the given paths and returns both the
+// Controller nodes they declare (identical to Extract) AND an ActionParams side
+// map carrying each action's parameter type-hints for the FormRequest↔Route link
+// (ADR 0006). The Controller slice's JSON contract is unchanged; the type-hint
+// data travels alongside it rather than inside it, so unlaravel.json's shape is
+// untouched (ADR 0004).
+//
+// Controllers are returned in the same first-discovery order, with the same
+// per-file abort-on-read/parse-failure semantics, as Extract — Extract is a thin
+// wrapper that discards the second return value. The returned ActionParams is
+// always non-nil (empty when no action has a typed parameter).
+//
+// A class name that repeats across files would collide in the FQN-keyed
+// ActionParams; the same caveat applies to the symbol table (ADR 0006), which
+// resolves Route references by FQN, so this map is intended to be consumed
+// through that same FQN correlation and does no project-wide deduplication.
+func ExtractWithParams(paths []string) ([]domain.Controller, ActionParams, error) {
 	var controllers []domain.Controller
+	actionParams := make(ActionParams)
 
 	for _, path := range paths {
 		res, err := phpast.ParseFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("controller: extract %q: %w", path, err)
+			return nil, nil, fmt.Errorf("controller: extract %q: %w", path, err)
 		}
 
 		namespace := phpast.NamespaceName(res.Root)
@@ -74,10 +114,13 @@ func Extract(paths []string) ([]domain.Controller, error) {
 
 		for _, cb := range v.classes {
 			controllers = append(controllers, buildController(namespace, cb))
+			if len(cb.actionParams) > 0 {
+				actionParams[qualify(namespace, cb.name)] = cb.actionParams
+			}
 		}
 	}
 
-	return controllers, nil
+	return controllers, actionParams, nil
 }
 
 // ExtractDir discovers the PHP files under dir (recursively — Laravel nests
@@ -89,13 +132,23 @@ func Extract(paths []string) ([]domain.Controller, error) {
 // controller subdirectories carry namespace segments (Admin\PostController), and
 // dropping them would break the FQNs the symbol table resolves against.
 func ExtractDir(dir string) ([]domain.Controller, error) {
+	controllers, _, err := ExtractDirWithParams(dir)
+	return controllers, err
+}
+
+// ExtractDirWithParams is ExtractDir paired with ExtractWithParams: it discovers
+// the PHP files under dir recursively, sorts them for deterministic discovery
+// order, and returns both the Controller nodes and the ActionParams side map
+// (see ExtractWithParams) for the FormRequest↔Route link. ExtractDir is a thin
+// wrapper that discards the ActionParams.
+func ExtractDirWithParams(dir string) ([]domain.Controller, ActionParams, error) {
 	paths, err := discoverPHPFiles(dir)
 	if err != nil {
-		return nil, fmt.Errorf("controller: discover controllers dir %q: %w", dir, err)
+		return nil, nil, fmt.Errorf("controller: discover controllers dir %q: %w", dir, err)
 	}
 	sort.Strings(paths)
 
-	return Extract(paths)
+	return ExtractWithParams(paths)
 }
 
 // discoverPHPFiles walks dir recursively and returns the paths of every PHP

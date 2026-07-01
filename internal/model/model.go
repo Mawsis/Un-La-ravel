@@ -29,7 +29,11 @@ import (
 //
 // Bumped to 1.2.0 when the Routes slice added the "routes", "controllers", and
 // "dead_routes" arrays: another backward-compatible growth of the contract.
-const CurrentSchemaVersion = "1.2.0"
+//
+// Bumped to 1.3.0 when the FormRequest slice added the "form_requests" array
+// and the optional "form_request" field on each Route linking it to its
+// request class: another backward-compatible growth of the contract.
+const CurrentSchemaVersion = "1.3.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.
@@ -52,13 +56,14 @@ type ProjectModel struct {
 	Routes         []Route        `json:"routes"`
 	Controllers    []Controller   `json:"controllers"`
 	DeadRoutes     []DeadRoute    `json:"dead_routes"`
+	FormRequests   []FormRequest  `json:"form_requests"`
 }
 
 // New constructs a ProjectModel for the named project, stamping it with the
 // CurrentSchemaVersion. Every slice is initialized to a non-nil empty slice so
 // an analysis that finds none of a given kind serializes "schemas": [],
-// "models": [], "disagreements": [], "routes": [], "controllers": [], and
-// "dead_routes": [] rather than null.
+// "models": [], "disagreements": [], "routes": [], "controllers": [],
+// "dead_routes": [], and "form_requests": [] rather than null.
 func New(projectName, laravelVersion string) *ProjectModel {
 	return &ProjectModel{
 		SchemaVersion:  CurrentSchemaVersion,
@@ -70,6 +75,7 @@ func New(projectName, laravelVersion string) *ProjectModel {
 		Routes:         []Route{},
 		Controllers:    []Controller{},
 		DeadRoutes:     []DeadRoute{},
+		FormRequests:   []FormRequest{},
 	}
 }
 
@@ -118,6 +124,14 @@ func (p *ProjectModel) AddController(c Controller) *ProjectModel {
 // the serialized output.
 func (p *ProjectModel) AddDeadRoute(d DeadRoute) *ProjectModel {
 	p.DeadRoutes = append(p.DeadRoutes, d)
+	return p
+}
+
+// AddFormRequest appends a FormRequest to the model in discovery order and
+// returns the receiver so calls can be chained. Insertion order is meaningful
+// and is preserved in the serialized output.
+func (p *ProjectModel) AddFormRequest(f FormRequest) *ProjectModel {
+	p.FormRequests = append(p.FormRequests, f)
 	return p
 }
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.2.0",
+  "schema_version": "1.3.0",
   "project_name": "acme/blog",
   "laravel_version": "^11.0",
   "schemas": [
@@ -233,7 +233,8 @@
         "auth"
       ],
       "name": "posts.store",
-      "fqn": "App\\Http\\Controllers\\PostController"
+      "fqn": "App\\Http\\Controllers\\PostController",
+      "form_request": "App\\Http\\Requests\\StorePostRequest"
     },
     {
       "method": "GET",
@@ -362,6 +363,76 @@
       "action": "destroy",
       "reason": "action \"destroy\" not found on controller \"App\\Http\\Controllers\\UserController\"",
       "kind": "missing_action"
+    }
+  ],
+  "form_requests": [
+    {
+      "name": "StorePostRequest",
+      "fqn": "App\\Http\\Requests\\StorePostRequest",
+      "fields": [
+        {
+          "name": "title",
+          "rules": [
+            {
+              "name": "required"
+            },
+            {
+              "name": "string"
+            },
+            {
+              "name": "max",
+              "args": [
+                "255"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "body",
+          "rules": [
+            {
+              "name": "required"
+            },
+            {
+              "name": "string"
+            }
+          ]
+        },
+        {
+          "name": "published",
+          "rules": [
+            {
+              "name": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "status",
+          "rules": [
+            {
+              "name": "nullable"
+            },
+            {
+              "name": "in",
+              "args": [
+                "draft",
+                "published"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tags",
+          "rules": [
+            {
+              "name": "nullable"
+            },
+            {
+              "name": "alpha_dash"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

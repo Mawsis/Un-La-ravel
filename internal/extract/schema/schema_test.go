@@ -11,8 +11,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mawsis/unlaravel/internal/extract/schema"
-	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/extract/schema"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // fk is a small helper to build a non-nil *ForeignKeyRef in expectations.

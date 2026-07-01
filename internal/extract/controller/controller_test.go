@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	domain "github.com/mawsis/unlaravel/internal/model"
+	domain "github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // The fixtures under testdata/ each isolate one behaviour of the extractor: the

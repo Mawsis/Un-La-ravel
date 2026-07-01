@@ -16,8 +16,8 @@ import (
 	"reflect"
 	"testing"
 
-	extractmodel "github.com/mawsis/unlaravel/internal/extract/model"
-	domain "github.com/mawsis/unlaravel/internal/model"
+	extractmodel "github.com/Mawsis/Un-La-ravel/internal/extract/model"
+	domain "github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // rel is a terse constructor for an expected Relationship; the variadic keys let

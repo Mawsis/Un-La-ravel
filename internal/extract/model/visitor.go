@@ -5,8 +5,8 @@ import (
 
 	"github.com/VKCOM/php-parser/pkg/ast"
 
-	domain "github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/phpast"
+	domain "github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // This file contains the only AST-aware code in the package. Per ADR 0003 the

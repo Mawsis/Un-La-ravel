@@ -23,8 +23,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/phpast"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // routeGlob matches PHP source files within a routes directory.

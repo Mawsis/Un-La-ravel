@@ -3,7 +3,7 @@ package symbol
 import (
 	"fmt"
 
-	"github.com/mawsis/unlaravel/internal/phpast"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // AddFile parses the PHP file at path and adds its declarations and imports to

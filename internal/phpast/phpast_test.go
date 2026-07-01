@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 	"github.com/VKCOM/php-parser/pkg/ast"
-	"github.com/mawsis/unlaravel/internal/phpast"
 )
 
 // migrationSnippet is a minimal modern-Laravel migration. It is intentionally

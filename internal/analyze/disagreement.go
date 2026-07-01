@@ -19,7 +19,7 @@ package analyze
 import (
 	"fmt"
 
-	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // FindDisagreements correlates the extracted Models against the extracted

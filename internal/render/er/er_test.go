@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // update regenerates the golden file when the test is run with -update:

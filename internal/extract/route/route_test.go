@@ -23,8 +23,8 @@ import (
 	"strings"
 	"testing"
 
-	extractroute "github.com/mawsis/unlaravel/internal/extract/route"
-	domain "github.com/mawsis/unlaravel/internal/model"
+	extractroute "github.com/Mawsis/Un-La-ravel/internal/extract/route"
+	domain "github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // rt is a terse constructor for an expected Route. The variadic middleware keeps

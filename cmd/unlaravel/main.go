@@ -6,7 +6,7 @@ package main
 import (
 	"os"
 
-	"github.com/mawsis/unlaravel/internal/cli"
+	"github.com/Mawsis/Un-La-ravel/internal/cli"
 )
 
 func main() {

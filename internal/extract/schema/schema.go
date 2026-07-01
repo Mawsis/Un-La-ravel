@@ -17,8 +17,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/phpast"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // migrationGlob matches Laravel migration files within a migrations directory.

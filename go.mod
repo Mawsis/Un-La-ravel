@@ -1,4 +1,4 @@
-module github.com/mawsis/unlaravel
+module github.com/Mawsis/Un-La-ravel
 
 go 1.18
 

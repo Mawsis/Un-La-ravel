@@ -3,7 +3,7 @@ package symbol
 import (
 	"testing"
 
-	"github.com/mawsis/unlaravel/internal/phpast"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // mustRoot parses PHP source into an AST root, failing the test on a

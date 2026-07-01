@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // tableWithColumns is a small helper that builds a model.Table carrying the

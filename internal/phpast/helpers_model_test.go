@@ -3,8 +3,8 @@ package phpast_test
 import (
 	"testing"
 
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 	"github.com/VKCOM/php-parser/pkg/ast"
-	"github.com/mawsis/unlaravel/internal/phpast"
 )
 
 // modelSnippet is a minimal Eloquent model: a class with an explicit $table

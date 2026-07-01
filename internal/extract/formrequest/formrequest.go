@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	domain "github.com/mawsis/unlaravel/internal/model"
-	"github.com/mawsis/unlaravel/internal/phpast"
+	domain "github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 )
 
 // formRequestBase is the short name of the Laravel base class every FormRequest

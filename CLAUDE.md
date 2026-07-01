@@ -92,15 +92,18 @@ This approach ensures hands-on learning while maintaining code quality and Go be
 **Key Dependencies:**
 ```go
 // Core parsing and analysis
-"github.com/go-ast-php/php-parser-go"  // PHP AST parsing
+"github.com/VKCOM/php-parser"          // PHP AST parsing (static analysis, never boots Laravel — ADR 0003)
 "regexp"                               // Built-in regex for pattern matching
 "path/filepath"                        // File system operations
 "encoding/json"                        // JSON parsing for configs
 
-// Database
-"gorm.io/gorm"                        // ORM for data models
-"gorm.io/driver/sqlite"               // SQLite driver
-"gorm.io/driver/postgres"             // PostgreSQL driver
+// Database — DEFERRED. The MVP has NO database (ADR 0007): the Project Model
+// lives in memory during a run and serializes to JSON (unlaravel.json). The
+// GORM/SQLite/PostgreSQL stack below is deferred to a future hosted web
+// service and is NOT a dependency of the CLI.
+// "gorm.io/gorm"                     // (deferred) ORM for data models
+// "gorm.io/driver/sqlite"           // (deferred) SQLite driver
+// "gorm.io/driver/postgres"         // (deferred) PostgreSQL driver
 
 // CLI and utilities
 "github.com/spf13/cobra"              // CLI framework
@@ -109,18 +112,21 @@ This approach ensures hands-on learning while maintaining code quality and Go be
 "golang.org/x/sync/errgroup"          // Concurrent error handling
 ```
 
-**Database Strategy:**
-- **SQLite**: Local analysis cache, relationship storage, fast queries
-- **PostgreSQL**: Multi-project analysis, team collaboration features
-- **GORM Models**: Type-safe database operations with migrations
+**Database Strategy (DEFERRED — see ADR 0007):**
+The MVP intentionally has **no database**. The Project Model is built in memory
+and serialized to JSON (`unlaravel.json`, the versioned public contract — ADR
+0004). The store below is deferred to a possible future hosted web service:
+- **SQLite** _(deferred)_: Local analysis cache, relationship storage
+- **PostgreSQL** _(deferred)_: Multi-project analysis, team collaboration
+- **GORM Models** _(deferred)_: Type-safe database operations with migrations
 
 ### Core Architecture
-- **Static Analysis Engine**: PHP AST parsing for deep code analysis
-- **Database Introspection**: Schema analysis through database connections  
+- **Static Analysis Engine**: PHP AST parsing for deep code analysis (never boots Laravel — ADR 0003)
+- **Schema Analysis**: Tables/columns parsed statically from `database/migrations/*.php` AST (no live DB connection — ADR 0007)
 - **Configuration Parsing**: Laravel config and environment analysis
-- **Route Discovery**: Dynamic route analysis through Laravel's routing system
+- **Route Discovery**: Static route analysis (deferred — not in this slice)
 - **Concurrent Processing**: Goroutines for parallel file analysis
-- **Caching System**: SQLite-based incremental analysis caching
+- **In-Memory Model + JSON**: The Project Model lives in memory and serializes to `unlaravel.json` (no database — ADR 0007)
 
 ### Output Formats
 - **Interactive Web Dashboard**: Real-time analysis results with filtering and search

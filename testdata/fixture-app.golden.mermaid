@@ -1,0 +1,31 @@
+erDiagram
+	CATEGORIES ||--o{ POSTS : "posts (hasMany)"
+	POSTS }o--|| USERS : "author (belongsTo)"
+	POSTS }o--|| CATEGORIES : "category (belongsTo)"
+	POSTS }o--|| USERS : "editor (belongsTo)"
+	USERS ||--o{ POSTS : "posts (hasMany)"
+	USERS {
+		bigInteger id PK
+		string name
+		string email
+		timestamp email_verified_at
+		timestamp created_at
+		timestamp updated_at
+	}
+	POSTS {
+		bigInteger id PK
+		bigInteger user_id FK
+		string title
+		text body
+		boolean published
+		timestamp created_at
+		timestamp updated_at
+		bigInteger category_id FK
+	}
+	CATEGORIES {
+		bigInteger id PK
+		string name
+		string slug
+		timestamp created_at
+		timestamp updated_at
+	}

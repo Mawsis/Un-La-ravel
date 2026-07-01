@@ -1,0 +1,292 @@
+package cli
+
+// End-to-end / integration test (PRD user story 25): it exercises the WHOLE
+// analysis chain — detect → parse → extract → model → JSON → render — against a
+// real fixture Laravel app on disk and pins the two public outputs (the
+// unlaravel.json contract, ADR 0004, and the Mermaid ER diagram) to committed
+// golden files. If any link in the chain regresses, the golden comparison
+// fails, so this single test guards the seam the rest of the tool is built on.
+//
+// Regenerate the goldens after an intentional output change with:
+//
+//	go test ./internal/cli -run TestE2E -update
+//
+// Review the resulting diff carefully — the goldens ARE the contract.
+
+import (
+	"flag"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/mawsis/unlaravel/internal/analyze"
+	"github.com/mawsis/unlaravel/internal/detector"
+	modelextract "github.com/mawsis/unlaravel/internal/extract/model"
+	"github.com/mawsis/unlaravel/internal/extract/schema"
+	"github.com/mawsis/unlaravel/internal/model"
+	"github.com/mawsis/unlaravel/internal/render/er"
+)
+
+// updateGolden, set by `-update`, rewrites the golden files instead of asserting
+// against them. It is opt-in so a normal `go test` run can never mutate them.
+var updateGolden = flag.Bool("update", false, "regenerate golden files instead of comparing")
+
+const (
+	// fixtureAppRel is the fixture Laravel app, relative to the repo root.
+	fixtureAppRel = "testdata/fixture-app"
+	// goldenJSONRel / goldenMermaidRel are the committed golden outputs.
+	goldenJSONRel    = "testdata/fixture-app.golden.json"
+	goldenMermaidRel = "testdata/fixture-app.golden.mermaid"
+)
+
+// TestE2E_FixtureApp_Pipeline runs the full pipeline against the fixture app and
+// asserts both public outputs match their golden files byte-for-byte.
+func TestE2E_FixtureApp_Pipeline(t *testing.T) {
+	root := repoRoot(t)
+	fixtureApp := filepath.Join(root, fixtureAppRel)
+
+	pm := analyzeFixture(t, fixtureApp)
+
+	gotJSON, err := pm.ToJSON()
+	if err != nil {
+		t.Fatalf("serialize project model to JSON: %v", err)
+	}
+	// ToJSON omits the trailing newline; goldens are stored with one so they are
+	// clean POSIX text files and diff nicely.
+	gotJSON = append(gotJSON, '\n')
+
+	gotMermaid := []byte(er.Render(pm))
+
+	assertGolden(t, filepath.Join(root, goldenJSONRel), gotJSON)
+	assertGolden(t, filepath.Join(root, goldenMermaidRel), gotMermaid)
+}
+
+// TestE2E_FixtureApp_ModelShape asserts the structural facts that make the
+// golden files meaningful, so a careless `-update` that silently corrupts the
+// extraction still fails here. It checks the canonical Schema set (users, posts,
+// categories) and that the cross-file ALTER merged category_id into posts.
+func TestE2E_FixtureApp_ModelShape(t *testing.T) {
+	root := repoRoot(t)
+	pm := analyzeFixture(t, filepath.Join(root, fixtureAppRel))
+
+	if got, want := pm.ProjectName, "acme/blog"; got != want {
+		t.Errorf("project name = %q, want %q", got, want)
+	}
+	// The detector surfaces the raw composer constraint for laravel/framework
+	// ("^11.0" here); it does not normalize to a bare major. This pins the
+	// detector→model wiring exactly as the existing (out-of-scope) detector
+	// behaves, so the e2e test documents the real contract rather than an
+	// idealized one.
+	if got, want := pm.LaravelVersion, "^11.0"; got != want {
+		t.Errorf("laravel version = %q, want %q", got, want)
+	}
+
+	wantTables := []string{"users", "posts", "categories"}
+	gotTables := tableNames(pm)
+	if !equalStrings(gotTables, wantTables) {
+		t.Fatalf("tables = %v, want %v", gotTables, wantTables)
+	}
+
+	posts := findTable(t, pm, "posts")
+	// The ALTER migration (add_category_id_to_posts_table) must have merged
+	// category_id onto the end of the existing posts table.
+	wantPostCols := []string{
+		"id", "user_id", "title", "body", "published",
+		"created_at", "updated_at", "category_id",
+	}
+	if got := columnNames(posts); !equalStrings(got, wantPostCols) {
+		t.Errorf("posts columns = %v, want %v", got, wantPostCols)
+	}
+	if last := posts.Columns[len(posts.Columns)-1]; last.Name != "category_id" {
+		t.Errorf("expected category_id merged last onto posts, got %q", last.Name)
+	}
+}
+
+// TestE2E_FixtureApp_EloquentShape asserts the Eloquent half of the contract
+// that the goldens encode: the three Models (in lexical discovery order
+// Category, Post, User) with their relationships, and the single deliberate
+// Model↔Schema Disagreement (Post.editor referencing the missing editor_id
+// column). A careless -update that corrupts model extraction or the correlation
+// still fails here.
+func TestE2E_FixtureApp_EloquentShape(t *testing.T) {
+	root := repoRoot(t)
+	pm := analyzeFixture(t, filepath.Join(root, fixtureAppRel))
+
+	wantModels := []string{"Category", "Post", "User"}
+	if got := modelNames(pm); !equalStrings(got, wantModels) {
+		t.Fatalf("models = %v, want %v", got, wantModels)
+	}
+
+	post := findModel(t, pm, "Post")
+	wantRels := []model.Relationship{
+		{Kind: "belongsTo", Method: "author", Target: "User", ForeignKey: "user_id"},
+		{Kind: "belongsTo", Method: "category", Target: "Category"},
+		{Kind: "belongsTo", Method: "editor", Target: "User", ForeignKey: "editor_id"},
+	}
+	if got := post.Relationships; !equalRelationships(got, wantRels) {
+		t.Errorf("Post relationships = %+v, want %+v", got, wantRels)
+	}
+
+	// Exactly one Disagreement: Post.editor's explicit editor_id FK never
+	// created on the posts table.
+	if got, want := len(pm.Disagreements), 1; got != want {
+		t.Fatalf("disagreements count = %d, want %d: %+v", got, want, pm.Disagreements)
+	}
+	d := pm.Disagreements[0]
+	if d.Model != "Post" || d.Relationship != "editor" || d.Kind != model.DisagreementMissingFKColumn {
+		t.Errorf("disagreement = %+v, want Post/editor/%s", d, model.DisagreementMissingFKColumn)
+	}
+}
+
+// analyzeFixture drives the same pipeline analyzeProject runs (detect → extract
+// schema → extract models → correlate disagreements → assemble model), but
+// headlessly, returning the assembled Project Model. It mirrors the production
+// orchestration so the goldens pin what the real binary emits.
+func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
+	t.Helper()
+
+	project, err := detector.DetectLaravel(fixtureApp)
+	if err != nil {
+		t.Fatalf("detect Laravel project at %s: %v", fixtureApp, err)
+	}
+
+	migrationsDir := filepath.Join(fixtureApp, "database", "migrations")
+	tables, err := schema.ExtractDir(migrationsDir)
+	if err != nil {
+		t.Fatalf("extract schema from %s: %v", migrationsDir, err)
+	}
+
+	modelsDir := filepath.Join(fixtureApp, "app", "Models")
+	models, err := modelextract.ExtractDir(modelsDir)
+	if err != nil {
+		t.Fatalf("extract models from %s: %v", modelsDir, err)
+	}
+
+	disagreements := analyze.FindDisagreements(models, tables)
+
+	pm := model.New(project.ComposerAnalysis.ProjectName, project.Version)
+	for _, tb := range tables {
+		pm.AddTable(tb)
+	}
+	for _, m := range models {
+		pm.AddModel(m)
+	}
+	for _, d := range disagreements {
+		pm.AddDisagreement(d)
+	}
+	return pm
+}
+
+// assertGolden compares got against the file at path. With -update it writes got
+// to path and reports success; otherwise it fails on any byte difference.
+func assertGolden(t *testing.T, path string, got []byte) {
+	t.Helper()
+
+	if *updateGolden {
+		if err := os.WriteFile(path, got, 0o644); err != nil {
+			t.Fatalf("update golden %s: %v", path, err)
+		}
+		t.Logf("updated golden %s", path)
+		return
+	}
+
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read golden %s: %v (run with -update to create it)", path, err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("output does not match golden %s\n--- got ---\n%s\n--- want ---\n%s",
+			path, got, want)
+	}
+}
+
+// repoRoot walks up from the test's working directory until it finds go.mod,
+// returning the module root so testdata paths resolve no matter which package
+// directory `go test` is invoked from.
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatalf("could not locate go.mod above %s", dir)
+		}
+		dir = parent
+	}
+}
+
+func tableNames(pm *model.ProjectModel) []string {
+	names := make([]string, 0, len(pm.Schemas))
+	for _, t := range pm.Schemas {
+		names = append(names, t.Name)
+	}
+	return names
+}
+
+func columnNames(t model.Table) []string {
+	names := make([]string, 0, len(t.Columns))
+	for _, c := range t.Columns {
+		names = append(names, c.Name)
+	}
+	return names
+}
+
+func findTable(t *testing.T, pm *model.ProjectModel, name string) model.Table {
+	t.Helper()
+	for _, tb := range pm.Schemas {
+		if tb.Name == name {
+			return tb
+		}
+	}
+	t.Fatalf("table %q not found in model", name)
+	return model.Table{}
+}
+
+func modelNames(pm *model.ProjectModel) []string {
+	names := make([]string, 0, len(pm.Models))
+	for _, m := range pm.Models {
+		names = append(names, m.Name)
+	}
+	return names
+}
+
+func findModel(t *testing.T, pm *model.ProjectModel, name string) model.Model {
+	t.Helper()
+	for _, m := range pm.Models {
+		if m.Name == name {
+			return m
+		}
+	}
+	t.Fatalf("model %q not found in project model", name)
+	return model.Model{}
+}
+
+func equalRelationships(a, b []model.Relationship) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}

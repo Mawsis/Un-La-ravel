@@ -1,0 +1,210 @@
+{
+  "schema_version": "1.1.0",
+  "project_name": "acme/blog",
+  "laravel_version": "^11.0",
+  "schemas": [
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "email_verified_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        }
+      ]
+    },
+    {
+      "name": "posts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false
+        },
+        {
+          "name": "user_id",
+          "type": "bigInteger",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "published",
+          "type": "boolean",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "category_id",
+          "type": "bigInteger",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true
+        }
+      ]
+    },
+    {
+      "name": "categories",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        }
+      ]
+    }
+  ],
+  "models": [
+    {
+      "name": "Category",
+      "table": "categories",
+      "relationships": [
+        {
+          "kind": "hasMany",
+          "method": "posts",
+          "target": "Post"
+        }
+      ]
+    },
+    {
+      "name": "Post",
+      "table": "posts",
+      "relationships": [
+        {
+          "kind": "belongsTo",
+          "method": "author",
+          "target": "User",
+          "foreign_key": "user_id"
+        },
+        {
+          "kind": "belongsTo",
+          "method": "category",
+          "target": "Category"
+        },
+        {
+          "kind": "belongsTo",
+          "method": "editor",
+          "target": "User",
+          "foreign_key": "editor_id"
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "table": "users",
+      "relationships": [
+        {
+          "kind": "hasMany",
+          "method": "posts",
+          "target": "Post"
+        }
+      ]
+    }
+  ],
+  "disagreements": [
+    {
+      "model": "Post",
+      "relationship": "editor",
+      "reason": "foreign key column \"editor_id\" not found on table \"posts\"",
+      "kind": "missing_fk_column"
+    }
+  ]
+}

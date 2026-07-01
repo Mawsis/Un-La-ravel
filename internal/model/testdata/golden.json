@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.1.0",
+  "project_name": "blog",
+  "laravel_version": "11.x",
+  "schemas": [
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false
+        },
+        {
+          "name": "team_id",
+          "type": "bigInteger",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true,
+          "references": {
+            "table": "teams",
+            "column": "id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "posts",
+      "columns": []
+    }
+  ],
+  "models": [
+    {
+      "name": "Post",
+      "table": "posts",
+      "relationships": [
+        {
+          "kind": "belongsTo",
+          "method": "author",
+          "target": "User",
+          "foreign_key": "author_id"
+        },
+        {
+          "kind": "hasMany",
+          "method": "comments",
+          "target": "Comment"
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "table": "users",
+      "relationships": [
+        {
+          "kind": "hasMany",
+          "method": "posts",
+          "target": "Post"
+        },
+        {
+          "kind": "belongsToMany",
+          "method": "roles",
+          "target": "Role",
+          "foreign_key": "user_id",
+          "local_key": "id"
+        }
+      ]
+    }
+  ],
+  "disagreements": [
+    {
+      "model": "Post",
+      "relationship": "author",
+      "reason": "foreign key column \"author_id\" not found on table \"posts\"",
+      "kind": "missing_fk_column"
+    },
+    {
+      "model": "User",
+      "relationship": "roles",
+      "reason": "target model \"Role\" is not among the extracted models, so its table cannot be resolved",
+      "kind": "missing_table"
+    }
+  ]
+}

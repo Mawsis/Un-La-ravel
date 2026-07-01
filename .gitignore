@@ -4,7 +4,10 @@
 *.dll
 *.so
 *.dylib
-unlaravel
+# The built binary at the repo root ONLY. A bare "unlaravel" would also match
+# the cmd/unlaravel/ source directory and silently exclude the entrypoint from
+# git — so this pattern is anchored to the root with a leading slash.
+/unlaravel
 
 # Test binary, built with `go test -c`
 *.test

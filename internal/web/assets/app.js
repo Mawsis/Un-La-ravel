@@ -33,9 +33,18 @@
   };
 
   let lastRoutes = []; // for client-side filtering
+  let erPanZoom = null; // svg-pan-zoom instance for the current ER diagram
 
   if (window.mermaid) {
-    mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "dark",
+      securityLevel: "loose",
+      // useMaxWidth:false stops Mermaid shrinking a large diagram to the
+      // container width (which made big schemas unreadable); the SVG renders
+      // at natural size and svg-pan-zoom provides navigation instead.
+      er: { useMaxWidth: false },
+    });
   }
 
   // ---- data fetch -----------------------------------------------------------
@@ -118,6 +127,12 @@
   }
 
   async function renderER(mermaidSrc) {
+    // Tear down the previous pan-zoom instance before replacing the SVG,
+    // otherwise its listeners leak across analyses.
+    if (erPanZoom) {
+      erPanZoom.destroy();
+      erPanZoom = null;
+    }
     if (!mermaidSrc || !window.mermaid) {
       el.erDiagram.innerHTML = '<p class="hint">No schema to diagram.</p>';
       return;
@@ -125,6 +140,25 @@
     try {
       const { svg } = await mermaid.render("er-graph-" + Date.now(), mermaidSrc);
       el.erDiagram.innerHTML = svg;
+      const svgEl = el.erDiagram.querySelector("svg");
+      if (svgEl && window.svgPanZoom) {
+        // Fill the fixed-height container; pan-zoom drives the viewport.
+        svgEl.style.width = "100%";
+        svgEl.style.height = "100%";
+        svgEl.style.maxWidth = "none";
+        erPanZoom = svgPanZoom(svgEl, {
+          zoomEnabled: true,
+          panEnabled: true,
+          mouseWheelZoomEnabled: true,
+          dblClickZoomEnabled: true,
+          controlIconsEnabled: true,
+          fit: true,
+          center: true,
+          minZoom: 0.1,
+          maxZoom: 50,
+          zoomScaleSensitivity: 0.35,
+        });
+      }
     } catch (e) {
       // Fall back to showing the source if Mermaid can't parse it.
       el.erDiagram.innerHTML =

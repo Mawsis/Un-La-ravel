@@ -45,6 +45,17 @@ type Relationship struct {
 	LocalKey string `json:"local_key,omitempty"`
 }
 
+// Cast is one column's Eloquent attribute-cast declaration, sourced from
+// either a `protected $casts` property or (Laravel 11+) a `casts(): array`
+// method.
+type Cast struct {
+	// Column is the model attribute name being cast (for example
+	// "email_verified_at").
+	Column string `json:"column"`
+	// Type is the cast type (for example "datetime", "integer", "boolean").
+	Type string `json:"type"`
+}
+
 // Model is one Eloquent model class within the Project Model, extracted from a
 // class that extends an Eloquent base. Relationships preserve their
 // source-declaration order.
@@ -58,6 +69,35 @@ type Model struct {
 	// Relationships are the Eloquent associations declared on the model, in
 	// source-declaration order.
 	Relationships []Relationship `json:"relationships"`
+
+	// Fillable, Guarded, and Casts deliberately DEPART from this file's usual
+	// non-nil-slice convention (contrast Relationships above, and NewModel
+	// below). The nil-ness of Fillable and Guarded is load-bearing and carries
+	// distinct Laravel mass-assignment semantics that must survive to JSON and
+	// to any consumer of this Model:
+	//
+	//   - Fillable == nil AND Guarded == nil means the model declared NEITHER
+	//     property. Laravel's default in this state is guarded-by-omission:
+	//     mass assignment is fully protected until one of the two is set.
+	//   - Guarded == []string{} (non-nil, empty) means the source explicitly
+	//     wrote `protected $guarded = [];` — Laravel's documented "everything
+	//     is mass-assignable" escape hatch. This is a MATERIALLY DIFFERENT,
+	//     riskier state than Guarded == nil, and a future doctor/lint rule
+	//     needs to be able to tell the two apart from the JSON alone.
+	//   - The same nil-vs-empty distinction applies symmetrically to Fillable.
+	//
+	// Consequently, nothing in the extraction path (visitor, builder,
+	// buildModel) may coerce a nil Fillable or Guarded to []string{}, or vice
+	// versa. This is the one exception to the package's "non-nil slices by
+	// default" rule.
+	//
+	// Casts does NOT carry this exception: it stays non-nil-preferred
+	// (empty []Cast{} rather than nil) like Relationships, because there is no
+	// analogous distinct meaning to "the model declared an empty casts list"
+	// worth preserving.
+	Fillable []string `json:"fillable"`
+	Guarded  []string `json:"guarded"`
+	Casts    []Cast   `json:"casts"`
 }
 
 // Disagreement kinds. These are the stable machine-readable values written to
@@ -92,12 +132,16 @@ type Disagreement struct {
 	Kind string `json:"kind"`
 }
 
-// NewModel returns a Model with the given class name and a non-nil
-// Relationships slice, so JSON serialization yields "relationships": [] rather
-// than null for a model that has not yet had relationships appended.
+// NewModel returns a Model with the given class name and non-nil
+// Relationships and Casts slices, so JSON serialization yields
+// "relationships": [] and "casts": [] rather than null for a model that has
+// not yet had either appended. Fillable and Guarded are deliberately left at
+// their zero value (nil): per the field-level doc comment above, nil vs. an
+// empty slice is load-bearing for those two and must not be coerced here.
 func NewModel(name string) Model {
 	return Model{
 		Name:          name,
 		Relationships: []Relationship{},
+		Casts:         []Cast{},
 	}
 }

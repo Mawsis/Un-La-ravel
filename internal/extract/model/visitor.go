@@ -74,10 +74,20 @@ type modelVisitor struct {
 // order. It is the mutable working form; the caller converts it to an immutable
 // domain.Model. className is the class name; explicitTable is the value of an
 // explicit `protected $table` property when one is present (empty otherwise).
+//
+// fillable and guarded mirror domain.Model's nil-vs-empty contract exactly:
+// modelBuilder has no separate "declared" bool flags because the nil-ness of
+// the slice itself IS the signal. nil means the source declared neither
+// property; a non-nil (possibly empty) slice means it did. This state must
+// flow to buildModel uncoerced — see domain.Model's doc comment on Fillable
+// and Guarded for the full rationale.
 type modelBuilder struct {
 	className     string
 	explicitTable string
 	relationships []domain.Relationship
+	fillable      []string
+	guarded       []string
+	casts         []domain.Cast
 }
 
 // newModelVisitor returns a visitor ready to walk one file's AST.
@@ -107,24 +117,62 @@ func (v *modelVisitor) StmtClass(n *ast.StmtClass) {
 // relationship call inside its body is attributed to it. Methods of a
 // non-Eloquent class are still visited but harmless: current is nil, so no
 // relationship is recorded.
+//
+// A method literally named "casts" is additionally treated as Laravel 11's
+// `casts(): array` declaration: its returned array's key => string-value pairs
+// replace v.current.casts outright (not append), since a casts() method is the
+// framework's more specific, newer mechanism and wins over a same-model
+// `protected $casts` property regardless of which one the visitor happens to
+// reach first in source order.
 func (v *modelVisitor) StmtClassMethod(n *ast.StmtClassMethod) {
 	v.curMethod = phpast.IdentifierName(n.Name)
+
+	if v.current == nil || v.curMethod != "casts" {
+		return
+	}
+	v.current.casts = castsFromPairs(phpast.ArrayStringPairs(phpast.MethodReturnExpr(n)))
 }
 
-// StmtProperty captures an explicit table name from `protected $table = '...'`.
-// Only a string-literal initialiser on the $table property is recognised; any
-// other property is ignored. Properties outside an Eloquent class (current nil)
-// are skipped.
+// StmtProperty captures an explicit table name from `protected $table = '...'`,
+// and the mass-assignment / cast properties `$fillable`, `$guarded`, and
+// `$casts`. Only a string-literal initialiser on $table is recognised. For
+// $fillable and $guarded, phpast.ArrayStringItems is assigned directly to the
+// builder's slice: it returns nil when the RHS is not an array literal at all
+// (property "not declared" as an array — left nil, preserving the "not
+// declared" signal) and a non-nil, possibly-empty slice when the RHS IS an
+// array literal, including an empty one like `$guarded = []` (verified against
+// ArrayItems' — and by composition ArrayStringItems' — documented convention:
+// nil only for "not an *ast.ExprArray", non-nil empty for a zero-item array
+// literal). This is exactly the nil-vs-empty distinction domain.Model.Guarded
+// and .Fillable require, so no additional coercion is needed here. Properties
+// outside an Eloquent class (current nil) are skipped.
 func (v *modelVisitor) StmtProperty(n *ast.StmtProperty) {
 	if v.current == nil {
 		return
 	}
-	if phpast.VariableName(n.Var) != "table" {
-		return
+	switch phpast.VariableName(n.Var) {
+	case "table":
+		if s, ok := n.Expr.(*ast.ScalarString); ok {
+			v.current.explicitTable = strings.Trim(string(s.Value), `'"`)
+		}
+	case "fillable":
+		v.current.fillable = phpast.ArrayStringItems(n.Expr)
+	case "guarded":
+		v.current.guarded = phpast.ArrayStringItems(n.Expr)
+	case "casts":
+		v.current.casts = castsFromPairs(phpast.ArrayStringPairs(n.Expr))
 	}
-	if s, ok := n.Expr.(*ast.ScalarString); ok {
-		v.current.explicitTable = strings.Trim(string(s.Value), `'"`)
+}
+
+// castsFromPairs converts phpast.StringPair entries (as read from either a
+// $casts property array or a casts(): array method's returned array) into
+// domain.Cast values, preserving source order.
+func castsFromPairs(pairs []phpast.StringPair) []domain.Cast {
+	casts := make([]domain.Cast, 0, len(pairs))
+	for _, p := range pairs {
+		casts = append(casts, domain.Cast{Column: p.Key, Type: p.Value})
 	}
+	return casts
 }
 
 // ExprMethodCall handles an Eloquent relationship declaration of the form

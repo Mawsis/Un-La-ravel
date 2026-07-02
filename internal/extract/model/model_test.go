@@ -189,6 +189,91 @@ func TestExtract_emptyRelationshipsIsNonNil(t *testing.T) {
 	}
 }
 
+// TestExtract_MassAssignmentAndCasts pins the Fillable/Guarded/Casts extraction
+// contract, most importantly the nil-vs-empty-slice distinction on Fillable and
+// Guarded (see domain.Model's doc comment): nil means "not declared", a non-nil
+// (possibly empty) slice means "declared". reflect.DeepEqual-based helpers
+// elsewhere in this file do not reliably distinguish nil from empty, so the
+// nil-critical cases here use explicit `== nil` / `!= nil` checks instead.
+func TestExtract_MassAssignmentAndCasts(t *testing.T) {
+	t.Run("fillable_declared", func(t *testing.T) {
+		got := extractOne(t, "fillable.php")
+
+		if got.Fillable == nil {
+			t.Fatal("Fillable is nil; want a declared non-nil slice")
+		}
+		want := []string{"title", "body"}
+		if !reflect.DeepEqual(got.Fillable, want) {
+			t.Errorf("Fillable = %v, want %v", got.Fillable, want)
+		}
+		if got.Guarded != nil {
+			t.Errorf("Guarded = %v, want nil (not declared)", got.Guarded)
+		}
+	})
+
+	t.Run("guarded_declared_empty", func(t *testing.T) {
+		got := extractOne(t, "guarded_declared_empty.php")
+
+		if got.Guarded == nil {
+			t.Fatal("Guarded is nil; want a non-nil empty slice (explicit `$guarded = []`)")
+		}
+		if len(got.Guarded) != 0 {
+			t.Errorf("Guarded = %v, want empty", got.Guarded)
+		}
+		if got.Fillable != nil {
+			t.Errorf("Fillable = %v, want nil (not declared)", got.Fillable)
+		}
+	})
+
+	t.Run("no_mass_assignment_declared", func(t *testing.T) {
+		got := extractOne(t, "no_mass_assignment_declared.php")
+
+		if got.Fillable != nil {
+			t.Errorf("Fillable = %v, want nil (neither $fillable nor $guarded declared)", got.Fillable)
+		}
+		if got.Guarded != nil {
+			t.Errorf("Guarded = %v, want nil (neither $fillable nor $guarded declared)", got.Guarded)
+		}
+	})
+
+	t.Run("casts_property", func(t *testing.T) {
+		got := extractOne(t, "casts_property.php")
+
+		want := []domain.Cast{{Column: "email_verified_at", Type: "datetime"}}
+		if !reflect.DeepEqual(got.Casts, want) {
+			t.Errorf("Casts = %v, want %v", got.Casts, want)
+		}
+	})
+
+	t.Run("casts_method", func(t *testing.T) {
+		got := extractOne(t, "casts_method.php")
+
+		want := []domain.Cast{
+			{Column: "paid_at", Type: "datetime"},
+			{Column: "total", Type: "integer"},
+		}
+		if !reflect.DeepEqual(got.Casts, want) {
+			t.Errorf("Casts = %v, want %v", got.Casts, want)
+		}
+	})
+}
+
+// extractOne runs Extract on a single testdata file and returns its one
+// expected model, failing the test if extraction errors or does not yield
+// exactly one model.
+func extractOne(t *testing.T, file string) domain.Model {
+	t.Helper()
+
+	got, err := extractmodel.Extract([]string{filepath.Join("testdata", file)})
+	if err != nil {
+		t.Fatalf("Extract(%q) returned error: %v", file, err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("Extract(%q) returned %d models, want 1", file, len(got))
+	}
+	return got[0]
+}
+
 // TestExtractDir exercises the directory-discovery wrapper. ExtractDir sorts the
 // testdata files lexically, so this asserts on the full set by name rather than
 // pinning a brittle whole-slice order, while still checking a couple of exact
@@ -208,6 +293,7 @@ func TestExtractDir(t *testing.T) {
 	wantNames := []string{
 		"Author", "Comment", "Supplier", "User", "Order",
 		"Photo", "BlogPost", "Setting", "Box",
+		"Post", "Category", "Account", "Invoice", "Widget",
 	}
 	for _, name := range wantNames {
 		if _, ok := byName[name]; !ok {

@@ -1,184 +1,111 @@
-# Un(la)ravel - Laravel Project Analysis Tool
+# Un(la)ravel — Laravel Project Analysis Tool
 
-## Project Overview
-Un(la)ravel is a comprehensive analysis tool designed to "unravel" Laravel projects by providing deep insights into their structure, architecture, performance, and quality. It helps developers understand complex Laravel codebases through automated analysis and visual representations.
+Un(la)ravel statically analyzes a Laravel project — no booting, no `artisan`,
+no database connection, no `vendor/` required — and builds a single **Project
+Model** of its schema, Eloquent models, routes, controllers, and form
+requests. Every output (ER diagram, OpenAPI spec, route map, the interactive
+dashboard) is a thin renderer over that one model.
 
-## Core Philosophy
-The tool aims to make Laravel projects more transparent and maintainable by providing automated discovery and documentation of:
-- Project architecture and dependencies
-- Performance bottlenecks and optimization opportunities
-- Security patterns and potential vulnerabilities
-- Code quality and technical debt
+For the *why* behind these decisions, see the Obsidian vault at `vault/`:
+[Architecture Overview](vault/01%20-%20Architecture/Architecture%20Overview.md),
+the [ADR Index](vault/01%20-%20Architecture/ADRs/ADR%20Index.md), the domain
+[glossary](vault/02%20-%20Domain/CONTEXT.md), and the
+[Roadmap](vault/04%20-%20Roadmap/Roadmap.md). This file is the *what* and the
+conventions a change must respect.
 
-## Feature Categories
+## Architecture
 
-### 🗺️ Architecture & Structure Analysis
-- **Route Analysis**: Complete route mapping with middleware chains, parameter validation, and auto-generated Swagger documentation
-- **Database Schema Analysis**: ER diagram generation, migration history tracking, and relationship visualization
-- **Model Relationships**: Interactive relationship mapping with cardinality and constraint analysis
-- **Service Provider Mapping**: Container binding analysis and dependency injection visualization
-- **Middleware Flow**: Request/response pipeline visualization with authentication/authorization flows
-
-### 📊 Code Quality & Performance
-- **Performance Analysis**: N+1 query detection, slow route identification, and database optimization suggestions
-- **Code Quality Assessment**: Unused code detection, dead route identification, and technical debt analysis
-- **Dependency Analysis**: Composer package analysis, version conflict detection, and security vulnerability scanning
-- **Cache Usage Patterns**: Cache strategy analysis and optimization recommendations
-
-### 🔐 Security Analysis
-- **Authentication Flow Mapping**: Complete auth system visualization including guards, providers, and policies
-- **Authorization Analysis**: Policy mapping, gate analysis, and permission gap detection
-- **Security Vulnerability Scanning**: Known vulnerability detection in dependencies and code patterns
-- **CORS & Rate Limiting**: Configuration analysis and security posture assessment
-
-### 📋 Resource Mapping
-- **Request/Resource Mapping**: API resource transformation analysis and validation rule documentation
-- **Policy & Permission Mapping**: Authorization rule visualization and access control analysis  
-- **Event/Listener Analysis**: Event system mapping and listener dependency analysis
-- **Job Queue Analysis**: Background job mapping, worker configuration, and failure analysis
-
-### 🛠️ Development Tools
-- **Configuration Analysis**: Environment variable validation, config inconsistency detection
-- **Artisan Command Discovery**: Custom command documentation and usage analysis
-- **Migration Analysis**: Migration history, rollback safety analysis, and schema evolution tracking
-- **Blade Template Analysis**: Template dependency mapping and component usage analysis
-
-### 🚀 API & Integration
-- **API Documentation**: Auto-generated comprehensive API docs with request/response examples
-- **API Versioning**: Version detection and compatibility analysis
-- **Third-party Integration**: External service dependency mapping and webhook analysis
-- **Package Integration**: Laravel package usage analysis and compatibility assessment
-
-### 🧪 Testing & Quality Assurance
-- **Test Coverage Mapping**: Feature test coverage analysis and route testing gaps
-- **Test Quality Analysis**: Test organization and effectiveness assessment
-- **Environment Configuration**: Multi-environment setup validation and consistency checks
-
-### 📈 Technology Overview
-- **Stack Analysis**: Complete technology stack documentation and version analysis
-- **Performance Metrics**: Application performance profiling and bottleneck identification
-- **Deployment Analysis**: Server requirements, Docker configuration, and deployment pipeline analysis
-
-## Technical Implementation
-
-### Development Context
-**Note**: This project serves as a Go learning experience. All code will follow Go best practices and idiomatic patterns, with detailed explanations of:
-- Go project structure and organization patterns
-- Concurrency patterns (goroutines, channels, sync primitives)
-- Interface design and composition over inheritance
-- Error handling patterns and conventions
-- Testing strategies (unit tests, table-driven tests, benchmarks)
-- Dependency injection and clean architecture principles
-
-### Development Approach
-**Learning-Focused Development Process**:
-1. **Claude provides guidance**: Explains the next step, what to implement, and what to research
-2. **Developer implements**: Writes code based on the guidance and research
-3. **Claude reviews**: Provides feedback on code quality, Go idioms, and suggests improvements
-4. **Claude writes code only when explicitly requested** - focus is on learning through doing
-
-This approach ensures hands-on learning while maintaining code quality and Go best practices.
-
-### Tech Stack: Go + SQLite/PostgreSQL
-
-**Why Go:**
-- **Fast Compilation**: Quick iteration during development
-- **Excellent File I/O**: Built-in standard library optimized for file operations
-- **Performance**: Fast execution for parsing and regex operations
-- **Static Binaries**: Easy deployment across platforms
-- **Goroutines**: Efficient concurrent file processing
-- **Rich Ecosystem**: Mature libraries for parsing, databases, and CLI
-
-**Key Dependencies:**
-```go
-// Core parsing and analysis
-"github.com/VKCOM/php-parser"          // PHP AST parsing (static analysis, never boots Laravel — ADR 0003)
-"regexp"                               // Built-in regex for pattern matching
-"path/filepath"                        // File system operations
-"encoding/json"                        // JSON parsing for configs
-
-// Database — DEFERRED. The MVP has NO database (ADR 0007): the Project Model
-// lives in memory during a run and serializes to JSON (unlaravel.json). The
-// GORM/SQLite/PostgreSQL stack below is deferred to a future hosted web
-// service and is NOT a dependency of the CLI.
-// "gorm.io/gorm"                     // (deferred) ORM for data models
-// "gorm.io/driver/sqlite"           // (deferred) SQLite driver
-// "gorm.io/driver/postgres"         // (deferred) PostgreSQL driver
-
-// CLI and utilities
-"github.com/spf13/cobra"              // CLI framework
-"github.com/spf13/viper"              // Configuration management
-"github.com/fatih/color"              // Colored terminal output
-"golang.org/x/sync/errgroup"          // Concurrent error handling
+```
+Laravel source ──▶ PHP AST ──▶ Extractors ──▶ Project Model ──▶ unlaravel.json
+  (read-only)    (VKCOM/      (one per node)  (in-memory         (versioned
+                 php-parser)                   graph)             contract)
+                                                     │
+                                                     ├──▶ Mermaid ER diagram
+                                                     ├──▶ route map (+ dead routes)
+                                                     ├──▶ OpenAPI 3 spec
+                                                     └──▶ unlaravel serve (web dashboard)
 ```
 
-**Database Strategy (DEFERRED — see ADR 0007):**
-The MVP intentionally has **no database**. The Project Model is built in memory
-and serialized to JSON (`unlaravel.json`, the versioned public contract — ADR
-0004). The store below is deferred to a possible future hosted web service:
-- **SQLite** _(deferred)_: Local analysis cache, relationship storage
-- **PostgreSQL** _(deferred)_: Multi-project analysis, team collaboration
-- **GORM Models** _(deferred)_: Type-safe database operations with migrations
+```
+cmd/unlaravel/      entrypoint
+internal/
+  cli/              cobra commands — presentation only, no analysis logic
+  engine/           Analyze(path) → *model.ProjectModel; the one pipeline entry point
+  detector/         is-this-a-Laravel-project + composer.json parsing
+  phpast/           the ONLY package that imports the PHP parser (isolation layer)
+  symbol/           two-phase symbol table for cross-file reference resolution
+  extract/          one sub-package per node type (schema, model, route, controller, formrequest)
+  analyze/          correlation passes: disagreements, route resolution, form-request linking
+  model/            the Project Model types + versioned JSON contract (unlaravel.json)
+  render/           one sub-package per output view (er, openapi, routemap)
+  web/              unlaravel serve — localhost dashboard, JSON API over the same model
+testdata/           fixture Laravel app + golden outputs (pinned byte-for-byte)
+vault/              ADRs, domain glossary, roadmap — the decision record
+```
 
-### Core Architecture
-- **Static Analysis Engine**: PHP AST parsing for deep code analysis (never boots Laravel — ADR 0003)
-- **Schema Analysis**: Tables/columns parsed statically from `database/migrations/*.php` AST (no live DB connection — ADR 0007)
-- **Configuration Parsing**: Laravel config and environment analysis
-- **Route Discovery**: Static route analysis (deferred — not in this slice)
-- **Concurrent Processing**: Goroutines for parallel file analysis
-- **In-Memory Model + JSON**: The Project Model lives in memory and serializes to `unlaravel.json` (no database — ADR 0007)
+`engine.Analyze` is the only pipeline entry point; both the CLI and the web
+server call it and share the identical output. Nothing outside
+`internal/phpast` touches the PHP parser directly.
 
-### Output Formats
-- **Interactive Web Dashboard**: Real-time analysis results with filtering and search
-- **Exportable Reports**: PDF, HTML, and JSON format exports
-- **Visual Diagrams**: SVG/PNG exports for architecture diagrams
-- **API Documentation**: OpenAPI/Swagger format generation
+## Hard conventions
 
-### Integration Options
-- **CLI Tool**: Standalone command-line interface
-- **Laravel Package**: Installable Laravel package for existing projects
-- **Web Service**: Hosted analysis service for remote projects
-- **IDE Extensions**: Integration with popular IDEs (VSCode, PHPStorm)
+These are load-bearing, not style preferences. A change that violates one of
+these needs an ADR, not a one-line justification in a commit message.
 
-## Development Commands
+- **Determinism.** No Go map is ever marshaled into `unlaravel.json` or a
+  renderer's output. Struct field order is emitted-JSON order; slices
+  preserve source/discovery order. This is what makes golden-file tests
+  possible.
+- **The JSON contract is versioned.** Any shape change to `ProjectModel`
+  bumps `model.CurrentSchemaVersion` (semver) with a doc-comment paragraph
+  explaining the addition, in `internal/model/model.go`. Never hardcode the
+  version literal elsewhere.
+- **Non-nil empty slices.** Every `[]T` field on the model initializes to
+  `[]T{}`, not `nil`, so an empty result serializes as `[]` rather than
+  `null`. (One deliberate exception may exist where nil vs. empty is
+  semantically meaningful — e.g. Eloquent's `$guarded = []`; if you introduce
+  one, document it loudly in the same doc comment.)
+- **Static only.** The engine never shells out to `artisan`, never connects
+  to a database, never requires `vendor/`. This is why it works on legacy and
+  half-broken projects. See ADR 0003.
+- **Parser isolation.** All AST access goes through `internal/phpast`. If an
+  extractor needs a new AST traversal, add a helper there — don't reach into
+  `VKCOM/php-parser` node types directly from an extractor package.
+- **Golden-file discipline.** `testdata/fixture-app` plus its
+  `fixture-app.golden.*` files are the end-to-end contract test. Regenerate
+  goldens deliberately (most test files support a `-update` flag) and review
+  the diff — never regenerate blind.
+- **Vertical slices.** One PR ships one node type, one renderer, or one
+  command all the way through — not a partial layer across many. This is how
+  the six-node MVP got built without a long half-working stretch.
+- **Precision over coverage.** When a static heuristic risks false positives
+  (e.g. N+1 detection), it stays deferred until the false-positive rate is
+  provably low, rather than shipping something that makes the tool look
+  wrong. See ADR 0002.
+
+## Development commands
+
 ```bash
-# Run analysis on current Laravel project
-unlaravel analyze
+go build -o unlaravel ./cmd/unlaravel   # build the binary
+go build ./...                          # build everything
+go test ./... -race -cover              # full suite, race-clean, with coverage
+gofmt -l cmd/ internal/                 # formatting check (CI-enforced)
+go vet ./...                            # static analysis (CI-enforced)
 
-# Generate specific analysis reports
-unlaravel routes --swagger
-unlaravel database --diagram
-unlaravel performance --optimize
-
-# Export analysis results
-unlaravel export --format=pdf --output=analysis.pdf
-
-# Development commands
-go build -o unlaravel ./cmd/unlaravel    # Build binary
-go test ./...                            # Run all tests
-go mod tidy                              # Clean up dependencies
-go run ./cmd/unlaravel analyze           # Run during development
-
-# Go learning resources integrated into development
-# - Code comments explaining Go idioms and patterns
-# - Example tests demonstrating Go testing conventions
-# - Documentation of design decisions and Go best practices
+./unlaravel analyze ./testdata/fixture-app              # try it on the bundled fixture
+./unlaravel analyze ./testdata/fixture-app --output model.json --openapi openapi.json
+./unlaravel serve                                       # interactive dashboard on :4448
 ```
 
-## Use Cases
-- **Legacy Code Understanding**: Rapidly understand inherited Laravel projects
-- **Code Review Assistance**: Identify potential issues before deployment
-- **Performance Optimization**: Find and fix performance bottlenecks
-- **Documentation Generation**: Auto-generate comprehensive project documentation
-- **Security Auditing**: Identify security vulnerabilities and misconfigurations
-- **Refactoring Planning**: Understand dependencies before making changes
+## Working conventions
 
-## Future Enhancements
-- **AI-Powered Insights**: Machine learning for code pattern analysis and recommendations
-- **Real-time Monitoring**: Live performance monitoring integration
-- **Team Collaboration**: Multi-developer analysis sharing and collaboration features
-- **Custom Rule Engine**: User-defined analysis rules and quality gates
-- **Integration Ecosystem**: Plugins for CI/CD, monitoring tools, and project management systems
-
-## Memories
-- Awlays explain what you want to do and do it step by step asking me about the next step
+- Commit messages: `<type>: <description>` (feat, fix, refactor, docs, test,
+  chore, perf, ci), explaining *why* over *what*.
+- One PR per vertical slice, following the existing merged-PR history for
+  scope and description style.
+- A contract change (new/changed field on `ProjectModel`) is not complete
+  until the version bump, the golden-file regeneration, and the affected
+  renderer tests all land in the same PR.
+- New ADR-worthy decisions get a file in `vault/01 - Architecture/ADRs/`,
+  following the existing `NNNN-kebab-case.md` numbering, plus a row in the
+  ADR Index.

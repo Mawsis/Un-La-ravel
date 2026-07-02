@@ -58,6 +58,13 @@ The six-node MVP node set is **COMPLETE** — every extractor slots into the pro
 - [x] `render/openapi` — OpenAPI 3 spec from Route + Controller + FormRequest, via `analyze --openapi <path>`. Pairs with Swagger UI for a demo.
 - [ ] `render/report` — Markdown architecture report (routes, middleware, models, schema).
 
+### ✅ Milestone 3.5 — Interactive web dashboard (`unlaravel serve`)
+Originally listed under Deferred as out of scope for the "CLI + package" done-definition — built anyway as a local dev tool once the engine was extracted from the CLI, since it's just another consumer of the same Project Model (ADR 0001/0004).
+- [x] `internal/engine` — `Analyze(path) (*model.ProjectModel, error)`, the pipeline extracted out of the CLI so both `analyze` and `serve` share one entry point.
+- [x] `internal/web` — `net/http` + JSON API (`/api/analyze`, `/api/er`, `/api/openapi`), localhost-only, embedded single-page dashboard.
+- [x] ER diagram (Mermaid, pan/zoom via svg-pan-zoom for large schemas), filterable route table with dead-route highlighting, Swagger UI over the generated OpenAPI spec, findings panel.
+- [x] All dashboard JS assets (Mermaid, svg-pan-zoom, Swagger UI) vendored into the binary via `go:embed` — the dashboard works fully offline.
+
 ### Milestone 4 — Polish for portfolio
 - [ ] Killer README: GIF demo, generated-output samples, install instructions.
 - [ ] `go install` / Homebrew tap / GoReleaser for binaries.
@@ -68,6 +75,16 @@ The six-node MVP node set is **COMPLETE** — every extractor slots into the pro
 - [ ] Binary distribution via post-install download hook (platform-specific).
 - [ ] Publish to Packagist.
 
+### Milestone 6 — From MVP to professional toolkit
+Four flagship capabilities, all consuming the existing Project Model — no re-architecture, per ADR 0001. Each is its own vertical slice/PR.
+- [ ] Engine deepening I: `$fillable`/`$guarded`/`$casts` on Model, `indexes` on Table → contract `1.4.0`.
+- [ ] Shared query layer (`internal/query`) + `unlaravel why` / `unlaravel trace` → contract `1.5.0` (route-model-binding edges). New ADR 0008.
+- [ ] Findings model (`internal/findings`) + `unlaravel doctor` + middleware alias extraction → contract `1.6.0`. New ADR 0009.
+- [ ] AI integration: `unlaravel mcp` (official `modelcontextprotocol/go-sdk`, read-only tools wrapping the query layer) + `unlaravel context`. New ADR 0010.
+- [ ] CI guardrails: `unlaravel check` (exit-code gate) + `unlaravel diff` (structural changelog between two `unlaravel.json` snapshots).
+- [ ] _(optional, cuttable)_ Through/polymorphic relationship kinds → contract `1.7.0`.
+- [ ] Distribution: GoReleaser + Homebrew tap, then the Laravel Composer package in a separate repo. New ADR 0011.
+
 ## Deferred (explicitly out of MVP)
 
 | Item | Why deferred | Becomes |
@@ -75,7 +92,6 @@ The six-node MVP node set is **COMPLETE** — every extractor slots into the pro
 | **API Resource** node ([[CONTEXT]]) | `toArray()` shapes need real PHP expression analysis | A future Extractor → richer OpenAPI responses |
 | **N+1 / Hotspot** analysis | Static detection has high false-positive risk that makes the tool look *wrong* | A future Extractor + report section, once precision is provable |
 | **Artisan enrichment** (Option D, [[ADR 0003 - Static analysis without booting Laravel|ADR 0003]]) | Optional cross-check when app is bootable | Opt-in flag, never required |
-| **Web dashboard** | Out of scope for "CLI + package" done-definition | Consumes the same `unlaravel.json` ([[ADR 0004 - Serialized Project Model as output contract|ADR 0004]]) |
 
 ## Watch-items / known risks
 

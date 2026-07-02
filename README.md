@@ -71,7 +71,7 @@ The box-and-column structure comes from your **migrations**. The relationship li
 
 ## 🚀 Quick start
 
-Requires [Go 1.18+](https://go.dev/dl/).
+Requires [Go 1.25+](https://go.dev/dl/).
 
 ```bash
 # Build the binary
@@ -163,6 +163,21 @@ That dead route is a real bug the tool finds statically — an endpoint that wou
 
 ---
 
+## 🖥️ Interactive dashboard — `unlaravel serve`
+
+Everything above is also available as a local web dashboard — the same Project Model, browsed instead of piped to stdout:
+
+```bash
+./unlaravel serve
+# → http://localhost:4448
+```
+
+Point it at any local Laravel project and get a pannable/zoomable ER diagram (Mermaid + svg-pan-zoom, so large schemas stay readable), a filterable route table with dead routes highlighted, a Swagger UI view over the generated OpenAPI spec, and a findings panel (dead routes + disagreements). It's `net/http` + one static-file server — no build step, no separate frontend project — and every asset (Mermaid, svg-pan-zoom, Swagger UI) is vendored into the binary via `go:embed`, so the dashboard works fully offline.
+
+The dashboard binds to `127.0.0.1` only: it's a local developer tool, not a public service. `--port` overrides the default `4448`.
+
+---
+
 ## 🧩 The `unlaravel.json` contract
 
 The engine's real output is a single, versioned JSON document — every other view is a renderer over it. A machine-readable map of any Laravel app:
@@ -207,6 +222,7 @@ Laravel source ──▶ PHP AST ──▶ Extractors ──▶ Project Model �
                                                      ├──▶ Mermaid ER diagram
                                                      ├──▶ route map (+ dead routes)
                                                      ├──▶ OpenAPI 3 spec
+                                                     ├──▶ unlaravel serve (web dashboard)
                                                      └──▶ (Markdown report — roadmap)
 ```
 
@@ -235,6 +251,7 @@ The **six-node MVP is complete** — all six node types extract through one Proj
 | **OpenAPI 3** spec renderer (→ Swagger UI) | ✅ Done |
 | **Disagreement** findings (Model ↔ Schema) | ✅ Done |
 | `unlaravel.json` versioned contract (`1.3.0`) | ✅ Done |
+| **Interactive web dashboard** (`unlaravel serve`) | ✅ Done |
 | Markdown architecture report | 🔜 Roadmap |
 | Laravel/Composer package (`artisan unlaravel:analyze`) | 🔜 Roadmap |
 | API Resource (response schemas) · N+1 / performance analysis | 🧊 Deferred |
@@ -257,12 +274,16 @@ The codebase is laid out by responsibility:
 ```
 cmd/unlaravel/      entrypoint
 internal/
+  cli/              cobra commands — presentation only
+  engine/           Analyze(path) → *model.ProjectModel; the one pipeline entry point
   detector/         is-this-a-Laravel-project + composer parsing
   phpast/           the only package that imports the PHP parser
+  symbol/           two-phase symbol table for cross-file resolution
   model/            the Project Model + versioned JSON contract
-  extract/          one sub-package per node type (schema, model, …)
-  render/er/        Project Model → Mermaid ER diagram
-  analyze/          Model ↔ Schema correlation (Disagreement findings)
+  extract/          one sub-package per node type (schema, model, route, controller, formrequest)
+  analyze/          Model ↔ Schema correlation, route resolution, form-request linking
+  render/           one sub-package per output view (er, openapi, routemap)
+  web/              unlaravel serve — localhost dashboard + JSON API
 testdata/           a fixture Laravel app + golden outputs
 ```
 

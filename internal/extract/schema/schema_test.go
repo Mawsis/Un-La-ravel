@@ -20,6 +20,16 @@ func fk(table, column string) *model.ForeignKeyRef {
 	return &model.ForeignKeyRef{Table: table, Column: column}
 }
 
+// idx is a small helper to build a model.Index in expectations, mirroring fk.
+func idx(unique bool, cols ...string) model.Index {
+	return model.Index{Columns: cols, Unique: unique}
+}
+
+// idxNamed is idx with an explicit index name.
+func idxNamed(name string, unique bool, cols ...string) model.Index {
+	return model.Index{Name: name, Columns: cols, Unique: unique}
+}
+
 func TestExtract(t *testing.T) {
 	tests := []struct {
 		name    string   // sub-test name / pattern under test
@@ -76,12 +86,16 @@ func TestExtract(t *testing.T) {
 		{
 			name:    "classic_named_class",
 			files:   []string{"classic_style.php"},
-			pattern: "classic 'class X extends Migration' shape is matched on Schema:: calls, not class structure",
+			pattern: "classic 'class X extends Migration' shape is matched on Schema:: calls, not class structure; the fixture's chained ->unique() also emits a table-level Index",
 			want: []model.Table{
-				{Name: "roles", Columns: []model.Column{
-					{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
-					{Name: "name", Type: "string"},
-				}},
+				{
+					Name: "roles",
+					Columns: []model.Column{
+						{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
+						{Name: "name", Type: "string"},
+					},
+					Indexes: []model.Index{idx(true, "name")},
+				},
 			},
 		},
 		{
@@ -158,6 +172,83 @@ func TestExtract(t *testing.T) {
 					{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
 					{Name: "bio", Type: "string", Nullable: true},
 				}},
+			},
+		},
+		// --- index extraction coverage ---
+		{
+			name:    "chained_unique_modifier",
+			files:   []string{"create_chained_unique.php"},
+			pattern: "->unique() chained on a single-column builder emits a table-level unique Index over that column",
+			want: []model.Table{
+				{
+					Name: "accounts",
+					Columns: []model.Column{
+						{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
+						{Name: "email", Type: "string"},
+					},
+					Indexes: []model.Index{idx(true, "email")},
+				},
+			},
+		},
+		{
+			name:    "chained_index_modifier",
+			files:   []string{"create_chained_index.php"},
+			pattern: "->index() chained on a single-column builder emits a table-level non-unique Index over that column",
+			want: []model.Table{
+				{
+					Name: "logs",
+					Columns: []model.Column{
+						{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
+						{Name: "level", Type: "string"},
+					},
+					Indexes: []model.Index{idx(false, "level")},
+				},
+			},
+		},
+		{
+			name:    "standalone_index_call",
+			files:   []string{"create_standalone_index.php"},
+			pattern: "$table->index(['a','b'], 'idx_a_b') emits a named, non-unique, composite Index",
+			want: []model.Table{
+				{
+					Name: "events",
+					Columns: []model.Column{
+						{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
+						{Name: "a", Type: "string"},
+						{Name: "b", Type: "string"},
+					},
+					Indexes: []model.Index{idxNamed("idx_a_b", false, "a", "b")},
+				},
+			},
+		},
+		{
+			name:    "standalone_unique_call_no_name",
+			files:   []string{"create_standalone_unique.php"},
+			pattern: "$table->unique(['x']) with no name argument emits an Index with an empty Name",
+			want: []model.Table{
+				{
+					Name: "widgets",
+					Columns: []model.Column{
+						{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
+						{Name: "x", Type: "string"},
+					},
+					Indexes: []model.Index{idx(true, "x")},
+				},
+			},
+		},
+		{
+			name:    "standalone_composite_primary_call",
+			files:   []string{"create_standalone_primary.php"},
+			pattern: "$table->primary(['a','b']) emits a unique composite Index and does NOT set IsPrimaryKey on any column",
+			want: []model.Table{
+				{
+					Name: "role_user",
+					Columns: []model.Column{
+						{Name: "a", Type: "string"},
+						{Name: "b", Type: "string"},
+					},
+					Indexes: []model.Index{idx(true, "a", "b")},
+				},
 			},
 		},
 	}
@@ -240,7 +331,59 @@ func assertTables(t *testing.T, got, want []model.Table) {
 		if diff := columnsEqual(got[i].Columns, want[i].Columns); diff != "" {
 			t.Errorf("table %q columns mismatch: %s", want[i].Name, diff)
 		}
+		if diff := indexesEqual(got[i].Indexes, want[i].Indexes); diff != "" {
+			t.Errorf("table %q indexes mismatch: %s", want[i].Name, diff)
+		}
 	}
+}
+
+// indexesEqual returns "" when the two index slices are equal, or a
+// human-readable description of the first difference otherwise. Only test
+// cases that populate want.Indexes assert on it; cases that leave it nil
+// compare against a nil got only when Extract also produces none — a table
+// that this PRD adds no index coverage for still has a non-nil-but-empty
+// Indexes slice (via model.NewTable), so len(nil) == len([]) == 0 keeps
+// pre-existing test cases passing unchanged.
+func indexesEqual(got, want []model.Index) string {
+	if len(got) != len(want) {
+		return "count = " + itoa(len(got)) + ", want " + itoa(len(want)) +
+			" (got " + indexNames(got) + ", want " + indexNames(want) + ")"
+	}
+	for i := range want {
+		if !reflect.DeepEqual(got[i], want[i]) {
+			return "index[" + itoa(i) + "] = " + describeIndex(got[i]) +
+				", want " + describeIndex(want[i])
+		}
+	}
+	return ""
+}
+
+func indexNames(idxs []model.Index) string {
+	s := "["
+	for i, ix := range idxs {
+		if i > 0 {
+			s += " "
+		}
+		s += describeIndex(ix)
+	}
+	return s + "]"
+}
+
+func describeIndex(ix model.Index) string {
+	s := "{"
+	if ix.Name != "" {
+		s += ix.Name + ":"
+	}
+	for i, c := range ix.Columns {
+		if i > 0 {
+			s += ","
+		}
+		s += c
+	}
+	if ix.Unique {
+		s += " unique"
+	}
+	return s + "}"
 }
 
 // columnsEqual returns "" when the two column slices are equal, or a

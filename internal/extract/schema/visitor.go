@@ -39,12 +39,13 @@ type schemaVisitor struct {
 	seenBase map[ast.Vertex]bool
 }
 
-// tableBuilder accumulates the columns discovered for one table name, in source
-// order. It is the mutable working form; the caller converts it to an immutable
-// model.Table.
+// tableBuilder accumulates the columns and indexes discovered for one table
+// name, in source order. It is the mutable working form; the caller converts
+// it to an immutable model.Table.
 type tableBuilder struct {
 	name    string
 	columns []model.Column
+	indexes []model.Index
 }
 
 // newSchemaVisitor returns a visitor ready to walk one file's AST.
@@ -103,13 +104,69 @@ func (v *schemaVisitor) ExprMethodCall(n *ast.ExprMethodCall) {
 	baseLink := links[len(links)-1]
 	modifierLinks := links[:len(links)-1]
 
+	// $table->index([...]), ->unique([...]), ->primary([...]) are standalone
+	// calls, not fluent column builders: their base link IS the outermost
+	// (and only) link, and they carry an array first-argument rather than the
+	// bare-string first argument a column builder like string('email') takes.
+	// This must be checked BEFORE the columnsForMethod dispatch below, since
+	// "index"/"unique"/"primary" are not registered in any of
+	// columnsForMethod's method sets and would otherwise just fall through to
+	// the len(cols) == 0 early return, silently dropping the call. A
+	// zero-argument ->unique()/->index() (the chained-modifier form handled
+	// in applyModifiers below) does NOT match here because it has no first
+	// array argument.
+	if len(modifierLinks) == 0 && isStandaloneIndexCall(baseLink.Method) {
+		if idx, ok := standaloneIndex(baseLink.Method, n.Args); ok {
+			v.current.indexes = append(v.current.indexes, idx)
+		}
+		return
+	}
+
 	cols := columnsForMethod(baseLink.Method, baseLink.StringArg)
 	if len(cols) == 0 {
 		return
 	}
-	cols = applyModifiers(cols, modifierLinks)
+	var indexes []model.Index
+	cols, indexes = applyModifiers(cols, modifierLinks)
 
 	v.current.columns = append(v.current.columns, cols...)
+	v.current.indexes = append(v.current.indexes, indexes...)
+}
+
+// isStandaloneIndexCall reports whether method is one of the Blueprint
+// builder methods that can be invoked standalone with an explicit column
+// list ($table->index([...]), ->unique([...]), ->primary([...])), as opposed
+// to a fluent single-column builder (string, integer, ...).
+func isStandaloneIndexCall(method string) bool {
+	switch method {
+	case "index", "unique", "primary":
+		return true
+	}
+	return false
+}
+
+// standaloneIndex builds the model.Index for a standalone
+// $table->index([...])/->unique([...])/->primary([...]) call, reading the
+// first argument of the call directly from the AST (args) because
+// chainCall.StringArg only captures a first STRING argument and these calls
+// take an array. ok is false when the first argument is not an array-shaped
+// column list — which is how a zero-arg chained ->unique()/->index() (handled
+// by applyModifiers instead) is distinguished from this standalone form; the
+// caller must not treat that as a standalone call.
+func standaloneIndex(method string, args []phpast.Vertex) (model.Index, bool) {
+	first := phpast.ArgExpr(args, 0)
+	if first == nil {
+		return model.Index{}, false
+	}
+	cols := phpast.ArrayStringItems(first)
+	if len(cols) == 0 {
+		return model.Index{}, false
+	}
+	return model.Index{
+		Name:    phpast.NthStringArg(args, 1),
+		Columns: cols,
+		Unique:  method != "index",
+	}, true
 }
 
 // tableFor returns the builder for name, creating and registering it on first

@@ -11,6 +11,7 @@ package model
 type Table struct {
 	Name    string   `json:"name"`
 	Columns []Column `json:"columns"`
+	Indexes []Index  `json:"indexes"`
 }
 
 // Column is a single column on a Table. Type holds the Laravel column-builder
@@ -33,12 +34,27 @@ type ForeignKeyRef struct {
 	Column string `json:"column,omitempty"`
 }
 
-// NewTable returns an empty Table with the given name and a non-nil Columns
-// slice, so JSON serialization yields "columns": [] rather than null for a
-// table that has not yet had columns appended.
+// Index is a named or unnamed index declared on a Table, either via a chained
+// Blueprint column modifier (->unique(), ->index()) or a standalone builder
+// call ($table->index([...]), $table->unique([...]), $table->primary([...])).
+// Name is best-effort: Laravel auto-generates an index name when the
+// migration does not supply one, so an empty Name means "unnamed", not
+// "unknown" (omitempty keeps that unnamed case out of the JSON rather than
+// emitting a misleading "").
+type Index struct {
+	Name    string   `json:"name,omitempty"`
+	Columns []string `json:"columns"`
+	Unique  bool     `json:"unique"`
+}
+
+// NewTable returns an empty Table with the given name and non-nil Columns and
+// Indexes slices, so JSON serialization yields "columns": [] and "indexes":
+// [] rather than null for a table that has not yet had columns or indexes
+// appended.
 func NewTable(name string) Table {
 	return Table{
 		Name:    name,
 		Columns: []Column{},
+		Indexes: []Index{},
 	}
 }

@@ -22,12 +22,14 @@ var rootCmd = &cobra.Command{
 	Long: color.New(color.FgCyan).Sprint(`
 🔍 Un(la)ravel - Laravel Project Analysis Tool
 
-Un(la)ravel helps you understand Laravel projects by providing deep insights into:
-• Route analysis and auto-generated Swagger documentation
-• Database schema analysis and ER diagrams
-• Request/Resource/Policy mapping
-• Performance analysis and optimization suggestions
-• Security analysis and vulnerability detection
+Un(la)ravel statically analyzes a Laravel project — no booting, no artisan,
+no database connection — and builds a single Project Model of its schema,
+Eloquent models, routes, controllers, and form requests. From that model it
+generates:
+• An entity-relationship diagram (Mermaid)
+• An OpenAPI 3 specification
+• A route map, with dead-route detection
+• Model↔schema disagreement findings
 
 Use 'unlaravel help [command]' for more information about a command.
 	`),
@@ -51,7 +53,6 @@ func init() {
 	// Add global flags that apply to all commands
 	// Cobra automatically generates help text for these flags
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Enable verbose output")
-	rootCmd.PersistentFlags().String("config", "", "Config file path (default is $HOME/.unlaravel.yaml)")
 
 	// Add subcommands to the root command
 	// We'll create these commands in separate files for better organization
@@ -69,11 +70,10 @@ func addAnalyzeCommand() {
 
 The analyze command will scan the specified Laravel project (or current directory if no path provided)
 and generate analysis reports for:
-• Routes and middleware chains
-• Database schema and relationships
-• Model dependencies and policies
-• Performance bottlenecks
-• Security configurations`,
+• Database schema and relationships (ER diagram)
+• Eloquent models, with model↔schema disagreement findings
+• Routes, controllers, and dead-route detection
+• Form requests, linked to the routes that dispatch them`,
 		// Args validation - Cobra provides several built-in validators
 		Args: cobra.MaximumNArgs(1), // Accept 0 or 1 arguments (path is optional)
 		RunE: analyzeProject,        // The actual function that does the work
@@ -81,9 +81,6 @@ and generate analysis reports for:
 
 	// Add command-specific flags
 	// These flags only apply to the analyze command, not globally
-	analyzeCmd.Flags().BoolP("routes", "r", false, "Analyze routes only")
-	analyzeCmd.Flags().BoolP("database", "d", false, "Analyze database schema only")
-	analyzeCmd.Flags().BoolP("swagger", "s", false, "Generate Swagger documentation")
 	analyzeCmd.Flags().StringP("output", "o", "", "Output file path for the unlaravel.json analysis contract")
 	analyzeCmd.Flags().String("openapi", "", "Output file path for the generated OpenAPI 3 spec (JSON)")
 
@@ -100,8 +97,6 @@ and generate analysis reports for:
 // CLI, owns detection, extraction, correlation, route resolution, and linking.
 func analyzeProject(cmd *cobra.Command, args []string) error {
 	verbose, _ := cmd.Flags().GetBool("verbose")
-	routesOnly, _ := cmd.Flags().GetBool("routes")
-	generateSwagger, _ := cmd.Flags().GetBool("swagger")
 	outputPath, _ := cmd.Flags().GetString("output")
 	openAPIPath, _ := cmd.Flags().GetString("openapi")
 
@@ -119,22 +114,9 @@ func analyzeProject(cmd *cobra.Command, args []string) error {
 
 	if verbose {
 		yellow.Println("📋 Analysis options:")
-		fmt.Printf("  • Routes only: %v\n", routesOnly)
-		fmt.Printf("  • Generate Swagger: %v\n", generateSwagger)
 		fmt.Printf("  • Output path: %s\n", outputPath)
 		fmt.Printf("  • OpenAPI path: %s\n", openAPIPath)
 		fmt.Println()
-	}
-
-	// Honest stubs for capabilities not yet implemented in this slice. The
-	// --routes flag is accepted but, in this slice, does not yet narrow the
-	// pipeline to routes only; the full analysis (which includes routes) runs
-	// regardless.
-	if routesOnly {
-		yellow.Println("⚠️  --routes does not yet narrow output; running the full analysis (which includes routes).")
-	}
-	if generateSwagger {
-		yellow.Println("⚠️  Swagger generation is not yet implemented; skipping.")
 	}
 
 	// Run the full analysis pipeline (detect → schema → models → disagreements →

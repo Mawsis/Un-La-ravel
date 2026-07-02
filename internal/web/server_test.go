@@ -102,22 +102,65 @@ func TestHandler_Root_ServesHTML(t *testing.T) {
 	if !strings.Contains(string(body), "Un(la)ravel") {
 		t.Errorf("response body does not contain 'Un(la)ravel'; body = %q", body[:min(200, len(body))])
 	}
-	// "ER Diagram" is the label of the first dashboard tab.
+	// "ER Diagram" is the label of the sidebar's ER Diagram nav link.
 	if !strings.Contains(string(body), "ER Diagram") {
 		t.Errorf("response body does not contain 'ER Diagram'")
 	}
 }
 
-// TestHandler_AppJS_Served asserts that GET /app.js returns 200 so the
-// browser's <script src="/app.js"> does not 404.
-func TestHandler_AppJS_Served(t *testing.T) {
+// TestHandler_Assets_Served asserts that every asset index.html references
+// (the entry module and the extracted stylesheets) resolves to 200, so the
+// browser never hits a 404 for a <script>/<link> the shell depends on. This
+// also guards the css/js directory split itself: //go:embed embeds
+// subdirectories automatically, but a typo'd path in index.html would only
+// surface as a silent broken page without this test.
+func TestHandler_Assets_Served(t *testing.T) {
+	ts := newTestServer(t)
+
+	assets := []string{
+		"/js/main.js",
+		"/js/dom.js",
+		"/js/api.js",
+		"/js/state.js",
+		"/js/views/overview.js",
+		"/js/views/er.js",
+		"/js/views/models.js",
+		"/js/views/routes.js",
+		"/js/views/findings.js",
+		"/js/views/swagger.js",
+		"/css/tokens.css",
+		"/css/base.css",
+		"/css/layout.css",
+		"/css/components.css",
+		"/vendor/mermaid.min.js",
+		"/vendor/svg-pan-zoom.min.js",
+		"/vendor/swagger-ui-bundle.js",
+		"/vendor/swagger-ui.css",
+	}
+
+	for _, path := range assets {
+		t.Run(path, func(t *testing.T) {
+			resp := get(t, ts, path)
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				body := readBody(t, resp)
+				t.Fatalf("GET %s: status = %d, want 200; body = %s", path, resp.StatusCode, body)
+			}
+		})
+	}
+}
+
+// TestHandler_OldAppJS_Gone asserts that /app.js — the pre-restructure
+// single-file bundle, replaced by the js/ ES module tree — is no longer
+// served. A regression here would mean the old file crept back into
+// internal/web/assets and is shipping as dead weight in the embedded binary.
+func TestHandler_OldAppJS_Gone(t *testing.T) {
 	ts := newTestServer(t)
 	resp := get(t, ts, "/app.js")
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body := readBody(t, resp)
-		t.Fatalf("GET /app.js: status = %d, want 200; body = %s", resp.StatusCode, body)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("GET /app.js: status = %d, want 404 (the old single-file bundle should no longer be embedded)", resp.StatusCode)
 	}
 }
 

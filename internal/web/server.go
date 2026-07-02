@@ -24,11 +24,9 @@ import (
 	"time"
 )
 
-// assetsFS embeds the dashboard's static files (index.html, app.js, ...). The
-// UI agent fills internal/web/assets; embedding the whole directory means the
-// binary self-contains the dashboard with no runtime file dependency. The glob
-// matches the directory's files; the package builds as long as assets/ is
-// non-empty, which the placeholder index.html and app.js guarantee.
+// assetsFS embeds the dashboard's static files (index.html, css/, js/,
+// vendor/, ...) recursively. Embedding the whole directory means the binary
+// self-contains the dashboard with no runtime file dependency.
 //
 //go:embed assets
 var assetsFS embed.FS

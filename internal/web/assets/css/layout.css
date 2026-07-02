@@ -1,0 +1,165 @@
+/* Page shell: a persistent sidebar (design.md "Information architecture") +
+   a scrolling main content area. Sidebar links are real <a href="#/..."> —
+   native keyboard/AT navigation, no ARIA-tabs choreography (a11y baseline). */
+
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: linear-gradient(180deg, var(--bg-elev) 0%, var(--bg) 100%);
+  border-right: 1px solid var(--border);
+  padding: var(--space-5) var(--space-3);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-2);
+}
+.brand h1 {
+  font-size: var(--text-lg);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.brand .un {
+  color: var(--accent);
+}
+.brand .la {
+  color: var(--text-dim);
+}
+.brand .tag {
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+}
+
+.nav-views {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-views a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.nav-views a:hover {
+  color: var(--text);
+  background: var(--bg-elev2);
+}
+.nav-views a[aria-current="page"] {
+  color: var(--text);
+  background: var(--bg-elev2);
+  border-left: 2px solid var(--accent);
+  padding-left: calc(var(--space-3) - 2px);
+}
+.nav-views .badge {
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+  border-radius: 20px;
+  padding: 1px 8px;
+  font-size: var(--text-xs);
+}
+.nav-views a[aria-current="page"] .badge {
+  background: var(--accent);
+  color: var(--bg);
+}
+.nav-views .badge.danger {
+  background: var(--red);
+  color: #fff;
+}
+
+.content {
+  padding: var(--space-6) var(--space-8) var(--space-12);
+  max-width: 1200px;
+  min-width: 0;
+}
+
+.content-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+.content-header .path-form {
+  display: flex;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 260px;
+  max-width: 560px;
+}
+.content-header input {
+  flex: 1;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 13px;
+  border-radius: var(--radius-md);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+}
+.content-header input:focus-visible {
+  border-color: var(--accent-2);
+}
+.content-header button {
+  background: var(--accent-2);
+  color: var(--bg);
+  border: none;
+  padding: 9px 18px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: var(--text-base);
+}
+.content-header button:hover {
+  filter: brightness(1.1);
+}
+.content-header button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.panel {
+  display: none;
+}
+.panel.active {
+  display: block;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+  }
+  .nav-views {
+    flex-direction: row;
+  }
+  .content {
+    padding: var(--space-4);
+  }
+}

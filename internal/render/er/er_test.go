@@ -30,8 +30,14 @@ const goldenPath = "testdata/golden.mermaid"
 //   - a child table (posts) with a primary key, a foreign key that references
 //     a table present in the model (users) — which must produce a relationship
 //     line — and a foreign key that references an absent table (legacy_authors)
-//     — which must be silently dropped from the relationships,
-//   - a join table (roles) so a belongsToMany endpoint can resolve,
+//     — which must be silently dropped from the relationships. posts.author_id
+//     also carries a single-column unique index, proving FK precedence over UK:
+//     the attribute line must still say FK, never UK.
+//   - a join table (roles) so a belongsToMany endpoint can resolve, extended
+//     with three index scenarios (see roles.Indexes below) that exercise the
+//     UK marker: a single-column unique index (must mark that column UK), a
+//     composite two-column unique index (must mark neither column), and the
+//     posts.author_id FK+unique overlap described above.
 //   - a plain non-key column to confirm ordinary attributes render.
 //
 // Eloquent view (the Models slice):
@@ -59,6 +65,9 @@ func buildFixtureModel() *model.ProjectModel {
 	posts.Columns = []model.Column{
 		{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
 		{
+			// Also carries a single-column unique index (see posts.Indexes
+			// below): proves FK precedence over UK, since the attribute line
+			// must still render FK, never UK.
 			Name:         "author_id",
 			Type:         "bigInteger",
 			IsForeignKey: true,
@@ -74,11 +83,41 @@ func buildFixtureModel() *model.ProjectModel {
 		},
 		{Name: "title", Type: "string"},
 	}
+	posts.Indexes = []model.Index{
+		{
+			// Scenario (c): a unique index whose single column is ALSO the FK
+			// column. FK precedence must win: author_id renders FK, not UK.
+			Name:    "posts_author_id_unique",
+			Columns: []string{"author_id"},
+			Unique:  true,
+		},
+	}
 
 	roles := model.NewTable("roles")
 	roles.Columns = []model.Column{
 		{Name: "id", Type: "bigInteger", IsPrimaryKey: true},
 		{Name: "name", Type: "string"},
+		{Name: "slug", Type: "string"},
+		{Name: "tenant_id", Type: "bigInteger"},
+		{Name: "code", Type: "string"},
+	}
+	roles.Indexes = []model.Index{
+		{
+			// Scenario (a): a single-column unique index on a plain
+			// (non-PK, non-FK) column. Expect a UK marker on exactly this
+			// column's attribute line.
+			Name:    "roles_slug_unique",
+			Columns: []string{"slug"},
+			Unique:  true,
+		},
+		{
+			// Scenario (b): a composite unique index across two columns.
+			// Mermaid has no first-class syntax for a composite index, so
+			// neither column must gain any marker.
+			Name:    "roles_tenant_id_code_unique",
+			Columns: []string{"tenant_id", "code"},
+			Unique:  true,
+		},
 	}
 
 	userModel := model.NewModel("User")

@@ -27,6 +27,15 @@ const modelGlob = "*.php"
 // otherwise the table name inferred from the class name via TableName (Laravel's
 // snake_case-and-pluralize convention).
 //
+// Each model's Fillable and Guarded reflect whether the source declared
+// `protected $fillable` / `protected $guarded` at all: both are nil when
+// neither is declared, and a declared property (even an empty array literal)
+// yields a non-nil slice — see domain.Model's doc comment for why this
+// nil-vs-empty distinction is preserved rather than normalised away. Casts
+// collects `protected $casts` and/or a Laravel 11 `casts(): array` method,
+// with the method's result taking precedence when both are present; it is
+// always non-nil.
+//
 // Files are processed in the order given, so callers control discovery order by
 // sorting paths. The same class name appearing in two files yields two Model
 // values; this slice does no project-wide deduplication (ADR 0006's symbol table
@@ -90,10 +99,21 @@ func ExtractDir(dir string) ([]domain.Model, error) {
 // table is resolved here (explicit $table wins, else inferred via TableName) and
 // the relationships are copied into the model's non-nil slice so an empty model
 // serializes as "relationships": [] rather than null.
+//
+// Fillable and Guarded are copied straight from the builder with NO coercion:
+// mb.fillable / mb.guarded are already nil exactly when the source declared
+// neither property, and non-nil (possibly empty) exactly when it did — see
+// domain.Model's doc comment on Fillable/Guarded. Casts is appended onto
+// NewModel's non-nil starting slice, mirroring the Relationships pattern,
+// since a model's cast list carries no analogous "not declared" meaning
+// worth preserving.
 func buildModel(mb *modelBuilder) domain.Model {
 	m := domain.NewModel(mb.className)
 	m.Table = resolveTable(mb)
 	m.Relationships = append(m.Relationships, mb.relationships...)
+	m.Fillable = mb.fillable
+	m.Guarded = mb.guarded
+	m.Casts = append(m.Casts, mb.casts...)
 	return m
 }
 

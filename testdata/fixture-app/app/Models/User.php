@@ -16,4 +16,13 @@ class User extends Authenticatable
     {
         return $this->hasMany(Post::class);
     }
+
+    // Laravel 11-style casts() method — fixture for the casts() extraction
+    // path, which takes precedence over a $casts property when both exist.
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+        ];
+    }
 }

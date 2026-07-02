@@ -24,9 +24,10 @@ const (
 	entityIndent = "\t"
 	attrIndent   = "\t\t"
 
-	// pkMarker / fkMarker are Mermaid attribute key markers.
+	// pkMarker / fkMarker / ukMarker are Mermaid attribute key markers.
 	pkMarker = "PK"
 	fkMarker = "FK"
+	ukMarker = "UK"
 
 	// unknownType is the placeholder attribute type used when a Column has no
 	// declared type, so the emitted attribute keeps a valid two-token shape.
@@ -261,14 +262,24 @@ func relationshipLine(parentTable, childTable, fkColumn string) string {
 // writeEntity emits one entity block: the entity header, an attribute line per
 // column, and a closing brace. An entity with no columns still renders a
 // well-formed empty block.
+//
+// Before emitting attributes it builds the set of column names carrying a
+// single-column unique index (t.Indexes where Unique is true and Columns has
+// exactly one entry), so attributeLine can mark those columns UK. A composite
+// unique index (2+ columns) contributes no column to this set: Mermaid's
+// erDiagram syntax has no first-class representation for a multi-column
+// index, so composite, named, and non-unique indexes are not represented in
+// the output at all — only single-column unique indexes surface, via the UK
+// marker.
 func writeEntity(b *strings.Builder, t model.Table) {
 	b.WriteString(entityIndent)
 	b.WriteString(entityName(t.Name))
 	b.WriteString(" {\n")
 
+	unique := singleColumnUniqueSet(t.Indexes)
 	for _, col := range t.Columns {
 		b.WriteString(attrIndent)
-		b.WriteString(attributeLine(col))
+		b.WriteString(attributeLine(col, unique))
 		b.WriteString("\n")
 	}
 
@@ -276,11 +287,37 @@ func writeEntity(b *strings.Builder, t model.Table) {
 	b.WriteString("}\n")
 }
 
+// singleColumnUniqueSet returns the set of column names that carry a
+// single-column unique index: for each idx in indexes, idx.Columns[0] is
+// added when idx.Unique is true and len(idx.Columns) == 1. Composite unique
+// indexes and non-unique indexes contribute nothing to the set.
+func singleColumnUniqueSet(indexes []model.Index) map[string]struct{} {
+	set := make(map[string]struct{})
+	for _, idx := range indexes {
+		if idx.Unique && len(idx.Columns) == 1 {
+			set[idx.Columns[0]] = struct{}{}
+		}
+	}
+	return set
+}
+
 // attributeLine renders one column as a Mermaid attribute: "<type> <name>"
-// followed by an optional key marker. A column is marked PK when it is a
-// primary key, otherwise FK when it is a foreign key (PK takes precedence so a
-// single column never carries two markers).
-func attributeLine(c model.Column) string {
+// followed by an optional key marker. Precedence is PK > FK > UK: a column is
+// marked PK when it is a primary key; otherwise FK when it is a foreign key;
+// otherwise UK when its name is in unique (it carries a single-column unique
+// index); otherwise it carries no marker. A single column never carries more
+// than one marker.
+//
+// unique is the set built by singleColumnUniqueSet: only single-column unique
+// indexes ever produce a UK marker. A composite unique index or a non-unique
+// index is not represented in Mermaid output at all — Mermaid's erDiagram
+// syntax has no first-class syntax for either, so those indexes are simply
+// invisible to this renderer. The UK marker itself is a real, recognized
+// Mermaid attribute-key token: the vendored parser (mermaid.min.js, 10.9.6,
+// under internal/web/assets/vendor) lexes attribute keys with
+// /^(?:\b((?:PK)|(?:FK)|(?:UK))\b)/i, so "UK" round-trips through Mermaid
+// exactly like "PK" and "FK" do.
+func attributeLine(c model.Column, unique map[string]struct{}) string {
 	parts := []string{attributeType(c.Type), sanitizeToken(c.Name)}
 
 	switch {
@@ -288,6 +325,10 @@ func attributeLine(c model.Column) string {
 		parts = append(parts, pkMarker)
 	case c.IsForeignKey:
 		parts = append(parts, fkMarker)
+	default:
+		if _, ok := unique[c.Name]; ok {
+			parts = append(parts, ukMarker)
+		}
 	}
 
 	return strings.Join(parts, " ")

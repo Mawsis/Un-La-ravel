@@ -9,6 +9,10 @@ class Post extends Model
     // Inferred table: "posts" (snake_case + pluralize). The posts table exists
     // in the migrations, so this model AGREES with the schema.
 
+    // Normal, non-empty mass-assignment declaration — fixture for the
+    // straightforward $fillable extraction case.
+    protected $fillable = ['title', 'body', 'category_id'];
+
     // belongsTo User with an explicit FK "user_id". The posts table has a
     // "user_id" column, so this relationship AGREES with the schema.
     public function author()

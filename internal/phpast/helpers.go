@@ -527,6 +527,74 @@ func MethodReturnExpr(method Vertex) Vertex {
 	return nil
 }
 
+// ArrayStringItems reduces a PHP array literal's VALUES to a []string, built
+// on top of ArrayItems + StringLiteral (e.g. $fillable = ['title', 'body']
+// yields ["title", "body"]). Returns nil when v is not an *ast.ExprArray,
+// mirroring ArrayItems; for an array literal with zero items it returns the
+// same empty-but-non-nil slice ArrayItems itself returns for that case.
+//
+// KNOWN SIMPLIFICATION: an item is skipped whenever StringLiteral(item) == "",
+// which is true both when the item is not a plain string literal at all (a
+// variable, a class-const, etc.) AND when it IS a string literal whose value
+// is an empty string. These two cases are not distinguished. This is accepted
+// because Laravel model code never declares an empty-string entry in
+// $fillable or $guarded — it has no meaning there — so collapsing the two
+// cases costs nothing in practice while keeping the implementation a direct
+// composition of ArrayItems and StringLiteral.
+//
+// Lets the Eloquent model extractor read $fillable / $guarded without
+// importing the parser.
+func ArrayStringItems(v Vertex) []string {
+	items := ArrayItems(v)
+	if items == nil {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if s := StringLiteral(item); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// StringPair is one key/value entry of a PHP array literal whose value is a
+// string literal, both sides already unquoted (e.g. Key: "email_verified_at",
+// Value: "datetime" for the $casts entry 'email_verified_at' => 'datetime').
+type StringPair struct {
+	Key   string
+	Value string
+}
+
+// ArrayStringPairs reduces a PHP array literal's key => string-value pairs to
+// a []StringPair, built on top of ArrayPairs + StringLiteral (e.g. $casts =
+// ['email_verified_at' => 'datetime'] yields
+// [{Key: "email_verified_at", Value: "datetime"}]), preserving source order.
+// Returns nil when v is not an *ast.ExprArray, mirroring ArrayPairs.
+//
+// KNOWN SIMPLIFICATION: a pair is skipped whenever StringLiteral(pair.Val) ==
+// "", which — as with ArrayStringItems — conflates "value is not a string
+// literal" (e.g. a variable or class-const cast target) with "value is an
+// empty string". Accepted for the same reason: Laravel model code never
+// declares a $casts entry with an empty-string cast type.
+//
+// Lets the Eloquent model extractor read $casts without importing the parser.
+func ArrayStringPairs(v Vertex) []StringPair {
+	pairs := ArrayPairs(v)
+	if pairs == nil {
+		return nil
+	}
+	out := make([]StringPair, 0, len(pairs))
+	for _, p := range pairs {
+		val := StringLiteral(p.Val)
+		if val == "" {
+			continue
+		}
+		out = append(out, StringPair{Key: StringLiteral(p.Key), Value: val})
+	}
+	return out
+}
+
 // lastNameSegment returns the final backslash-delimited segment of a
 // fully-qualified name (e.g. "PostController" from
 // "App\Http\Controllers\PostController"), i.e. its PHP short name. Names with no

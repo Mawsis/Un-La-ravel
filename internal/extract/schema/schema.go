@@ -97,29 +97,33 @@ func newMergedTables() *mergedTables {
 }
 
 // add merges one file's table into the running set: a new name is recorded in
-// discovery order; a known name has its columns appended (the Schema::table
-// alteration case). Inputs are not mutated.
+// discovery order; a known name has its columns and indexes appended (the
+// Schema::table alteration case). Inputs are not mutated.
 func (m *mergedTables) add(tb *tableBuilder) {
 	existing, ok := m.byName[tb.name]
 	if !ok {
 		clone := &tableBuilder{name: tb.name}
 		clone.columns = append(clone.columns, tb.columns...)
+		clone.indexes = append(clone.indexes, tb.indexes...)
 		m.byName[tb.name] = clone
 		m.order = append(m.order, tb.name)
 		return
 	}
 	existing.columns = append(existing.columns, tb.columns...)
+	existing.indexes = append(existing.indexes, tb.indexes...)
 }
 
 // tables returns the accumulated tables as immutable model.Table values in
-// discovery order. Each Table gets a non-nil Columns slice (via model.NewTable)
-// so an empty table serializes as "columns": [] rather than null.
+// discovery order. Each Table gets non-nil Columns and Indexes slices (via
+// model.NewTable) so an empty table serializes as "columns": [] and
+// "indexes": [] rather than null.
 func (m *mergedTables) tables() []model.Table {
 	out := make([]model.Table, 0, len(m.order))
 	for _, name := range m.order {
 		tb := m.byName[name]
 		t := model.NewTable(name)
 		t.Columns = append(t.Columns, tb.columns...)
+		t.Indexes = append(t.Indexes, tb.indexes...)
 		out = append(out, t)
 	}
 	return out

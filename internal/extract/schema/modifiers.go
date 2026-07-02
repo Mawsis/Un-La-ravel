@@ -18,15 +18,23 @@ type chainCall struct {
 	StringArg string
 }
 
-// applyModifiers returns new Columns with the chain's modifiers applied. It does
-// not mutate its input: per the project's immutability rule it copies each
-// column and returns fresh values. A modifier conceptually decorates "the
-// column being defined"; for multi-column builders (timestamps) a modifier such
-// as ->nullable() is applied to every emitted column, matching Laravel, where
-// the modifier returns the same shared column-definition context.
-func applyModifiers(cols []model.Column, chain []chainCall) []model.Column {
+// applyModifiers returns new Columns with the chain's modifiers applied, plus
+// any Index values the chain implies (a chained ->unique() or ->index()). It
+// does not mutate its input: per the project's immutability rule it copies
+// each column and returns fresh values. A modifier conceptually decorates
+// "the column being defined"; for multi-column builders (timestamps) a
+// modifier such as ->nullable() is applied to every emitted column, matching
+// Laravel, where the modifier returns the same shared column-definition
+// context.
+//
+// ->unique()/->index() are column-level modifiers in Laravel but table-level
+// concepts in the model (an Index names its Columns rather than a Column
+// naming its index), so they cannot be folded into the per-column loop below
+// the way ->nullable() and ->primary() are; they are handled separately, once
+// per chain rather than once per column.
+func applyModifiers(cols []model.Column, chain []chainCall) ([]model.Column, []model.Index) {
 	if len(cols) == 0 {
-		return cols
+		return cols, nil
 	}
 
 	out := make([]model.Column, len(cols))
@@ -52,6 +60,31 @@ func applyModifiers(cols []model.Column, chain []chainCall) []model.Column {
 		}
 	}
 
+	return out, indexesFromChain(out, chain)
+}
+
+// indexesFromChain returns the Index values implied by chained ->unique() or
+// ->index() calls (with no explicit column list — that's the standalone
+// $table->unique([...]) form, handled separately in the visitor). The chained
+// form always applies to the single column the base builder just declared, so
+// an Index is only emitted when cols has exactly one element; a chain with
+// multiple columns (e.g. ->unique() appearing after timestamps(), which is
+// not meaningful Laravel usage) is skipped rather than guessing which column
+// the index should apply to.
+func indexesFromChain(cols []model.Column, chain []chainCall) []model.Index {
+	if len(cols) != 1 {
+		return nil
+	}
+
+	var out []model.Index
+	for _, c := range chain {
+		switch c.Method {
+		case "unique":
+			out = append(out, model.Index{Columns: []string{cols[0].Name}, Unique: true})
+		case "index":
+			out = append(out, model.Index{Columns: []string{cols[0].Name}, Unique: false})
+		}
+	}
 	return out
 }
 

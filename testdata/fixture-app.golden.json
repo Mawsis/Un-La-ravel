@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.3.0",
+  "schema_version": "1.4.0",
   "project_name": "acme/blog",
   "laravel_version": "^11.0",
   "schemas": [
@@ -47,6 +47,14 @@
           "nullable": true,
           "is_primary_key": false,
           "is_foreign_key": false
+        }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "email"
+          ],
+          "unique": true
         }
       ]
     },
@@ -109,6 +117,14 @@
           "is_primary_key": false,
           "is_foreign_key": true
         }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "user_id"
+          ],
+          "unique": false
+        }
       ]
     },
     {
@@ -149,6 +165,14 @@
           "is_primary_key": false,
           "is_foreign_key": false
         }
+      ],
+      "indexes": [
+        {
+          "columns": [
+            "slug"
+          ],
+          "unique": true
+        }
       ]
     }
   ],
@@ -162,7 +186,10 @@
           "method": "posts",
           "target": "Post"
         }
-      ]
+      ],
+      "fillable": null,
+      "guarded": [],
+      "casts": []
     },
     {
       "name": "Post",
@@ -185,7 +212,14 @@
           "target": "User",
           "foreign_key": "editor_id"
         }
-      ]
+      ],
+      "fillable": [
+        "title",
+        "body",
+        "category_id"
+      ],
+      "guarded": null,
+      "casts": []
     },
     {
       "name": "User",
@@ -195,6 +229,14 @@
           "kind": "hasMany",
           "method": "posts",
           "target": "Post"
+        }
+      ],
+      "fillable": null,
+      "guarded": null,
+      "casts": [
+        {
+          "column": "email_verified_at",
+          "type": "datetime"
         }
       ]
     }

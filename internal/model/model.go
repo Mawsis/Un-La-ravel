@@ -33,7 +33,11 @@ import (
 // Bumped to 1.3.0 when the FormRequest slice added the "form_requests" array
 // and the optional "form_request" field on each Route linking it to its
 // request class: another backward-compatible growth of the contract.
-const CurrentSchemaVersion = "1.3.0"
+//
+// Bumped to 1.4.0 when the Eloquent slice added "fillable", "guarded", and
+// "casts" to each Model, and the Schema slice added "indexes" to each Table:
+// another backward-compatible growth of the contract.
+const CurrentSchemaVersion = "1.4.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

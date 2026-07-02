@@ -15,6 +15,10 @@ return new class extends Migration
             $table->text('body');
             $table->boolean('published')->default(false);
             $table->timestamps();
+
+            // user_id is indexed; category_id (added below via ALTER)
+            // deliberately is not — fixture for a future missing-index finding.
+            $table->index(['user_id']);
         });
     }
 

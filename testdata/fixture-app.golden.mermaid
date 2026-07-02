@@ -7,7 +7,7 @@ erDiagram
 	USERS {
 		bigInteger id PK
 		string name
-		string email
+		string email UK
 		timestamp email_verified_at
 		timestamp created_at
 		timestamp updated_at
@@ -25,7 +25,7 @@ erDiagram
 	CATEGORIES {
 		bigInteger id PK
 		string name
-		string slug
+		string slug UK
 		timestamp created_at
 		timestamp updated_at
 	}

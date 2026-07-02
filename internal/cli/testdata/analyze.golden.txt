@@ -1,0 +1,5 @@
+Un(la)ravel — /Users/mac/Workshop/Personal/Un-La-ravel/testdata/fixture-app
+Laravel ^11.0
+3 table(s) · 3 model(s) · 4 controller(s) · 11 route(s) · 1 form request(s)
+2 finding(s): 1 disagreement(s), 1 dead route(s)
+hint: unlaravel findings

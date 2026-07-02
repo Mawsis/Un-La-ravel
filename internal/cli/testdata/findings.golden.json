@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.4.0",
+  "disagreements": [
+    {
+      "model": "Post",
+      "relationship": "editor",
+      "reason": "foreign key column \"editor_id\" not found on table \"posts\"",
+      "kind": "missing_fk_column"
+    }
+  ],
+  "dead_routes": [
+    {
+      "method": "DELETE",
+      "uri": "/admin/users/{id}",
+      "controller": "UserController",
+      "action": "destroy",
+      "reason": "action \"destroy\" not found on controller \"App\\Http\\Controllers\\UserController\"",
+      "kind": "missing_action"
+    }
+  ]
+}

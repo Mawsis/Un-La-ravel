@@ -225,6 +225,23 @@ func routeKey(method, uri, controller, action string) string {
 	return method + "\n" + uri + "\n" + controller + "\n" + action
 }
 
+// IsDeadRouteSet builds a lookup set of dead-route identity keys from dead,
+// exported so other presentations of the same Routes/DeadRoutes pair (e.g.
+// the CLI's TTY-styled route table, ADR 0008) can test a Route for deadness
+// without reimplementing this identity algorithm. Keying is the same
+// (Method, URI, Controller, Action) tuple deadRouteKeys uses internally.
+func IsDeadRouteSet(dead []model.DeadRoute) map[string]struct{} {
+	return deadRouteKeys(dead)
+}
+
+// IsDeadRoute reports whether r's identity tuple appears in a set built by
+// IsDeadRouteSet. Exported alongside IsDeadRouteSet for the same reason: the
+// dead-route identity match is a correctness-sensitive algorithm, not a
+// presentation detail, so it has exactly one implementation.
+func IsDeadRoute(deadSet map[string]struct{}, r model.Route) bool {
+	return isDead(deadSet, r)
+}
+
 // valueOr returns s, or the placeholder when s is empty, so an empty field
 // renders as a visible marker rather than a blank run of padding.
 func valueOr(s string) string {

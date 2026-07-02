@@ -1,0 +1,4 @@
+{
+  "schema_version": "1.4.0",
+  "mermaid": "erDiagram\n\tCATEGORIES ||--o{ POSTS : \"posts (hasMany)\"\n\tPOSTS }o--|| USERS : \"author (belongsTo)\"\n\tPOSTS }o--|| CATEGORIES : \"category (belongsTo)\"\n\tPOSTS }o--|| USERS : \"editor (belongsTo)\"\n\tUSERS ||--o{ POSTS : \"posts (hasMany)\"\n\tUSERS {\n\t\tbigInteger id PK\n\t\tstring name\n\t\tstring email UK\n\t\ttimestamp email_verified_at\n\t\ttimestamp created_at\n\t\ttimestamp updated_at\n\t}\n\tPOSTS {\n\t\tbigInteger id PK\n\t\tbigInteger user_id FK\n\t\tstring title\n\t\ttext body\n\t\tboolean published\n\t\ttimestamp created_at\n\t\ttimestamp updated_at\n\t\tbigInteger category_id FK\n\t}\n\tCATEGORIES {\n\t\tbigInteger id PK\n\t\tstring name\n\t\tstring slug UK\n\t\ttimestamp created_at\n\t\ttimestamp updated_at\n\t}\n"
+}

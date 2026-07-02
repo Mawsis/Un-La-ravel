@@ -1,0 +1,14 @@
+Category  → categories
+  UNGUARDED (guarded = [])
+  relationships: posts (hasMany → Post)
+
+Post  → posts
+  FILLABLE (3 field(s))
+  relationships: author (belongsTo → User), category (belongsTo → Category), editor (belongsTo → User)
+
+User  → users
+  PROTECTED (no fillable/guarded declared)
+  casts: email_verified_at:datetime
+  relationships: posts (hasMany → Post)
+
+3 model(s)

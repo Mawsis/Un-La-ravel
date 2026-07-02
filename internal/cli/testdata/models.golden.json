@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.4.0",
+  "models": [
+    {
+      "name": "Category",
+      "table": "categories",
+      "relationships": [
+        {
+          "kind": "hasMany",
+          "method": "posts",
+          "target": "Post"
+        }
+      ],
+      "fillable": null,
+      "guarded": [],
+      "casts": []
+    },
+    {
+      "name": "Post",
+      "table": "posts",
+      "relationships": [
+        {
+          "kind": "belongsTo",
+          "method": "author",
+          "target": "User",
+          "foreign_key": "user_id"
+        },
+        {
+          "kind": "belongsTo",
+          "method": "category",
+          "target": "Category"
+        },
+        {
+          "kind": "belongsTo",
+          "method": "editor",
+          "target": "User",
+          "foreign_key": "editor_id"
+        }
+      ],
+      "fillable": [
+        "title",
+        "body",
+        "category_id"
+      ],
+      "guarded": null,
+      "casts": []
+    },
+    {
+      "name": "User",
+      "table": "users",
+      "relationships": [
+        {
+          "kind": "hasMany",
+          "method": "posts",
+          "target": "Post"
+        }
+      ],
+      "fillable": null,
+      "guarded": null,
+      "casts": [
+        {
+          "column": "email_verified_at",
+          "type": "datetime"
+        }
+      ]
+    }
+  ]
+}

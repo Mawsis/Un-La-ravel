@@ -5,8 +5,8 @@
 // Model, many renderers). Both the CLI (internal/cli) and the web server are
 // just consumers — they call Analyze and then render the SAME model however
 // they like. Nothing here prints, reads flags, or writes files: it has no
-// dependency on cobra, github.com/fatih/color, or os.WriteFile, so any caller
-// can drive it headlessly and get identical results.
+// dependency on cobra, lipgloss, or os.WriteFile, so any caller can drive it
+// headlessly and get identical results.
 //
 // The pipeline runs in a fixed order (ADR 0006):
 //

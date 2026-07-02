@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"github.com/Mawsis/Un-La-ravel/internal/web"
@@ -49,6 +48,11 @@ service.`,
 // --port flag, prints the URL the developer should open, and blocks in
 // web.Server.Start. All server behavior (routing, embedded UI, JSON API) lives
 // in internal/web; the CLI only wires the flag and reports the address.
+//
+// The startup line goes to stderr (ADR 0008: stderr is for diagnostics, and
+// serve has no stdout data mode to protect — but keeping the convention
+// uniform means a future "unlaravel serve --json" could add one without
+// moving this line).
 func runServe(cmd *cobra.Command, _ []string) error {
 	port, err := cmd.Flags().GetInt(portFlag)
 	if err != nil {
@@ -60,8 +64,7 @@ func runServe(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to start dashboard: %w", err)
 	}
 
-	cyan := color.New(color.FgCyan)
-	cyan.Printf("→ http://localhost:%d\n", port)
+	fmt.Fprintln(cmd.ErrOrStderr(), styleHeading.Render(fmt.Sprintf("→ http://localhost:%d", port)))
 
 	// Start blocks until the server stops. A clean shutdown returns nil; any
 	// other failure (e.g. the port is already in use) is surfaced to the caller,

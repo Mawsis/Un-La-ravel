@@ -15,18 +15,22 @@ Point it at a Laravel project and it produces an **Entity-Relationship diagram o
 ```console
 $ unlaravel analyze ./my-laravel-app --output model.json
 
-✅ Laravel project detected (version: ^11.0)
-✅ Extracted 3 table(s) from ./my-laravel-app/database/migrations
-✅ Extracted 3 Eloquent model(s)
-✅ Wrote analysis to model.json
+Un(la)ravel — ./my-laravel-app
+Laravel ^11.0
+3 table(s) · 3 model(s) · 2 controller(s) · 5 route(s) · 1 form request(s)
+Wrote analysis to model.json
+1 finding(s): 1 disagreement(s), 0 dead route(s)
+hint: unlaravel findings
 
-⚠️  Disagreements (1):
-  • Post::editor — foreign key column "editor_id" not found on table "posts"
+$ unlaravel findings ./my-laravel-app
 
-📊 Entity-Relationship diagram (Mermaid):
-  ...
-🎉 Analysis complete: 3 table(s), 3 model(s) found
+Disagreements (1):
+  Post::editor — foreign key column "editor_id" not found on table "posts"
 ```
+
+`analyze` prints a compact summary; each artifact has its own focused command
+(`routes`, `models`, `er`, `openapi`, `findings`) — see
+[Every view, one command](#-every-view-one-command) below.
 
 ### The diagram it generates
 
@@ -79,7 +83,7 @@ git clone https://github.com/Mawsis/Un-La-ravel.git
 cd Un-La-ravel
 go build -o unlaravel ./cmd/unlaravel
 
-# Analyze any Laravel project
+# Analyze any Laravel project — a compact summary + findings digest
 ./unlaravel analyze /path/to/laravel-app
 
 # Also emit the machine-readable model
@@ -93,6 +97,22 @@ Don't have a Laravel app handy? Try it on the bundled fixture:
 ```
 
 To see the diagram rendered, copy the `erDiagram` block into [mermaid.live](https://mermaid.live) or any GitHub Markdown file.
+
+### Every view, one command
+
+`analyze` is a summary; each artifact you actually want has its own command,
+piped output is stable to script against, and `--json` gives a machine-readable
+projection of the same [`unlaravel.json` contract](#-the-unlaraveljson-contract):
+
+```bash
+./unlaravel routes ./app                  # route table, dead routes flagged
+./unlaravel models ./app                  # mass assignment, casts, indexes
+./unlaravel er ./app                      # Mermaid ER diagram source
+./unlaravel findings ./app                # disagreements + dead routes
+./unlaravel openapi ./app > openapi.json  # OpenAPI 3 spec (always JSON)
+
+./unlaravel routes ./app --json | jq '.routes[] | select(.method == "POST")'
+```
 
 ---
 
@@ -148,16 +168,17 @@ Laravel validation rules map to JSON-Schema faithfully: `max:255` → `maxLength
 Un(la)ravel resolves every route to the controller action that handles it — across files, via a two-phase symbol table — flattens route-group prefixes and middleware, expands `apiResource` macros, and **flags dead routes**: routes pointing at a controller or action that no longer exists.
 
 ```console
-🗺️  Routes (11):
+$ unlaravel routes ./my-laravel-app
+
 METHOD  URI                   CONTROLLER@ACTION          MIDDLEWARE
 GET     /posts                PostController@index       -
 POST    /posts                PostController@store       auth
 GET     /admin/comments/{id}  CommentController@show     auth:sanctum, throttle:api
 DELETE  /admin/users/{id}     UserController@destroy     auth:sanctum, throttle:api  ⚠ DEAD
-
-⚠️  Dead routes (1):
-  • DELETE /admin/users/{id} — action "destroy" not found on controller "…UserController"
 ```
+
+Piped output (`unlaravel routes ./app | grep DEAD`) is byte-identical to what
+you see above, so it's stable to script against.
 
 That dead route is a real bug the tool finds statically — an endpoint that would 500 in production, invisible until someone hits it.
 

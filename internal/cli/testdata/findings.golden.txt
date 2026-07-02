@@ -1,0 +1,5 @@
+Disagreements (1):
+  Post::editor — foreign key column "editor_id" not found on table "posts"
+
+Dead routes (1):
+  DELETE /admin/users/{id} — action "destroy" not found on controller "App\Http\Controllers\UserController"

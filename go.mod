@@ -1,6 +1,6 @@
 module github.com/Mawsis/Un-La-ravel
 
-go 1.18
+go 1.25
 
 require (
 	github.com/VKCOM/php-parser v0.8.2

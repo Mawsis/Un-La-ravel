@@ -65,6 +65,14 @@ Originally listed under Deferred as out of scope for the "CLI + package" done-de
 - [x] ER diagram (Mermaid, pan/zoom via svg-pan-zoom for large schemas), filterable route table with dead-route highlighting, Swagger UI over the generated OpenAPI spec, findings panel.
 - [x] All dashboard JS assets (Mermaid, svg-pan-zoom, Swagger UI) vendored into the binary via `go:embed` — the dashboard works fully offline.
 
+### Milestone 3.6 — UX overhaul: CLI + dashboard usability
+Both surfaces work but fight the user: the CLI dumps everything in one wall of text with no pipeable JSON, and the dashboard loses all state on refresh with no cross-navigation between its five tabs. See `design.md` (repo root) for the system and [[ADR 0008 - CLI subcommand-per-view presentation|ADR 0008]] for the CLI decision. Five vertical-slice PRs:
+- [ ] `docs`: `design.md` + ADR 0008.
+- [ ] `feat`: subcommand-per-view CLI (`routes`/`models`/`er`/`openapi`/`findings`, compact `analyze`), lipgloss presentation, `--json` per view.
+- [ ] `refactor`: dashboard shell — sidebar IA, ES modules, extracted CSS tokens, accessibility baseline.
+- [ ] `feat`: dashboard entry & state — hash router, recent projects, `serve [path]`.
+- [ ] `feat`: linked explorer — cross-entity links, ER focus-by-table, Cmd+K search.
+
 ### Milestone 4 — Polish for portfolio
 - [ ] Killer README: GIF demo, generated-output samples, install instructions.
 - [ ] `go install` / Homebrew tap / GoReleaser for binaries.
@@ -77,13 +85,13 @@ Originally listed under Deferred as out of scope for the "CLI + package" done-de
 
 ### Milestone 6 — From MVP to professional toolkit
 Four flagship capabilities, all consuming the existing Project Model — no re-architecture, per ADR 0001. Each is its own vertical slice/PR.
-- [ ] Engine deepening I: `$fillable`/`$guarded`/`$casts` on Model, `indexes` on Table → contract `1.4.0`.
-- [ ] Shared query layer (`internal/query`) + `unlaravel why` / `unlaravel trace` → contract `1.5.0` (route-model-binding edges). New ADR 0008.
-- [ ] Findings model (`internal/findings`) + `unlaravel doctor` + middleware alias extraction → contract `1.6.0`. New ADR 0009.
-- [ ] AI integration: `unlaravel mcp` (official `modelcontextprotocol/go-sdk`, read-only tools wrapping the query layer) + `unlaravel context`. New ADR 0010.
+- [x] Engine deepening I: `$fillable`/`$guarded`/`$casts` on Model, `indexes` on Table → contract `1.4.0`.
+- [ ] Shared query layer (`internal/query`) + `unlaravel why` / `unlaravel trace` → contract `1.5.0` (route-model-binding edges). Slots in alongside [[ADR 0008 - CLI subcommand-per-view presentation|ADR 0008]]'s per-view command shape; new ADR (next free number).
+- [ ] Findings model (`internal/findings`) + `unlaravel doctor` + middleware alias extraction → contract `1.6.0`. New ADR (next free number).
+- [ ] AI integration: `unlaravel mcp` (official `modelcontextprotocol/go-sdk`, read-only tools wrapping the query layer) + `unlaravel context`. New ADR (next free number).
 - [ ] CI guardrails: `unlaravel check` (exit-code gate) + `unlaravel diff` (structural changelog between two `unlaravel.json` snapshots).
 - [ ] _(optional, cuttable)_ Through/polymorphic relationship kinds → contract `1.7.0`.
-- [ ] Distribution: GoReleaser + Homebrew tap, then the Laravel Composer package in a separate repo. New ADR 0011.
+- [ ] Distribution: GoReleaser + Homebrew tap, then the Laravel Composer package in a separate repo. New ADR (next free number).
 
 ## Deferred (explicitly out of MVP)
 

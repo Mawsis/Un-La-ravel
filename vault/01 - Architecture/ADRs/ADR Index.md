@@ -16,6 +16,7 @@ Architecture Decision Records — *why* the project is shaped the way it is. Eac
 | [[ADR 0005 - Laravel package is thin wrapper over Go binary\|0005]] | Laravel package = thin wrapper | ✅ accepted | Composer package shells out to the one Go engine; PHP stays minimal |
 | [[ADR 0006 - Two-phase extraction with symbol table\|0006]] | Two-phase extraction + symbol table | ✅ accepted | Correct cross-file edges; dangling refs = free dead-route detection |
 | [[ADR 0007 - No database in core\|0007]] | No database in the core | ✅ accepted | In-memory graph + JSON; SQLite/GORM is premature infra (overrides brief) |
+| [[ADR 0008 - CLI subcommand-per-view presentation\|0008]] | CLI subcommand-per-view presentation | ✅ accepted | One view per command, TTY/pipe/`--json` adapt; renderers stay the pinned contract |
 
 ## How these connect
 
@@ -28,6 +29,7 @@ flowchart TD
     a3 --> a6["0006 Two-phase + symbol table"]
     a4 --> a7["0007 No database"]
     a5 -.reinforced by.-> a7
+    a4 --> a8["0008 CLI subcommand-per-view"]
 ```
 
 ## Decisions that did NOT get an ADR (and why)

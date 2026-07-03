@@ -18,7 +18,7 @@ const portFlag = "port"
 // analyze` in the tree.
 func addServeCommand() {
 	serveCmd := &cobra.Command{
-		Use:   "serve",
+		Use:   "serve [path]",
 		Short: "Serve the interactive analysis dashboard",
 		Long: `Serve the Un(la)ravel dashboard over HTTP on localhost.
 
@@ -34,9 +34,13 @@ Point the dashboard (or the API) at any local Laravel project:
   GET /api/er?path=<local-path>       -> { mermaid }
   GET /api/openapi?path=<local-path>  -> OpenAPI 3 document
 
+An optional [path] argument pre-fills the dashboard with that project, so
+"unlaravel serve ./my-app" opens straight to its analysis instead of an empty
+entry screen — for the common case of already being in the project directory.
+
 The server binds to localhost only; it is a local developer tool, not a public
 service.`,
-		Args: cobra.NoArgs,
+		Args: cobra.MaximumNArgs(1),
 		RunE: runServe,
 	}
 
@@ -46,16 +50,22 @@ service.`,
 }
 
 // runServe starts the dashboard server. It is PURE PRESENTATION: it reads the
-// --port flag, prints the URL the developer should open, and blocks in
-// web.Server.Start. All server behavior (routing, embedded UI, JSON API) lives
-// in internal/web; the CLI only wires the flag and reports the address.
-func runServe(cmd *cobra.Command, _ []string) error {
+// --port flag and the optional [path] argument, prints the URL the developer
+// should open, and blocks in web.Server.Start. All server behavior (routing,
+// embedded UI, JSON API) lives in internal/web; the CLI only wires the flag
+// and reports the address.
+func runServe(cmd *cobra.Command, args []string) error {
 	port, err := cmd.Flags().GetInt(portFlag)
 	if err != nil {
 		return fmt.Errorf("failed to read --%s flag: %w", portFlag, err)
 	}
 
-	server, err := web.NewServer(port)
+	var opts []web.Option
+	if len(args) > 0 {
+		opts = append(opts, web.WithDefaultProject(args[0]))
+	}
+
+	server, err := web.NewServer(port, opts...)
 	if err != nil {
 		return fmt.Errorf("failed to start dashboard: %w", err)
 	}

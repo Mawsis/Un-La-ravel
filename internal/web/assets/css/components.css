@@ -15,6 +15,53 @@
   font-size: var(--text-xs);
 }
 
+#recents {
+  margin-top: var(--space-5);
+  max-width: 480px;
+}
+.recents-list {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.recents-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.recent-path {
+  all: unset;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-path:hover {
+  background: var(--bg-elev2);
+}
+.recent-remove {
+  all: unset;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  line-height: 1;
+}
+.recent-remove:hover {
+  color: var(--red);
+  background: var(--bg-elev2);
+}
+
 .proj-meta {
   color: var(--text-dim);
   font-size: var(--text-base);

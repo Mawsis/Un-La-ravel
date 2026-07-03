@@ -50,3 +50,8 @@ test_detector.go
 # Build output
 dist/
 build/
+
+# Playwright CLI debug output (from manual browser verification of web UI
+# changes — never intentionally run from the repo root, but ignored as a
+# backstop if it lands there)
+.playwright-cli/

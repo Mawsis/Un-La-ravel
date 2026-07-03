@@ -1,51 +1,70 @@
-// Routes view: filterable route table with dead-route highlighting. Ported
-// from app.js's renderRoutes/drawRouteRows. Column headers are <button>
-// elements inside <th> (design.md a11y baseline "sortable headers are
-// <button> elements... with aria-sort") — sorting itself is wired up here
-// since the markup and behavior are one unit; it was not present before.
+// Routes view: filterable, sortable route table with dead-route
+// highlighting. Ported from app.js's renderRoutes/drawRouteRows; sorting
+// (design.md a11y baseline: sortable headers are <button>s with aria-sort)
+// was added in a later PR.
+//
+// Filter/sort state is owned by the CALLER (main.js), not this module — the
+// router (router.js) is the source of truth for both (design.md "URL &
+// state"), so this module takes the current { filter, sort } and an
+// onStateChange callback rather than keeping its own state. That keeps this
+// file router-agnostic and testable in isolation.
 
 import { $, escapeHtml } from "../dom.js";
 
-const SORTABLE_COLUMNS = [
+export const SORTABLE_COLUMNS = [
   { key: "method", label: "Method" },
   { key: "uri", label: "URI" },
   { key: "action", label: "Controller@Action" },
 ];
 
-let sortState = { key: null, dir: 1 };
-
-export function renderRoutes(routes, deadRoutes) {
+// renderRoutes draws the table for the given routes/deadRoutes at the given
+// { filter, sortKey, sortDir } state. onStateChange(newState) fires when the
+// user types in the filter box or clicks a sortable header; the caller
+// re-renders (typically by pushing the new state into the router, which
+// re-invokes renderRoutes with the updated state).
+export function renderRoutes(routes, deadRoutes, state, onStateChange) {
   const deadSet = new Set((deadRoutes || []).map(deadKey));
   $("#badge-routes").textContent = routes.length;
 
-  renderHeader();
-  drawRouteRows(routes, deadSet, "");
-  $("#route-filter").oninput = (e) => drawRouteRows(routes, deadSet, e.target.value);
+  renderHeader(state, (sortKey) => {
+    const sortDir = state.sortKey === sortKey ? -(state.sortDir || 1) : 1;
+    onStateChange({ ...state, sortKey, sortDir });
+  });
+  drawRouteRows(routes, deadSet, state);
+
+  const filterInput = $("#route-filter");
+  if (filterInput.value !== (state.filter || "")) filterInput.value = state.filter || "";
+  filterInput.oninput = (e) => onStateChange({ ...state, filter: e.target.value });
 }
 
-function renderHeader() {
+function renderHeader(state, onSortClick) {
   const thead = $("table.routes thead tr");
   thead.innerHTML =
     SORTABLE_COLUMNS.map((col) => {
-      const active = sortState.key === col.key;
-      const ariaSort = active ? (sortState.dir === 1 ? "ascending" : "descending") : "none";
+      const active = state.sortKey === col.key;
+      const dir = state.sortDir || 1;
+      const ariaSort = active ? (dir === 1 ? "ascending" : "descending") : "none";
       return (
         '<th scope="col" aria-sort="' + ariaSort + '">' +
         '<button type="button" data-sort-key="' + col.key + '">' + escapeHtml(col.label) +
-        (active ? (sortState.dir === 1 ? " ▲" : " ▼") : "") +
+        (active ? (dir === 1 ? " ▲" : " ▼") : "") +
         "</button></th>"
       );
     }).join("") + '<th scope="col">Middleware</th>';
+
+  thead.querySelectorAll("button[data-sort-key]").forEach((btn) => {
+    btn.onclick = () => onSortClick(btn.dataset.sortKey);
+  });
 }
 
 function deadKey(r) {
   return [r.method, r.uri, r.controller, r.action].join("|");
 }
 
-function sortRoutes(routes) {
-  if (!sortState.key) return routes;
-  const key = sortState.key;
-  const dir = sortState.dir;
+function sortRoutes(routes, state) {
+  if (!state.sortKey) return routes;
+  const key = state.sortKey;
+  const dir = state.sortDir || 1;
   return [...routes].sort((a, b) => {
     const av = routeSortValue(a, key);
     const bv = routeSortValue(b, key);
@@ -58,8 +77,8 @@ function routeSortValue(r, key) {
   return r[key] || "";
 }
 
-function drawRouteRows(routes, deadSet, filter) {
-  const q = filter.trim().toLowerCase();
+function drawRouteRows(routes, deadSet, state) {
+  const q = (state.filter || "").trim().toLowerCase();
   const filtered = routes.filter((r) => {
     if (!q) return true;
     return (
@@ -70,7 +89,7 @@ function drawRouteRows(routes, deadSet, filter) {
     );
   });
 
-  const rows = sortRoutes(filtered)
+  const rows = sortRoutes(filtered, state)
     .map((r) => {
       const isDead = deadSet.has(deadKey(r));
       const action =
@@ -91,17 +110,4 @@ function drawRouteRows(routes, deadSet, filter) {
     })
     .join("");
   $("#routes-body").innerHTML = rows || '<tr><td colspan="4" class="hint" style="padding:16px">No routes match.</td></tr>';
-
-  wireSortButtons(routes, deadSet, filter);
-}
-
-function wireSortButtons(routes, deadSet, filter) {
-  document.querySelectorAll("table.routes thead button[data-sort-key]").forEach((btn) => {
-    btn.onclick = () => {
-      const key = btn.dataset.sortKey;
-      sortState = sortState.key === key ? { key, dir: -sortState.dir } : { key, dir: 1 };
-      renderHeader();
-      drawRouteRows(routes, deadSet, filter);
-    };
-  });
 }

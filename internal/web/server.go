@@ -57,11 +57,31 @@ type Server struct {
 	addr       string
 }
 
+// Option configures a Server at construction time (the standard Go
+// functional-options pattern). See WithDefaultProject.
+type Option func(*serverConfig)
+
+// serverConfig collects the options NewServer applies before building the
+// handler, so adding a future option never changes NewServer's signature.
+type serverConfig struct {
+	defaultProject string
+}
+
+// WithDefaultProject pre-fills the dashboard's bootstrap response
+// (GET /api/bootstrap) with a project path, so `unlaravel serve [path]` can
+// have the browser auto-analyze that path on load instead of the developer
+// re-typing it. Passing "" (the zero value, and NewServer's default when this
+// option is omitted) means no default — the dashboard starts at its normal
+// empty entry screen.
+func WithDefaultProject(path string) Option {
+	return func(c *serverConfig) { c.defaultProject = path }
+}
+
 // NewServer builds a dashboard Server bound to 127.0.0.1 on the given port
 // (pass DefaultPort for the standard 4448). It wires the routes but does not
 // start listening — call Start for that. A non-positive port is rejected so a
 // caller cannot accidentally bind to an OS-chosen port and print the wrong URL.
-func NewServer(port int) (*Server, error) {
+func NewServer(port int, opts ...Option) (*Server, error) {
 	if port <= 0 {
 		return nil, fmt.Errorf("invalid port %d: must be positive", port)
 	}
@@ -69,8 +89,12 @@ func NewServer(port int) (*Server, error) {
 	addr := net.JoinHostPort(localhost, strconv.Itoa(port))
 	return &Server{
 		httpServer: &http.Server{
-			Addr:              addr,
-			Handler:           Handler(),
+			Addr: addr,
+			// Delegates to HandlerWithOptions rather than re-applying opts
+			// here, so option-construction logic (currently a trivial
+			// apply-loop, but not guaranteed to stay that simple) has
+			// exactly one implementation.
+			Handler:           HandlerWithOptions(opts...),
 			ReadHeaderTimeout: readHeaderTimeout,
 		},
 		addr: addr,
@@ -90,10 +114,29 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// Handler builds the dashboard's HTTP handler: the embedded single-page UI at
-// "/" plus the JSON API under "/api/". It is exported so tests (and any
-// embedding caller) can exercise the routes with httptest.NewServer without
-// binding a real socket.
+// Handler builds the dashboard's HTTP handler with no default project
+// (equivalent to `unlaravel serve` with no path argument). It is exported so
+// tests (and any embedding caller) can exercise the routes with
+// httptest.NewServer without binding a real socket. See handler for the
+// full route table and HandlerWithOptions to configure a default project.
+func Handler() http.Handler {
+	return handler(&serverConfig{})
+}
+
+// HandlerWithOptions builds the dashboard's HTTP handler with the given
+// Options applied — the same configuration NewServer accepts, exposed
+// separately so tests can exercise GET /api/bootstrap against an
+// httptest.NewServer without binding a real socket via NewServer/Start.
+func HandlerWithOptions(opts ...Option) http.Handler {
+	cfg := &serverConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return handler(cfg)
+}
+
+// handler builds the dashboard's HTTP handler: the embedded single-page UI at
+// "/" plus the JSON API under "/api/".
 //
 // Routes:
 //
@@ -101,7 +144,11 @@ func (s *Server) Start() error {
 //	GET /api/analyze   -> { model, mermaid, openapi } for ?path=<local-path>
 //	GET /api/er        -> { mermaid } for ?path=<local-path>
 //	GET /api/openapi   -> the OpenAPI 3 document for ?path=<local-path>
-func Handler() http.Handler {
+//	GET /api/bootstrap -> { default_path } — a versionless convenience
+//	                      endpoint, NOT part of the unlaravel.json contract,
+//	                      that lets the dashboard auto-analyze the project
+//	                      `unlaravel serve [path]` was started with.
+func handler(cfg *serverConfig) http.Handler {
 	mux := http.NewServeMux()
 
 	// JSON API. These are registered before the "/" catch-all; ServeMux's
@@ -110,6 +157,7 @@ func Handler() http.Handler {
 	mux.HandleFunc("/api/analyze", handleAnalyze)
 	mux.HandleFunc("/api/er", handleER)
 	mux.HandleFunc("/api/openapi", handleOpenAPI)
+	mux.HandleFunc("/api/bootstrap", handleBootstrap(cfg.defaultProject))
 
 	// Static single-page dashboard, served from the embedded assets subtree so
 	// "/" resolves to assets/index.html.

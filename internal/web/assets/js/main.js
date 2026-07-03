@@ -2,6 +2,7 @@
 //
 // Drives the UI in index.html against the local server's JSON API:
 //   GET /api/analyze?path=<local-path>  ->  { model, mermaid, openapi }
+//   GET /api/bootstrap                  ->  { default_path }
 // where `model` is the unlaravel.json contract, `mermaid` is the ER diagram
 // source, and `openapi` is the OpenAPI 3 document. Errors come back as
 // { error } with a 4xx.
@@ -10,21 +11,29 @@
 // file and internal/web/assets/js/* are plain ES modules loaded via
 // <script type="module">, embedded in the Go binary via //go:embed.
 //
-// View switching here is a simple class toggle keyed by the sidebar's
-// data-view attribute, NOT a hash router — that lands in a later PR
-// (design.md "URL & state"). Sidebar links are still real <a> elements so
-// they remain keyboard/AT-navigable; only the destination (a class toggle
-// rather than a route) is provisional.
+// State model (design.md "URL & state"): the hash (router.js) is the source
+// of truth for which view is active and its filter/sort/focus params — it's
+// what makes refresh, Back/Forward, and copy-paste-share all just work.
+// localStorage (store.js) is a convenience-only recent-projects list; nothing
+// here depends on it for correctness.
+//
+// Boot order: an explicit ?path= in the hash (a deep link — explicit intent,
+// auto-analyzed) > the project `unlaravel serve [path]` was started with
+// (GET /api/bootstrap) > an empty entry screen with the recent-projects list
+// offered, not auto-run.
 
 import { $, $$, escapeHtml } from "./dom.js";
 import { analyze } from "./api.js";
-import { setResult, onResultChange } from "./state.js";
+import { setResult, getResult } from "./state.js";
+import { addRecent } from "./store.js";
+import * as router from "./router.js";
 import { renderOverview } from "./views/overview.js";
 import { renderER } from "./views/er.js";
 import { renderModels } from "./views/models.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
 import { renderSwagger } from "./views/swagger.js";
+import { renderRecents } from "./views/recents.js";
 
 const el = {
   form: $("#search-form"),
@@ -35,16 +44,30 @@ const el = {
   results: $("#results"),
 };
 
-async function runAnalysis(path) {
+let currentPath = null; // the project path the last successful analysis ran against
+
+async function runAnalysis(path, { fromRouter = false } = {}) {
   setLoading(true);
   announce("Analyzing " + path + "…");
   try {
     const result = await analyze(path);
+    currentPath = path;
     setResult(result);
+    addRecent(path, (result.model || {}).project_name);
     el.intro.classList.add("hidden");
     el.results.classList.remove("hidden");
     const routeCount = ((result.model || {}).routes || []).length;
     announce("Analyzed " + path + " — " + routeCount + " route(s) found.");
+    if (!fromRouter) {
+      // A fresh analysis from the form is new navigation intent — reflect it
+      // in the URL so refresh/Back/share work from here on. A hash-driven
+      // analysis (deep link, already reflects the URL) skips this to avoid
+      // pushing a redundant duplicate history entry.
+      const { view, params } = router.getCurrent();
+      const next = new URLSearchParams(params);
+      next.set("path", path);
+      router.navigate(view, next);
+    }
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     showError(message);
@@ -64,25 +87,73 @@ function showError(msg) {
   el.status.innerHTML = '<div class="error">' + escapeHtml(msg) + "</div>";
 }
 
-// announce writes to the aria-live status region (design.md a11y baseline:
-// "One aria-live=\"polite\" status region announces... replacing today's
-// silent spinner swap").
+// announce writes to the aria-live status region (design.md a11y baseline).
 function announce(message) {
   $("#live-status").textContent = message;
 }
 
-onResultChange((result) => {
-  if (!result) return;
-  const model = result.model || {};
-  renderOverview(model);
-  renderER(result.mermaid);
-  renderModels(model.models || [], model.schemas || []);
-  renderRoutes(model.routes || [], model.dead_routes || []);
-  renderFindings(model.disagreements || [], model.dead_routes || []);
-  renderSwagger(result.openapi);
-});
+// ---- rendering from router state -------------------------------------------
 
-// ---- sidebar navigation (provisional — see file header) -------------------
+// renderedForResult tracks which analysis result the once-per-analysis
+// views (everything except the active view's filter/sort-driven content)
+// were last rendered for, so navigating between views doesn't re-render or
+// re-mount them on every hash change. Comparing by reference is enough since
+// state.js always replaces (never mutates) the result object.
+let renderedForResult = null;
+
+function renderCurrentView() {
+  const result = getResult();
+  if (!result) return;
+  const { view, params } = router.getCurrent();
+  const model = result.model || {};
+
+  // Render once per analysis, not once per navigation — these panels don't
+  // depend on router params, and re-rendering ER on every view switch was
+  // destroying/recreating its svg-pan-zoom instance while hidden
+  // (display:none), which svg-pan-zoom can't handle (degenerate transform
+  // matrix on a zero-size container).
+  if (renderedForResult !== result) {
+    renderedForResult = result;
+    renderOverview(model);
+    renderER(result.mermaid);
+    renderFindings(model.disagreements || [], model.dead_routes || []);
+    renderSwagger(result.openapi);
+  }
+
+  // Filter/sort-driven content is cheap to redraw and its correctness
+  // depends on the current URL params, so it re-renders on every navigation
+  // regardless of which view is active — the badge counts it also updates
+  // (e.g. "Routes 11") must stay correct even when Models is the active view.
+  renderModels(model.models || [], model.schemas || [], params.get("filter") || "", (filter) => {
+    const next = new URLSearchParams(params);
+    filter ? next.set("filter", filter) : next.delete("filter");
+    router.navigate(view, next, { replace: true });
+  });
+  renderRoutes(model.routes || [], model.dead_routes || [], routesStateFromParams(params), (newState) => {
+    router.navigate(view, paramsFromRoutesState(params, newState), { replace: true });
+  });
+
+  activateView(view);
+}
+
+function routesStateFromParams(params) {
+  return {
+    filter: params.get("filter") || "",
+    sortKey: params.get("sort") || null,
+    sortDir: params.get("dir") === "desc" ? -1 : 1,
+  };
+}
+
+function paramsFromRoutesState(params, state) {
+  const next = new URLSearchParams(params);
+  state.filter ? next.set("filter", state.filter) : next.delete("filter");
+  state.sortKey ? next.set("sort", state.sortKey) : next.delete("sort");
+  if (state.sortKey && state.sortDir === -1) next.set("dir", "desc");
+  else next.delete("dir");
+  return next;
+}
+
+// ---- sidebar navigation (router-backed) ------------------------------------
 
 function activateView(name) {
   $$(".nav-views a").forEach((a) => {
@@ -92,7 +163,7 @@ function activateView(name) {
   });
   $$(".panel").forEach((p) => p.classList.toggle("active", p.dataset.panel === name));
 
-  const heading = document.querySelector('.panel.active h2');
+  const heading = document.querySelector(".panel.active h2");
   if (heading) {
     heading.setAttribute("tabindex", "-1");
     heading.focus();
@@ -109,14 +180,83 @@ $$(".nav-views a").forEach((a) =>
   a.addEventListener("click", (e) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    activateView(a.dataset.view);
+    const { params } = router.getCurrent();
+    // Carry the current path forward across a view switch, drop any
+    // view-specific filter/sort/focus params — those belong to the view
+    // being left, not the one being entered.
+    const next = new URLSearchParams();
+    if (params.get("path")) next.set("path", params.get("path"));
+    router.navigate(a.dataset.view, next);
   })
 );
 
+// ---- router subscription ----------------------------------------------------
+
+router.subscribe(({ params }) => {
+  const path = params.get("path");
+  if (!path) {
+    renderCurrentView(); // no path in the URL — nothing to (re)analyze
+    return;
+  }
+  if (path === currentPath && getResult()) {
+    renderCurrentView(); // same project already analyzed — just re-render the view
+    return;
+  }
+  el.input.value = path;
+  runAnalysis(path, { fromRouter: true }).then(renderCurrentView);
+});
+
 // ---- wire up ----------------------------------------------------------------
 
+// The form and recents-click handlers below deliberately do NOT check
+// path === currentPath before calling runAnalysis, unlike the router
+// subscription above. That asymmetry is intentional: a hash change carrying
+// the same path is usually just a view switch that happens to repeat the
+// param (skip re-fetching is correct), whereas the user submitting the form
+// or re-clicking a recent project is an explicit "analyze this again" — the
+// engine is static with no caching (CLAUDE.md ADR 0007), so a deliberate
+// re-run should re-read the project's current files on disk, not reuse a
+// stale in-memory result.
 el.form.addEventListener("submit", (e) => {
   e.preventDefault();
   const path = el.input.value.trim();
-  if (path) runAnalysis(path);
+  if (path) runAnalysis(path).then(renderCurrentView);
 });
+
+renderRecents((path) => {
+  el.input.value = path;
+  runAnalysis(path).then(renderCurrentView);
+});
+
+// ---- boot sequence ------------------------------------------------------
+
+async function boot() {
+  router.init();
+  const { params } = router.getCurrent();
+
+  // 1. An explicit ?path= in the hash is a deep link — explicit intent,
+  //    auto-analyze it. router.subscribe (above) already fires from
+  //    router.init(), so if a path is present this is already in flight.
+  if (params.get("path")) return;
+
+  // 2. Otherwise, ask the server what `unlaravel serve [path]` was started
+  //    with, if anything.
+  try {
+    const res = await fetch("/api/bootstrap");
+    const body = await res.json();
+    if (res.ok && body && body.default_path) {
+      el.input.value = body.default_path;
+      const next = new URLSearchParams(router.getCurrent().params);
+      next.set("path", body.default_path);
+      router.navigate(router.getCurrent().view, next, { replace: true });
+      return;
+    }
+  } catch (e) {
+    // /api/bootstrap unreachable — fall through to the empty entry screen.
+  }
+
+  // 3. No hash path, no serve-arg default: empty entry screen. The recent
+  //    projects list (already rendered above) is offered, not auto-run.
+}
+
+boot();

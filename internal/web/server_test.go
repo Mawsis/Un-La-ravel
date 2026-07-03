@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Mawsis/Un-La-ravel/internal/web"
@@ -473,6 +474,89 @@ func TestHandler_OpenAPI_MissingPath(t *testing.T) {
 	if eb.Error == "" {
 		t.Error("error body has empty 'error' field")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// GET /api/bootstrap
+// ---------------------------------------------------------------------------
+
+type bootstrapBody struct {
+	DefaultPath string `json:"default_path"`
+}
+
+// TestHandler_Bootstrap_NoDefaultProject asserts that GET /api/bootstrap
+// returns an empty default_path when the server was built with no
+// WithDefaultProject option — the `unlaravel serve` (no path argument) case.
+func TestHandler_Bootstrap_NoDefaultProject(t *testing.T) {
+	ts := newTestServer(t)
+	resp := get(t, ts, "/api/bootstrap")
+	body := readBody(t, resp)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", resp.StatusCode, body)
+	}
+	var bb bootstrapBody
+	if err := json.Unmarshal(body, &bb); err != nil {
+		t.Fatalf("response is not valid JSON: %v\nbody=%s", err, body)
+	}
+	if bb.DefaultPath != "" {
+		t.Errorf("default_path = %q, want empty (no WithDefaultProject was set)", bb.DefaultPath)
+	}
+}
+
+// TestHandler_Bootstrap_WithDefaultProject asserts that GET /api/bootstrap
+// echoes back the path passed to WithDefaultProject — the
+// `unlaravel serve [path]` case, letting the dashboard auto-analyze without
+// the developer re-typing the path they already gave on the command line.
+func TestHandler_Bootstrap_WithDefaultProject(t *testing.T) {
+	fixtureApp := filepath.Join(repoRoot(t), "testdata", "fixture-app")
+	ts := httptest.NewServer(web.HandlerWithOptions(web.WithDefaultProject(fixtureApp)))
+	t.Cleanup(ts.Close)
+
+	resp := get(t, ts, "/api/bootstrap")
+	body := readBody(t, resp)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", resp.StatusCode, body)
+	}
+	var bb bootstrapBody
+	if err := json.Unmarshal(body, &bb); err != nil {
+		t.Fatalf("response is not valid JSON: %v\nbody=%s", err, body)
+	}
+	if bb.DefaultPath != fixtureApp {
+		t.Errorf("default_path = %q, want %q", bb.DefaultPath, fixtureApp)
+	}
+}
+
+// TestHandler_Bootstrap_ConcurrentRequests verifies no data race or
+// cross-request leakage when many goroutines hit /api/bootstrap concurrently
+// against a server configured with WithDefaultProject — the closure captures
+// an immutable string once at handler-construction time, so this is mostly a
+// belt-and-suspenders check against a future refactor introducing shared
+// mutable state, run under `go test -race`.
+func TestHandler_Bootstrap_ConcurrentRequests(t *testing.T) {
+	ts := httptest.NewServer(web.HandlerWithOptions(web.WithDefaultProject("/fixed/path")))
+	t.Cleanup(ts.Close)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp := get(t, ts, "/api/bootstrap")
+			body := readBody(t, resp)
+
+			var bb bootstrapBody
+			if err := json.Unmarshal(body, &bb); err != nil {
+				t.Errorf("response is not valid JSON: %v\nbody=%s", err, body)
+				return
+			}
+			if bb.DefaultPath != "/fixed/path" {
+				t.Errorf("default_path = %q, want /fixed/path", bb.DefaultPath)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 // ---------------------------------------------------------------------------

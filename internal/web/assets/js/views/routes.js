@@ -8,6 +8,13 @@
 // state"), so this module takes the current { filter, sort } and an
 // onStateChange callback rather than keeping its own state. That keeps this
 // file router-agnostic and testable in isolation.
+//
+// The controller cell links to a filtered view of THIS SAME view (design.md
+// "Cross-navigation": "A Route's Controller cell → filters the Routes
+// view") — implemented as a click handler that calls onStateChange directly
+// rather than an <a href>, since it's an in-view state change, not
+// cross-view navigation; going through a full hash round-trip would be
+// indirection for no benefit.
 
 import { $, escapeHtml } from "../dom.js";
 
@@ -19,9 +26,10 @@ export const SORTABLE_COLUMNS = [
 
 // renderRoutes draws the table for the given routes/deadRoutes at the given
 // { filter, sortKey, sortDir } state. onStateChange(newState) fires when the
-// user types in the filter box or clicks a sortable header; the caller
-// re-renders (typically by pushing the new state into the router, which
-// re-invokes renderRoutes with the updated state).
+// user types in the filter box, clicks a sortable header, or clicks a
+// controller cell; the caller re-renders (typically by pushing the new
+// state into the router, which re-invokes renderRoutes with the updated
+// state).
 export function renderRoutes(routes, deadRoutes, state, onStateChange) {
   const deadSet = new Set((deadRoutes || []).map(deadKey));
   $("#badge-routes").textContent = routes.length;
@@ -30,7 +38,9 @@ export function renderRoutes(routes, deadRoutes, state, onStateChange) {
     const sortDir = state.sortKey === sortKey ? -(state.sortDir || 1) : 1;
     onStateChange({ ...state, sortKey, sortDir });
   });
-  drawRouteRows(routes, deadSet, state);
+  drawRouteRows(routes, deadSet, state, (controller) => {
+    onStateChange({ ...state, filter: controller });
+  });
 
   const filterInput = $("#route-filter");
   if (filterInput.value !== (state.filter || "")) filterInput.value = state.filter || "";
@@ -77,7 +87,7 @@ function routeSortValue(r, key) {
   return r[key] || "";
 }
 
-function drawRouteRows(routes, deadSet, state) {
+function drawRouteRows(routes, deadSet, state, onControllerClick) {
   const q = (state.filter || "").trim().toLowerCase();
   const filtered = routes.filter((r) => {
     if (!q) return true;
@@ -94,7 +104,8 @@ function drawRouteRows(routes, deadSet, state) {
       const isDead = deadSet.has(deadKey(r));
       const action =
         r.controller || r.action
-          ? escapeHtml((r.controller || "—") + "@" + (r.action || "—"))
+          ? '<button type="button" class="link-button" data-controller="' + escapeHtml(r.controller || "") + '">' +
+            escapeHtml((r.controller || "—") + "@" + (r.action || "—")) + "</button>"
           : '<span class="mw">(closure / view route)</span>';
       const mw = (r.middleware || []).length
         ? '<span class="mw">' + escapeHtml(r.middleware.join(", ")) + "</span>"
@@ -110,4 +121,10 @@ function drawRouteRows(routes, deadSet, state) {
     })
     .join("");
   $("#routes-body").innerHTML = rows || '<tr><td colspan="4" class="hint" style="padding:16px">No routes match.</td></tr>';
+
+  if (onControllerClick) {
+    document.querySelectorAll("#routes-body button[data-controller]").forEach((btn) => {
+      if (btn.dataset.controller) btn.onclick = () => onControllerClick(btn.dataset.controller);
+    });
+  }
 }

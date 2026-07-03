@@ -1,12 +1,14 @@
 // Models view: mass-assignment state, casts, indexes, orphan tables. Ported
-// from app.js's renderModels/drawModelCards with no rendering behavior
-// change; the filter value is now owned by the caller (main.js, backed by
-// the router — design.md "URL & state") rather than local module state, so
-// a filter typed into this view survives refresh and Back/Forward.
+// from app.js's renderModels/drawModelCards; the filter value is now owned
+// by the caller (main.js, backed by the router — design.md "URL & state")
+// rather than local module state, so a filter typed into this view survives
+// refresh and Back/Forward. Each card's table name links to its entity in
+// the ER Diagram view (design.md "Cross-navigation").
 
 import { $, escapeHtml } from "../dom.js";
+import { hrefFor } from "../links.js";
 
-export function renderModels(models, schemas, filter, onFilterChange) {
+export function renderModels(models, schemas, filter, onFilterChange, currentParams) {
   const unguardedCount = models.filter(
     (m) => Array.isArray(m.guarded) && m.guarded.length === 0
   ).length;
@@ -15,7 +17,7 @@ export function renderModels(models, schemas, filter, onFilterChange) {
   badge.textContent = models.length;
   badge.classList.toggle("danger", unguardedCount > 0);
 
-  drawModelCards(models, schemas, filter || "");
+  drawModelCards(models, schemas, filter || "", currentParams);
 
   const filterInput = $("#model-filter");
   if (filterInput.value !== (filter || "")) filterInput.value = filter || "";
@@ -131,7 +133,7 @@ function renderFkHints(table) {
     .join("");
 }
 
-function drawModelCards(models, schemas, filter) {
+function drawModelCards(models, schemas, filter, currentParams) {
   const q = filter.trim().toLowerCase();
   const matches = (name, table) => {
     if (!q) return true;
@@ -145,7 +147,12 @@ function drawModelCards(models, schemas, filter) {
     .map((m) => {
       const state = massAssignmentState(m);
       const table = (schemas || []).find((t) => t.name === m.table);
-      const tableSuffix = m.table ? escapeHtml(m.table) : "(unknown table)";
+      // hrefFor's output is already percent-encoded by URLSearchParams and
+      // can't contain a literal '"' — escapeHtml here is defense-in-depth
+      // consistency with search.js, not a fix for a live gap.
+      const tableSuffix = m.table
+        ? '<a href="' + escapeHtml(hrefFor("table", m.table, currentParams)) + '">' + escapeHtml(m.table) + "</a>"
+        : "(unknown table)";
       return (
         '<div class="model-card' + (state === "unguarded" ? " risk" : "") + '">' +
         '<div class="mh">' + escapeHtml(m.name || "") + ' <span class="mw">-&gt; ' + tableSuffix + "</span></div>" +
@@ -165,9 +172,10 @@ function drawModelCards(models, schemas, filter) {
     orphanHtml += orphanTables
       .map((t) => {
         const colCount = (t.columns || []).length;
+        const nameLink = '<a href="' + escapeHtml(hrefFor("table", t.name, currentParams)) + '">' + escapeHtml(t.name) + "</a>";
         return (
           '<div class="model-card">' +
-          '<div class="mh">' + escapeHtml(t.name) + "</div>" +
+          '<div class="mh">' + nameLink + "</div>" +
           '<div class="empty-note">' + colCount + " column" + (colCount === 1 ? "" : "s") + "</div>" +
           renderIndexesSection(t) +
           renderFkHints(t) +

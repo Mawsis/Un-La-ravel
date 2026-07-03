@@ -58,7 +58,13 @@ command -v gh     >/dev/null || { echo "gh CLI not found on PATH"; exit 1; }
 gh auth status   >/dev/null 2>&1 || { echo "gh not authenticated (run: gh auth login)"; exit 1; }
 
 MODEL="${MODEL:-opus}"
-PERM_MODE="${PERM_MODE:-acceptEdits}"
+# bypassPermissions: the headless agent needs to run gh/go/git/gofmt to read
+# the issue, build, test, and open PRs — none of which acceptEdits covers, and
+# in -p mode a permission prompt is auto-DENIED (there's no human to answer it),
+# which is what stalled issue #20's first run. bypassPermissions removes all
+# prompts. Safe here because each slice is branch-isolated and CI-gated before
+# merge. Override with PERM_MODE=acceptEdits if you add a scoped allowlist.
+PERM_MODE="${PERM_MODE:-bypassPermissions}"
 BASE_BRANCH="${BASE_BRANCH:-main}"
 MERGE_METHOD="${MERGE_METHOD:-merge}"
 CI_TIMEOUT="${CI_TIMEOUT:-1800}"

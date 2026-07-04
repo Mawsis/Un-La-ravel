@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"strconv"
@@ -164,6 +165,16 @@ func handler(cfg *serverConfig) http.Handler {
 	mux.Handle("/", staticHandler())
 
 	return logRequests(mux)
+}
+
+func init() {
+	// Go's builtin mime table has no entry for .woff2, so http.FileServer would
+	// fall back to whatever the host OS's mime.types says (or sniff to
+	// application/octet-stream on slim containers). The vendored fonts (issue
+	// #22) must serve as font/woff2 everywhere, so pin it explicitly.
+	if err := mime.AddExtensionType(".woff2", "font/woff2"); err != nil {
+		panic(fmt.Sprintf("web: registering .woff2 mime type: %v", err))
+	}
 }
 
 // staticHandler serves the embedded dashboard assets. It roots a sub-filesystem

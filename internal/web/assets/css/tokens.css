@@ -57,8 +57,12 @@
   --warn-tint: rgba(245, 158, 11, 0.14);
   --ok-tint: rgba(34, 197, 94, 0.14);
 
-  /* Type */
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* Type — three stacks with distinct jobs (issue #22). --display and --mono
+     lead with the vendored faces from fonts.css (Instrument Sans, JetBrains
+     Mono — self-hosted woff2, no CDN); --sans stays a pure system stack so
+     body/UI text renders instantly without paying any webfont cost. */
+  --display: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --text-2xs: 11px;
   --text-xs: 12px;

@@ -50,7 +50,30 @@
       </button>
     </nav>
 
-    <main class="content" id="main-content">
+    <main class="content first-run" id="main-content">
+      <!-- Logo-led first-run hero (issue #29). Shown until the first
+           successful analysis, then hidden alongside #intro; the path form
+           below stays, shrinking from hero primary action to the compact
+           header bar (the .first-run class on <main> drives that). The mark
+           is an inline SVG so it stays vector-crisp and reads its colors
+           from the token layer — no raster art, no decorative background. -->
+      <section id="hero" class="hero">
+        <svg class="hero-logo" viewBox="0 0 640 470" role="img" aria-label="The Laravel mark un-raveling into a single thread that resolves at a cyan point">
+          <g fill="none" stroke="var(--brand)" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
+            <!-- The woven Laravel-red mark: a long bar, a shorter crossing
+                 bar, and the small diamond they interlock… -->
+            <path d="M57 214 L121 150 L309 338 L245 402 Z" />
+            <path d="M284 198 L340 255 L222 374 L166 317 Z" />
+            <path d="M165 334 L223 392 L165 450 L106 392 Z" />
+            <!-- …whose lowest vertex pulls loose into the thread. -->
+            <path d="M245 402 C 285 442, 325 420, 365 418 C 405 416, 425 424, 470 424 L 588 424" />
+          </g>
+          <circle cx="608" cy="424" r="16" fill="var(--accent)" />
+        </svg>
+        <p class="hero-wordmark"><span class="un">Un</span>(<span class="la">la</span>)<span class="un">ravel</span></p>
+        <p class="hero-valueprop">Map any Laravel project — no boot, no database, no <code>vendor/</code>.</p>
+      </section>
+
       <div class="content-header">
         <form class="path-form" id="search-form">
           <label class="sr-only" for="path-input">Laravel project path</label>
@@ -60,11 +83,10 @@
       </div>
 
       <div id="intro">
-        <p class="hint">
-          Enter the absolute path to a local Laravel project and press <strong>Analyze</strong>.
-          The dashboard reads it statically — no database, no <code>artisan</code>, no booting the app —
-          and shows its schema, models, routes, dead routes, and an OpenAPI 3 spec.
-        </p>
+        <!-- Revealed by main.js only when /api/bootstrap advertises a
+             sample_path — a server without the bundled fixture never shows a
+             button that would fail. -->
+        <button type="button" id="sample-btn" class="sample-btn" hidden>Try it on the sample project</button>
         <div id="recents"></div>
       </div>
 

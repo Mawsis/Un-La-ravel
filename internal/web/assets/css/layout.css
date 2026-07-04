@@ -143,6 +143,25 @@
   flex-wrap: wrap;
   margin-bottom: var(--space-2);
 }
+
+/* First-run (issue #29): there is exactly one path form, and until the first
+   successful analysis it is the hero's primary action — centered under the
+   wordmark/value prop, with the intro extras (sample button, recents)
+   centered beneath it. main.js removes .first-run on success and the same
+   form settles into the compact header bar above. */
+.first-run .content-header {
+  justify-content: center;
+}
+.first-run .content-header .path-form {
+  max-width: 640px;
+}
+.first-run #intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+}
 .content-header .path-form {
   display: flex;
   gap: var(--space-2);

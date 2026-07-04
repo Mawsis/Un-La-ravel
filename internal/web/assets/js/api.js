@@ -8,5 +8,5 @@ export async function analyze(path) {
   if (!res.ok) {
     throw new Error(body && body.error ? body.error : "Analysis failed (HTTP " + res.status + ")");
   }
-  return body; // { model, mermaid, openapi }
+  return body; // { model, er, openapi }
 }

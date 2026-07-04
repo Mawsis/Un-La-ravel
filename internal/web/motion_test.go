@@ -1,15 +1,17 @@
-// Package web_test — motion_test.go covers issue #25: the functional-motion
-// pass + interim ER (Mermaid) theming. Like restyle_test.go, these tests drive
-// the REAL embedded assets through web.Handler() and assert the acceptance
-// criteria as verifiable properties of the served bytes:
+// Package web_test — motion_test.go covers issue #25's functional-motion pass.
+// Like restyle_test.go, these tests drive the REAL embedded assets through
+// web.Handler() and assert the acceptance criteria as verifiable properties of
+// the served bytes:
 //
 //   - motion durations/easing live in the token layer (single source of truth,
 //     ≈150–200ms, native-feeling — no slow decorative timing);
 //   - consumer stylesheets animate via the motion tokens, never a raw duration;
 //   - no decorative animation (keyframes pinned to a small functional allowlist);
-//   - motion respects prefers-reduced-motion;
-//   - the interim Mermaid ER diagram is themed from the design tokens, not the
-//     built-in "dark" theme that made it look orphaned.
+//   - motion respects prefers-reduced-motion.
+//
+// Issue #25's interim ER theming (Mermaid "base" theme + erThemeVariables) was
+// superseded by the hand-rolled SVG ER renderer in issue #26, which removed
+// Mermaid entirely; its test lived here and was dropped with that engine swap.
 package web_test
 
 import (
@@ -115,24 +117,5 @@ func TestMotion_NoDecorativeAnimationOrRawDurations(t *testing.T) {
 				t.Errorf("%s hardcodes duration %q — timing belongs in tokens.css motion tokens", sheet, d)
 			}
 		}
-	}
-}
-
-// TestERTheme_MermaidInitializedFromTokens asserts the interim ER diagram is
-// themed from the design tokens (issue #25): the served er.js must initialize
-// Mermaid with the "base" theme plus erThemeVariables (the token mapping unit-
-// tested in jstest/er-theme.test.js), and the built-in "dark" theme — the
-// thing that made the diagram look orphaned next to the redesign — is gone.
-func TestERTheme_MermaidInitializedFromTokens(t *testing.T) {
-	js := fetchAsset(t, "/js/views/er.js")
-
-	if !strings.Contains(js, `theme: "base"`) {
-		t.Error(`er.js does not initialize Mermaid with theme: "base" — themeVariables only apply on the base theme`)
-	}
-	if !strings.Contains(js, "erThemeVariables(") {
-		t.Error("er.js does not build themeVariables via erThemeVariables — ER diagram not themed from the design tokens")
-	}
-	if strings.Contains(js, `theme: "dark"`) {
-		t.Error(`er.js still uses Mermaid's built-in "dark" theme`)
 	}
 }

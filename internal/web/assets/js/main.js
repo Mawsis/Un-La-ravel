@@ -1,11 +1,11 @@
 // Un(la)ravel dashboard bootstrap.
 //
 // Drives the UI in index.html against the local server's JSON API:
-//   GET /api/analyze?path=<local-path>  ->  { model, mermaid, openapi }
+//   GET /api/analyze?path=<local-path>  ->  { model, er, openapi }
 //   GET /api/bootstrap                  ->  { default_path }
-// where `model` is the unlaravel.json contract, `mermaid` is the ER diagram
-// source, and `openapi` is the OpenAPI 3 document. Errors come back as
-// { error } with a 4xx.
+// where `model` is the unlaravel.json contract, `er` is the structured ER
+// graph (nodes + edges) the SVG renderer draws, and `openapi` is the OpenAPI 3
+// document. Errors come back as { error } with a 4xx.
 //
 // No framework, no build step (design.md architecture constraint) — this
 // file and internal/web/assets/js/* are plain ES modules loaded via
@@ -137,7 +137,7 @@ function renderCurrentView() {
     lastFocusedTable = null;
     renderOverview(model);
     renderSidebarHealth(model);
-    renderER(result.mermaid, table);
+    renderER(result.er, table);
     lastFocusedTable = table;
     renderFindings(model.disagreements || [], model.dead_routes || [], params);
     renderSwagger(result.openapi);

@@ -8,41 +8,6 @@
 // state the destination view needs to stay valid are preserved), letting
 // every view module stay a plain template generator.
 
-// entityName mirrors internal/render/er/er.go's entityName exactly: trim,
-// collapse internal whitespace runs to single underscores, uppercase. This
-// is how the ER renderer names a Mermaid entity from a table name, and it's
-// the string er.js's focusTable matches against the rendered diagram's
-// entity labels.
-//
-// Uppercasing is done per-character via simpleUpper, NOT String.toUpperCase,
-// because JS's toUpperCase applies full Unicode case mapping (e.g. German
-// "ß" expands to "SS"), while Go's strings.ToUpper (what er.go actually
-// calls) applies simple, one-codepoint-to-one-codepoint mapping and leaves
-// "ß" unchanged. For a table name containing such a character, the two
-// would silently diverge — er.js's findEntityGroup would never match
-// Mermaid's actual rendered label and focusTable would no-op with no error.
-export function entityName(table) {
-  return simpleUpper(
-    String(table || "")
-      .trim()
-      .split(/\s+/)
-      .join("_")
-  );
-}
-
-function simpleUpper(s) {
-  return Array.from(s)
-    .map((ch) => {
-      const upper = ch.toUpperCase();
-      // Only accept a per-character mapping that stays one character —
-      // this is what makes it "simple" (Go's behavior), rejecting the
-      // multi-character expansions JS's toUpperCase performs for a
-      // handful of characters (ß, ﬁ, ﬀ, and similar ligatures/expansions).
-      return Array.from(upper).length === 1 ? upper : ch;
-    })
-    .join("");
-}
-
 // baseParams returns a fresh URLSearchParams carrying only "path" from the
 // current params — every link below builds on this rather than the full
 // current param set, so navigating via a link never drags a stale filter or
@@ -80,7 +45,10 @@ export function hrefFor(kind, value, currentParams) {
       return hash("models", params);
     }
     case "table": {
-      params.set("table", entityName(value));
+      // The raw table name: the ER renderer owns the SVG and tags each entity
+      // group with data-table="<name>" verbatim, so focus is a direct id
+      // lookup — no name transform needed to match a rendered label.
+      params.set("table", value);
       return hash("er", params);
     }
     case "findings":

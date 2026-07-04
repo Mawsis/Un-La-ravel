@@ -139,7 +139,7 @@ func TestHandler_Assets_Served(t *testing.T) {
 		"/css/base.css",
 		"/css/layout.css",
 		"/css/components.css",
-		"/vendor/mermaid.min.js",
+		"/vendor/elk.bundled.js",
 		"/vendor/svg-pan-zoom.min.js",
 		"/vendor/swagger-ui-bundle.js",
 		"/vendor/swagger-ui.css",
@@ -194,7 +194,6 @@ func TestHandler_JSTests_NotEmbedded(t *testing.T) {
 // unmarshal the JSON without importing the (unexported) struct.
 type analyzeResponse struct {
 	Model   json.RawMessage `json:"model"`
-	Mermaid string          `json:"mermaid"`
 	ER      erGraphShape    `json:"er"`
 	OpenAPI json.RawMessage `json:"openapi"`
 }
@@ -249,9 +248,9 @@ type projectModelShape struct {
 // GET /api/analyze?path=<fixture-app>:
 //   - 200 status
 //   - Content-Type is JSON
-//   - Body is a valid JSON object with "model", "mermaid", "openapi" keys
+//   - Body is a valid JSON object with "model", "er", "openapi" keys
 //   - "model" embeds a schema_version and the expected node arrays
-//   - "mermaid" is non-empty
+//   - "er" carries at least one node (asserted in detail by ServesERGraph)
 //   - "openapi" is valid JSON
 func TestHandler_Analyze_FixtureApp(t *testing.T) {
 	ts := newTestServer(t)
@@ -313,9 +312,10 @@ func TestHandler_Analyze_FixtureApp(t *testing.T) {
 		t.Errorf("model.disagreements count = %d, want %d", got, want)
 	}
 
-	// "mermaid" must be non-empty (the ER diagram source).
-	if ar.Mermaid == "" {
-		t.Error("mermaid field is empty")
+	// "er" must carry the structured graph (the browser SVG renderer's input);
+	// TestHandler_Analyze_ServesERGraph asserts its shape in detail.
+	if len(ar.ER.Nodes) == 0 {
+		t.Error("er.nodes is empty")
 	}
 
 	// "openapi" must be a valid JSON object.
@@ -331,12 +331,11 @@ func TestHandler_Analyze_FixtureApp(t *testing.T) {
 	}
 }
 
-// TestHandler_Analyze_ServesERGraph asserts the contract-1.5.0 addition: the
-// /api/analyze response carries a structured "er" graph (nodes + edges) over the
-// fixture app, alongside the Mermaid string kept for the current browser
-// renderer. It guards the web wiring of er.RenderGraph — one node per schema
-// table, columns carrying key markers, and Eloquent-cardinality edges present —
-// so the served graph the new browser renderer will draw cannot silently vanish.
+// TestHandler_Analyze_ServesERGraph asserts the /api/analyze response carries a
+// structured "er" graph (nodes + edges) over the fixture app — the input the
+// browser SVG renderer (issue #26) draws. It guards the web wiring of
+// er.RenderGraph — one node per schema table, columns carrying key markers, and
+// Eloquent-cardinality edges present — so the served graph cannot silently vanish.
 func TestHandler_Analyze_ServesERGraph(t *testing.T) {
 	ts := newTestServer(t)
 
@@ -368,8 +367,8 @@ func TestHandler_Analyze_ServesERGraph(t *testing.T) {
 		}
 	}
 
-	// Edges must be present and use the structured cardinality kinds (never a raw
-	// Mermaid token), proving the graph is the new contract, not the old string.
+	// Edges must be present and use the structured cardinality kinds, proving the
+	// graph is the structured contract the browser renderer draws.
 	if len(ar.ER.Edges) == 0 {
 		t.Fatal("er.edges is empty; expected schema and Eloquent relationship edges")
 	}
@@ -477,7 +476,7 @@ func TestHandler_Analyze_NonExistentPath(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestHandler_ER_FixtureApp asserts that GET /api/er?path=<fixture-app>
-// returns 200 and a JSON body with a non-empty "mermaid" field.
+// returns 200 and a JSON body carrying the structured "er" graph.
 func TestHandler_ER_FixtureApp(t *testing.T) {
 	ts := newTestServer(t)
 
@@ -495,13 +494,13 @@ func TestHandler_ER_FixtureApp(t *testing.T) {
 	}
 
 	var er struct {
-		Mermaid string `json:"mermaid"`
+		ER erGraphShape `json:"er"`
 	}
 	if err := json.Unmarshal(body, &er); err != nil {
 		t.Fatalf("response is not valid JSON: %v\nbody=%s", err, body)
 	}
-	if er.Mermaid == "" {
-		t.Error("mermaid field is empty")
+	if len(er.ER.Nodes) == 0 {
+		t.Error("er.nodes is empty")
 	}
 }
 

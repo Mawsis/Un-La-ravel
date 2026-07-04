@@ -144,8 +144,8 @@ func HandlerWithOptions(opts ...Option) http.Handler {
 // Routes:
 //
 //	GET /              -> the embedded dashboard (assets/index.html and friends)
-//	GET /api/analyze   -> { model, mermaid, openapi } for ?path=<local-path>
-//	GET /api/er        -> { mermaid } for ?path=<local-path>
+//	GET /api/analyze   -> { model, er, openapi } for ?path=<local-path>
+//	GET /api/er        -> { er } for ?path=<local-path>
 //	GET /api/openapi   -> the OpenAPI 3 document for ?path=<local-path>
 //	GET /api/bootstrap -> { default_path } — a versionless convenience
 //	                      endpoint, NOT part of the unlaravel.json contract,

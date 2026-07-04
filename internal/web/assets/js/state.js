@@ -3,7 +3,7 @@
 // /api/analyze once per project and renders every view from that one
 // in-memory object").
 
-let current = null; // { model, mermaid, openapi } | null
+let current = null; // { model, er, openapi } | null
 const listeners = new Set();
 
 export function setResult(result) {

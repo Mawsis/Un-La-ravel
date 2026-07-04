@@ -1,0 +1,351 @@
+/* Reusable components (design.md "Component inventory"): stat card, pill,
+   chip, finding card, table row states, empty/error/loading states. Ported
+   from the original inline stylesheet with hardcoded values replaced by
+   design tokens throughout. */
+
+.hint {
+  color: var(--text-dim);
+  font-size: var(--text-base);
+}
+.hint code {
+  background: var(--bg-elev2);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}
+
+.proj-meta {
+  color: var(--text-dim);
+  font-size: var(--text-base);
+  margin: var(--space-1) 0 0;
+}
+.proj-meta strong {
+  color: var(--text);
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-2);
+}
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  min-width: 120px;
+}
+.card .n {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.card .l {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.card.warn .n {
+  color: var(--red);
+}
+
+.er-hint {
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  margin: 0 0 var(--space-2);
+}
+#er-diagram {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  height: 75vh;
+  overflow: hidden;
+  position: relative;
+}
+/* max-width:none overrides the inline style Mermaid injects; the SVG fills
+   the fixed-height container and svg-pan-zoom drives the viewport. */
+#er-diagram svg {
+  width: 100%;
+  height: 100%;
+  max-width: none !important;
+}
+/* Temporary highlight applied to a focused entity's box (ER cross-navigation,
+   PR 5). Defined here so the highlight token lives with the rest of the
+   design system even though the class is first used later in the rollout. */
+.er-focus-highlight {
+  animation: er-focus-pulse 1.6s ease-out 1;
+}
+@keyframes er-focus-pulse {
+  0% {
+    filter: drop-shadow(0 0 6px var(--accent-2));
+  }
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
+.filter-row {
+  margin-bottom: var(--space-3);
+}
+.filter-row input {
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  width: 320px;
+  max-width: 100%;
+  font-size: var(--text-sm);
+}
+.filter-row input:focus-visible {
+  border-color: var(--accent-2);
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+table.routes {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+table.routes th,
+table.routes td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+table.routes th {
+  color: var(--text-dim);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+}
+table.routes th button {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+table.routes th button:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+table.routes td.method {
+  font-family: var(--mono);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.m-GET {
+  color: var(--green);
+}
+.m-POST {
+  color: var(--accent-2);
+}
+.m-PUT,
+.m-PATCH {
+  color: var(--amber);
+}
+.m-DELETE {
+  color: var(--red);
+}
+table.routes td.uri,
+table.routes td.action {
+  font-family: var(--mono);
+}
+table.routes tr.dead {
+  background: rgba(248, 81, 73, 0.08);
+}
+.dead-tag {
+  color: var(--red);
+  font-weight: 700;
+  font-size: var(--text-2xs);
+  margin-left: var(--space-2);
+}
+.mw {
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}
+
+.finding {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+}
+.finding.dead {
+  border-left-color: var(--red);
+}
+.finding .h {
+  font-weight: 600;
+}
+.finding .r {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  margin-top: 2px;
+  font-family: var(--mono);
+}
+.all-clear {
+  color: var(--green);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  text-align: center;
+  font-size: 15px;
+}
+
+.model-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+}
+.model-card.risk {
+  border-left: 3px solid var(--red);
+}
+.model-card .mh {
+  font-family: var(--mono);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+.subhead {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: var(--space-2) 0 4px;
+}
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+}
+.pill.ok {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--green);
+}
+.pill.warn {
+  background: rgba(210, 153, 34, 0.15);
+  color: var(--amber);
+}
+.pill.danger {
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--red);
+}
+.pill.dim {
+  background: var(--bg-elev2);
+  color: var(--text-dim);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.chip {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  background: var(--bg-elev2);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+.idx-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--text-sm);
+  margin-bottom: 4px;
+}
+.idx-kind.unique {
+  color: var(--green);
+  font-weight: 600;
+  font-size: var(--text-2xs);
+}
+.idx-kind.plain {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: var(--text-2xs);
+}
+.idx-row .cols {
+  font-family: var(--mono);
+}
+.fk-hint {
+  color: var(--amber);
+  font-size: var(--text-xs);
+  margin-top: 4px;
+}
+.empty-note {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* Swagger UI stays a light panel inside the dark shell (design.md "Deliberate
+   trades") — a token-consistent frame around vendored, unstyled-by-us
+   content, with color-scheme set so its native form controls render
+   correctly against a light background. */
+.swagger-frame {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  color-scheme: light;
+}
+.swagger-caption {
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  margin: 0 0 var(--space-2);
+}
+#swagger-ui {
+  background: #fff;
+}
+
+.loading,
+.error {
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--text-dim);
+}
+.error {
+  color: var(--red);
+  background: rgba(248, 81, 73, 0.06);
+  border: 1px solid rgba(248, 81, 73, 0.25);
+  border-radius: var(--radius-lg);
+}
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: var(--space-2);
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

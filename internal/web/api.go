@@ -33,19 +33,26 @@ var errMissingPath = errors.New("missing required query parameter 'path'")
 //     ToJSON, and passed through verbatim — the web response can never drift
 //     from the CLI's JSON.
 //   - Mermaid is er.Render(model): the Mermaid erDiagram source the UI feeds to
-//     mermaid.js.
+//     mermaid.js (kept until the browser renderer swap, issue #26).
+//   - ER is er.RenderGraph(model): the structured ER graph (nodes + edges) the
+//     new browser renderer draws — the same tables and relationships as the
+//     Mermaid string, as data instead of a diagram string (contract 1.5.0).
 //   - OpenAPI is openapi.Render(model): the OpenAPI 3 document, embedded raw so
 //     Swagger UI can consume it directly.
 type analyzeResponse struct {
 	Model   json.RawMessage `json:"model"`
 	Mermaid string          `json:"mermaid"`
+	ER      er.ERGraph      `json:"er"`
 	OpenAPI json.RawMessage `json:"openapi"`
 }
 
-// erResponse is the body of GET /api/er: just the Mermaid erDiagram source, so a
-// UI that only wants the diagram need not receive the whole model.
+// erResponse is the body of GET /api/er: the Mermaid erDiagram source plus the
+// structured ER graph, so a UI that only wants the diagram need not receive the
+// whole model. The Mermaid string is kept until the browser renderer swap
+// (issue #26); the "er" graph is the new contract the browser renderer draws.
 type erResponse struct {
-	Mermaid string `json:"mermaid"`
+	Mermaid string     `json:"mermaid"`
+	ER      er.ERGraph `json:"er"`
 }
 
 // errorResponse is the uniform error envelope every failing API request
@@ -82,6 +89,7 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, analyzeResponse{
 		Model:   modelJSON,
 		Mermaid: er.Render(pm),
+		ER:      er.RenderGraph(pm),
 		OpenAPI: openAPIJSON,
 	})
 }
@@ -95,7 +103,7 @@ func handleER(w http.ResponseWriter, r *http.Request) {
 		writeAnalyzeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, erResponse{Mermaid: er.Render(pm)})
+	writeJSON(w, http.StatusOK, erResponse{Mermaid: er.Render(pm), ER: er.RenderGraph(pm)})
 }
 
 // bootstrapResponse is the body of GET /api/bootstrap: a versionless

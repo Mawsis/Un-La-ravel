@@ -179,7 +179,28 @@ func TestHandler_OldAppJS_Gone(t *testing.T) {
 type analyzeResponse struct {
 	Model   json.RawMessage `json:"model"`
 	Mermaid string          `json:"mermaid"`
+	ER      erGraphShape    `json:"er"`
 	OpenAPI json.RawMessage `json:"openapi"`
+}
+
+// erGraphShape is the minimal projection of the served "er" graph (contract
+// 1.5.0) the tests assert against, decoupled from the er package's structs so
+// the external test drives only the wire JSON.
+type erGraphShape struct {
+	Nodes []struct {
+		Table   string `json:"table"`
+		Columns []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+			Key  string `json:"key"`
+		} `json:"columns"`
+	} `json:"nodes"`
+	Edges []struct {
+		From  string `json:"from"`
+		To    string `json:"to"`
+		Kind  string `json:"kind"`
+		Label string `json:"label"`
+	} `json:"edges"`
 }
 
 // projectModelShape is the minimal projection of the embedded model field we
@@ -291,6 +312,62 @@ func TestHandler_Analyze_FixtureApp(t *testing.T) {
 	}
 	if _, ok := opDoc["openapi"]; !ok {
 		t.Error("openapi document is missing the 'openapi' version key")
+	}
+}
+
+// TestHandler_Analyze_ServesERGraph asserts the contract-1.5.0 addition: the
+// /api/analyze response carries a structured "er" graph (nodes + edges) over the
+// fixture app, alongside the Mermaid string kept for the current browser
+// renderer. It guards the web wiring of er.RenderGraph — one node per schema
+// table, columns carrying key markers, and Eloquent-cardinality edges present —
+// so the served graph the new browser renderer will draw cannot silently vanish.
+func TestHandler_Analyze_ServesERGraph(t *testing.T) {
+	ts := newTestServer(t)
+
+	fixtureApp := filepath.Join(repoRoot(t), "testdata", "fixture-app")
+	target := ts.URL + "/api/analyze?path=" + url.QueryEscape(fixtureApp)
+
+	resp, err := http.Get(target)
+	if err != nil {
+		t.Fatalf("GET /api/analyze: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var ar analyzeResponse
+	if err := json.Unmarshal(readBody(t, resp), &ar); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+
+	// One node per schema table (the fixture has 3): the graph must not be empty.
+	if got, want := len(ar.ER.Nodes), 3; got != want {
+		t.Errorf("er.nodes count = %d, want %d", got, want)
+	}
+	// Every node names a table and carries at least one column.
+	for _, n := range ar.ER.Nodes {
+		if n.Table == "" {
+			t.Error("er node has empty table name")
+		}
+		if len(n.Columns) == 0 {
+			t.Errorf("er node %q has no columns", n.Table)
+		}
+	}
+
+	// Edges must be present and use the structured cardinality kinds (never a raw
+	// Mermaid token), proving the graph is the new contract, not the old string.
+	if len(ar.ER.Edges) == 0 {
+		t.Fatal("er.edges is empty; expected schema and Eloquent relationship edges")
+	}
+	validKind := map[string]bool{
+		"one-to-many": true, "one-to-one": true,
+		"many-to-one": true, "many-to-many": true,
+	}
+	for _, e := range ar.ER.Edges {
+		if !validKind[e.Kind] {
+			t.Errorf("edge %s→%s has unexpected kind %q", e.From, e.To, e.Kind)
+		}
+		if e.From == "" || e.To == "" {
+			t.Errorf("edge has empty endpoint: %+v", e)
+		}
 	}
 }
 

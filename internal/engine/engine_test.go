@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/Mawsis/Un-La-ravel/internal/engine"
+	"github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
 // repoRoot walks up from this file's directory until it finds go.mod, returning
@@ -89,6 +90,36 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 				t.Errorf("count = %d, want %d", tc.got, tc.want)
 			}
 		})
+	}
+}
+
+// TestAnalyze_FixtureApp_Findings verifies the engine computes the itemized
+// health verdict (internal/findings) into ProjectModel.Findings, in the fixed
+// understand-then-judge order. The fixture app carries exactly one of each
+// category — 1 dead route, 1 disagreement, 1 unguarded model (a Model that wrote
+// `protected $guarded = []`) — so all three findings fire, proving the engine
+// runs Verdict last, over the fully assembled model.
+func TestAnalyze_FixtureApp_Findings(t *testing.T) {
+	root := repoRoot(t)
+	fixtureApp := filepath.Join(root, "testdata", "fixture-app")
+
+	pm, err := engine.Analyze(fixtureApp)
+	if err != nil {
+		t.Fatalf("engine.Analyze(%q): %v", fixtureApp, err)
+	}
+
+	want := []model.Finding{
+		{Kind: model.FindingDeadRoutes, Count: 1, Label: "1 dead route", View: "findings"},
+		{Kind: model.FindingDisagreements, Count: 1, Label: "1 disagreement", View: "findings"},
+		{Kind: model.FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"},
+	}
+	if len(pm.Findings) != len(want) {
+		t.Fatalf("Findings = %+v, want %+v", pm.Findings, want)
+	}
+	for i := range want {
+		if pm.Findings[i] != want[i] {
+			t.Errorf("Findings[%d] = %+v, want %+v", i, pm.Findings[i], want[i])
+		}
 	}
 }
 

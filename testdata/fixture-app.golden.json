@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.5.0",
+  "schema_version": "1.6.0",
   "project_name": "acme/blog",
   "laravel_version": "^11.0",
   "schemas": [
@@ -475,6 +475,26 @@
           ]
         }
       ]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "dead_routes",
+      "count": 1,
+      "label": "1 dead route",
+      "view": "findings"
+    },
+    {
+      "kind": "disagreements",
+      "count": 1,
+      "label": "1 disagreement",
+      "view": "findings"
+    },
+    {
+      "kind": "unguarded",
+      "count": 1,
+      "label": "1 unguarded model",
+      "view": "findings"
     }
   ]
 }

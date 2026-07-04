@@ -28,6 +28,7 @@ import (
 	modelextract "github.com/Mawsis/Un-La-ravel/internal/extract/model"
 	routeextract "github.com/Mawsis/Un-La-ravel/internal/extract/route"
 	"github.com/Mawsis/Un-La-ravel/internal/extract/schema"
+	"github.com/Mawsis/Un-La-ravel/internal/findings"
 	"github.com/Mawsis/Un-La-ravel/internal/model"
 	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 	"github.com/Mawsis/Un-La-ravel/internal/render/er"
@@ -406,6 +407,12 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 	}
 	for _, fr := range formRequests {
 		pm.AddFormRequest(fr)
+	}
+	// Compute the itemized health verdict last, over the fully assembled model,
+	// exactly as the engine's buildProjectModel does (internal/findings), so the
+	// golden pins the same findings array the real `unlaravel analyze` emits.
+	for _, f := range findings.Verdict(pm) {
+		pm.AddFinding(f)
 	}
 	return pm
 }

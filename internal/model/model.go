@@ -45,7 +45,16 @@ import (
 // contract the new browser renderer draws. The ProjectModel struct itself is
 // unchanged — this bump versions the served renderer output, growing the
 // contract backward-compatibly so consumers can detect the richer response.
-const CurrentSchemaVersion = "1.5.0"
+//
+// Bumped to 1.6.0 when the findings slice added the "findings" array: an
+// itemized health verdict (dead routes, model↔schema disagreements, unguarded
+// models) computed server-side by internal/findings and serialized into the
+// contract. It lifts the verdict that previously lived only in the browser
+// (issue #27) into the Project Model, so the CLI's `doctor` command, the
+// unlaravel.json contract, and the dashboard all read ONE source of truth
+// rather than each re-deriving it. Another backward-compatible growth: the
+// array is appended last, so existing consumers are unaffected.
+const CurrentSchemaVersion = "1.6.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.
@@ -69,13 +78,14 @@ type ProjectModel struct {
 	Controllers    []Controller   `json:"controllers"`
 	DeadRoutes     []DeadRoute    `json:"dead_routes"`
 	FormRequests   []FormRequest  `json:"form_requests"`
+	Findings       []Finding      `json:"findings"`
 }
 
 // New constructs a ProjectModel for the named project, stamping it with the
 // CurrentSchemaVersion. Every slice is initialized to a non-nil empty slice so
 // an analysis that finds none of a given kind serializes "schemas": [],
 // "models": [], "disagreements": [], "routes": [], "controllers": [],
-// "dead_routes": [], and "form_requests": [] rather than null.
+// "dead_routes": [], "form_requests": [], and "findings": [] rather than null.
 func New(projectName, laravelVersion string) *ProjectModel {
 	return &ProjectModel{
 		SchemaVersion:  CurrentSchemaVersion,
@@ -88,6 +98,7 @@ func New(projectName, laravelVersion string) *ProjectModel {
 		Controllers:    []Controller{},
 		DeadRoutes:     []DeadRoute{},
 		FormRequests:   []FormRequest{},
+		Findings:       []Finding{},
 	}
 }
 
@@ -144,6 +155,15 @@ func (p *ProjectModel) AddDeadRoute(d DeadRoute) *ProjectModel {
 // and is preserved in the serialized output.
 func (p *ProjectModel) AddFormRequest(f FormRequest) *ProjectModel {
 	p.FormRequests = append(p.FormRequests, f)
+	return p
+}
+
+// AddFinding appends a Finding to the itemized health verdict in the order it
+// was emitted and returns the receiver so calls can be chained. The emit order
+// is the fixed understand-then-judge order (dead routes → disagreements →
+// unguarded) and is preserved in the serialized output.
+func (p *ProjectModel) AddFinding(f Finding) *ProjectModel {
+	p.Findings = append(p.Findings, f)
 	return p
 }
 

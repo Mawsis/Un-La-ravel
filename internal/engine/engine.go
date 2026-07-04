@@ -33,6 +33,7 @@ import (
 	modelextract "github.com/Mawsis/Un-La-ravel/internal/extract/model"
 	routeextract "github.com/Mawsis/Un-La-ravel/internal/extract/route"
 	"github.com/Mawsis/Un-La-ravel/internal/extract/schema"
+	"github.com/Mawsis/Un-La-ravel/internal/findings"
 	"github.com/Mawsis/Un-La-ravel/internal/model"
 	"github.com/Mawsis/Un-La-ravel/internal/phpast"
 	"github.com/Mawsis/Un-La-ravel/internal/symbol"
@@ -467,7 +468,9 @@ func collectModelFiles(projectPath string) ([]string, error) {
 // buildProjectModel assembles a Project Model from the detected project and the
 // extracted tables, models, disagreements, routes, controllers, dead routes, and
 // form requests, choosing the best available project name. Insertion order is
-// preserved for deterministic output.
+// preserved for deterministic output. Finally it computes the itemized health
+// verdict (internal/findings) over the assembled model and appends it, so the
+// findings array reflects every node the model carries.
 func buildProjectModel(
 	project *detector.LaravelProject,
 	tables []model.Table,
@@ -499,6 +502,13 @@ func buildProjectModel(
 	}
 	for _, fr := range formRequests {
 		pm.AddFormRequest(fr)
+	}
+
+	// Compute the itemized health verdict LAST, over the fully assembled model:
+	// Verdict reads the dead routes, disagreements, and models just added, so it
+	// must run after every other node is in place (internal/findings).
+	for _, f := range findings.Verdict(pm) {
+		pm.AddFinding(f)
 	}
 	return pm
 }

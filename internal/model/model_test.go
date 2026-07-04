@@ -102,6 +102,15 @@ func buildKnownModel() *ProjectModel {
 		Reason:     `action "store" not found on controller "App\Http\Controllers\PostController"`,
 		Kind:       DeadRouteMissingAction,
 	})
+
+	// Two Findings — dead routes then disagreements — to lock the new 1.6.0
+	// "findings" array shape (kind/count/label/view) and its fixed
+	// understand-then-judge order. The engine computes these from the assembled
+	// model (internal/findings); here they are added explicitly because the model
+	// package cannot import findings (it would be a cycle), and the golden only
+	// needs to lock the serialized shape, not the computation.
+	pm.AddFinding(Finding{Kind: FindingDeadRoutes, Count: 2, Label: "2 dead routes", View: "findings"})
+	pm.AddFinding(Finding{Kind: FindingDisagreements, Count: 2, Label: "2 disagreements", View: "findings"})
 	return pm
 }
 
@@ -128,6 +137,7 @@ func TestNewStampsSchemaVersion(t *testing.T) {
 		{"Routes", pm.Routes == nil, len(pm.Routes)},
 		{"Controllers", pm.Controllers == nil, len(pm.Controllers)},
 		{"DeadRoutes", pm.DeadRoutes == nil, len(pm.DeadRoutes)},
+		{"Findings", pm.Findings == nil, len(pm.Findings)},
 	}
 	for _, c := range collections {
 		if c.isNil {
@@ -190,6 +200,53 @@ func TestAddDisagreementPreservesDetectionOrder(t *testing.T) {
 	}
 	if pm.Disagreements[0] != first || pm.Disagreements[1] != second {
 		t.Errorf("AddDisagreement() did not preserve detection order: got %+v", pm.Disagreements)
+	}
+}
+
+// TestAddFindingPreservesDetectionOrder verifies AddFinding appends in call
+// order and returns the receiver for chaining, so the itemized verdict keeps its
+// fixed understand-then-judge order in the serialized contract.
+func TestAddFindingPreservesDetectionOrder(t *testing.T) {
+	pm := New("blog", "11.x")
+
+	first := Finding{Kind: FindingDeadRoutes, Count: 1, Label: "1 dead route", View: "findings"}
+	second := Finding{Kind: FindingDisagreements, Count: 3, Label: "3 disagreements", View: "findings"}
+
+	got := pm.AddFinding(first).AddFinding(second)
+
+	if got != pm {
+		t.Error("AddFinding() did not return the receiver for chaining")
+	}
+	if len(pm.Findings) != 2 {
+		t.Fatalf("AddFinding() produced %d findings, want 2", len(pm.Findings))
+	}
+	if pm.Findings[0] != first || pm.Findings[1] != second {
+		t.Errorf("AddFinding() did not preserve detection order: got %+v", pm.Findings)
+	}
+}
+
+// TestFindingSerializesFourFieldsInOrder verifies a Finding marshals its four
+// contract fields (kind, count, label, view) in struct order — the shape the
+// dashboard's verdict reader and any JSON consumer depend on.
+func TestFindingSerializesFourFieldsInOrder(t *testing.T) {
+	pm := New("blog", "11.x").
+		AddFinding(Finding{Kind: FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"})
+
+	out, err := pm.ToJSON()
+	if err != nil {
+		t.Fatalf("ToJSON() error: %v", err)
+	}
+
+	want := `"findings": [
+    {
+      "kind": "unguarded",
+      "count": 1,
+      "label": "1 unguarded model",
+      "view": "findings"
+    }
+  ]`
+	if !bytes.Contains(out, []byte(want)) {
+		t.Errorf("ToJSON() findings block does not match expected shape.\n--- got ---\n%s\n--- want substring ---\n%s", out, want)
 	}
 }
 

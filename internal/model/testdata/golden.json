@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.5.0",
+  "schema_version": "1.6.0",
   "project_name": "blog",
   "laravel_version": "11.x",
   "schemas": [
@@ -132,5 +132,19 @@
       "kind": "missing_action"
     }
   ],
-  "form_requests": []
+  "form_requests": [],
+  "findings": [
+    {
+      "kind": "dead_routes",
+      "count": 2,
+      "label": "2 dead routes",
+      "view": "findings"
+    },
+    {
+      "kind": "disagreements",
+      "count": 2,
+      "label": "2 disagreements",
+      "view": "findings"
+    }
+  ]
 }

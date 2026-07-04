@@ -18,8 +18,11 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"mime"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -157,13 +160,51 @@ func handler(cfg *serverConfig) http.Handler {
 	mux.HandleFunc("/api/analyze", handleAnalyze)
 	mux.HandleFunc("/api/er", handleER)
 	mux.HandleFunc("/api/openapi", handleOpenAPI)
-	mux.HandleFunc("/api/bootstrap", handleBootstrap(cfg.defaultProject))
+	mux.HandleFunc("/api/bootstrap", handleBootstrap(cfg.defaultProject, sampleProjectPath()))
 
 	// Static single-page dashboard, served from the embedded assets subtree so
 	// "/" resolves to assets/index.html.
 	mux.Handle("/", staticHandler())
 
 	return logRequests(mux)
+}
+
+func init() {
+	// Go's builtin mime table has no entry for .woff2, so http.FileServer would
+	// fall back to whatever the host OS's mime.types says (or sniff to
+	// application/octet-stream on slim containers). The vendored fonts (issue
+	// #22) must serve as font/woff2 everywhere, so pin it explicitly.
+	if err := mime.AddExtensionType(".woff2", "font/woff2"); err != nil {
+		panic(fmt.Sprintf("web: registering .woff2 mime type: %v", err))
+	}
+}
+
+// sampleProjectPath locates the bundled sample Laravel project
+// (testdata/fixture-app) by walking up from the working directory, so it is
+// found whether `unlaravel serve` runs from the repo root or a subdirectory.
+// A directory only counts if it holds a composer.json — the marker that it is
+// an analyzable project and not an unrelated dir that happens to share the
+// name. Returns "" when no fixture is reachable (e.g. an installed binary run
+// outside the repo), which the dashboard reads as "no sample available: hide
+// the try-it button" (issue #29).
+func sampleProjectPath() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		candidate := filepath.Join(dir, "testdata", "fixture-app")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			if _, err := os.Stat(filepath.Join(candidate, "composer.json")); err == nil {
+				return candidate
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // staticHandler serves the embedded dashboard assets. It roots a sub-filesystem

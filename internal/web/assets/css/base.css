@@ -9,6 +9,14 @@ body {
   margin: 0;
   padding: 0;
 }
+/* Headings carry the display/brand face (issue #22): the wordmark <h1> and
+   every section heading. Body text below stays on --sans — the display face is
+   an identity layer, not the reading face. */
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+}
 body {
   background: var(--surface);
   color: var(--text);

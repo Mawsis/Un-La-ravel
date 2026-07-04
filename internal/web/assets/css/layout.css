@@ -9,7 +9,7 @@
 }
 
 .sidebar {
-  background: linear-gradient(180deg, var(--bg-elev) 0%, var(--bg) 100%);
+  background: var(--surface-elevated);
   border-right: 1px solid var(--border);
   padding: var(--space-5) var(--space-3);
   position: sticky;
@@ -32,8 +32,11 @@
   margin: 0;
   letter-spacing: -0.02em;
 }
+/* Wordmark — the primary brand moment, so it carries Laravel's brand red on
+   the "Un…ravel" identity halves; the parenthetical "la" stays dimmed. This is
+   the one place brand red appears in the shell chrome. */
 .brand .un {
-  color: var(--accent);
+  color: var(--brand);
 }
 .brand .la {
   color: var(--text-dim);
@@ -62,16 +65,17 @@
 }
 .nav-views a:hover {
   color: var(--text);
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
 }
+/* Active nav is an interactive-state moment, so it reads in the cyan accent. */
 .nav-views a[aria-current="page"] {
   color: var(--text);
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   border-left: 2px solid var(--accent);
   padding-left: calc(var(--space-3) - 2px);
 }
 .nav-views .badge {
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   color: var(--text-dim);
   border-radius: 20px;
   padding: 1px 8px;
@@ -79,11 +83,11 @@
 }
 .nav-views a[aria-current="page"] .badge {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .nav-views .badge.danger {
-  background: var(--red);
-  color: #fff;
+  background: var(--danger);
+  color: var(--text);
 }
 
 .content {
@@ -109,7 +113,7 @@
 }
 .content-header input {
   flex: 1;
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 9px 13px;
@@ -118,11 +122,12 @@
   font-size: var(--text-sm);
 }
 .content-header input:focus-visible {
-  border-color: var(--accent-2);
+  border-color: var(--accent);
 }
+/* Primary action — the everyday button, so cyan (not brand red). */
 .content-header button {
-  background: var(--accent-2);
-  color: var(--bg);
+  background: var(--accent);
+  color: var(--on-accent);
   border: none;
   padding: 9px 18px;
   border-radius: var(--radius-md);
@@ -131,7 +136,7 @@
   font-size: var(--text-base);
 }
 .content-header button:hover {
-  filter: brightness(1.1);
+  background: var(--accent-hover);
 }
 .content-header button:disabled {
   opacity: 0.5;

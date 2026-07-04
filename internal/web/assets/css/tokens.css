@@ -1,20 +1,61 @@
-/* Design tokens (design.md "Part 2 — Web dashboard" § Visual design). Every
-   other stylesheet in this directory reads from these custom properties
-   rather than hardcoding colors, spacing, or radii, so the palette and scale
-   have exactly one source of truth. */
+/* Design tokens — the single source of truth for color, type scale, spacing,
+   and radii (issue #20, "token foundation"). Every other stylesheet in this
+   directory reads from these custom properties rather than hardcoding a color,
+   space, or radius, so the palette and scale have exactly one place to change.
+
+   Color is dark-first and named SEMANTICALLY, not by hue: --surface, --accent,
+   --brand, --danger, --warn. A future light theme is therefore a values swap
+   inside this file — no consumer stylesheet needs to know which color a token
+   resolves to. Two poles carry the product's "un-ravel" metaphor:
+
+     - --brand  = Laravel's current brand red (#F53003), the "source" pole. Used
+       surgically for identity moments (logo, wordmark) — NOT the everyday
+       button color.
+     - --accent = cyan, the "resolved" pole. Owns the interactive chrome:
+       buttons, links, focus rings, active nav.
+
+   Danger and warning are a cooler red and amber, deliberately distinct from
+   the brand red so a real problem is never mistaken for brand chrome. Surfaces
+   are the pure Tailwind `neutral` ramp — flat and matte, no glow, no ambient
+   effects. */
 :root {
-  /* Color */
-  --bg: #0d1117;
-  --bg-elev: #161b22;
-  --bg-elev2: #1c2333;
-  --border: #2a3140;
-  --text: #e6edf3;
-  --text-dim: #9aa7b4;
-  --accent: #4dd0e1;
-  --accent-2: #7c9cff;
-  --green: #3fb950;
-  --red: #f85149;
-  --amber: #d29922;
+  /* Surface — pure neutral ramp (Tailwind neutral), darkest first. */
+  --surface: #0a0a0a; /* app background */
+  --surface-elevated: #171717; /* cards, sidebar, panels */
+  --surface-raised: #262626; /* inputs, badges, chips (one step up) */
+
+  /* Border — two weights off the same ramp. */
+  --border: #404040;
+  --border-strong: #525252;
+
+  /* Text */
+  --text: #fafafa;
+  --text-dim: #a3a3a3;
+
+  /* Accent (cyan) — the interactive/"resolved" pole: buttons, links, focus,
+     active nav. --on-accent is the readable text/icon color ON an accent fill. */
+  --accent: #22d3ee;
+  --accent-hover: #67e8f9;
+  --on-accent: #0a0a0a;
+
+  /* Brand (Laravel red) — the identity/"source" pole. Brand moments only. */
+  --brand: #f53003;
+  --brand-hover: #c42602;
+  --brand-faded: #ffe2dd;
+
+  /* Status — cooler red + amber, visually distinct from --brand. --ok is the
+     "healthy/clean" signal (kept for verdict + method color coding). */
+  --danger: #ef4444;
+  --warn: #f59e0b;
+  --ok: #22c55e;
+
+  /* Tinted status surfaces — low-alpha fills for pills, finding cards, row
+     highlights and the error panel. Derived from the status hues above so the
+     rgba() literals live here, not scattered across the component stylesheet. */
+  --danger-tint: rgba(239, 68, 68, 0.14);
+  --danger-tint-soft: rgba(239, 68, 68, 0.07);
+  --warn-tint: rgba(245, 158, 11, 0.14);
+  --ok-tint: rgba(34, 197, 94, 0.14);
 
   /* Type */
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;

@@ -27,6 +27,29 @@ export function entityChip(ref, label) {
   );
 }
 
+// dangerFlag renders an inline danger marker (issue #28: DEAD on a dead-route
+// row, Unguarded on a model card) as a cross-link chip to its finding category
+// in the Findings view. It is the entity-chip visual language with the
+// compound danger-flag class, so the delegated handler in main.js navigates it
+// like any chip while CSS paints it with the danger token (never the cyan
+// accent — a problem must not read as ordinary interactive chrome).
+// findingKind is the machine-readable Finding.Kind from the contract
+// (internal/model/findings.go); label is the visible marker text.
+export function dangerFlag(findingKind, label) {
+  const target = chipTarget({ kind: "finding", name: findingKind });
+  const text = escapeHtml(label);
+  if (!target) {
+    return '<span class="entity-chip is-plain danger-flag">' + text + "</span>";
+  }
+  return (
+    '<a class="entity-chip danger-flag" href="#/' + escapeHtml(target.view) + '"' +
+    ' data-view="' + escapeHtml(target.view) + '"' +
+    ' data-entity-id="' + escapeHtml(target.id) + '">' +
+    text +
+    "</a>"
+  );
+}
+
 // chipTarget maps an entity reference to its in-app navigation target: the
 // sidebar view that owns that entity kind, plus an id used later to focus the
 // specific entity within that view. Kept pure (no DOM) so it is unit-testable
@@ -47,6 +70,12 @@ export function chipTarget(ref) {
   }
   if (ref.kind === "controller" && name) {
     return { view: "routes", id: name };
+  }
+  if (ref.kind === "finding" && name) {
+    // name carries the machine-readable Finding.Kind from the contract
+    // (internal/model/findings.go: dead_routes / disagreements / unguarded),
+    // so an inline danger flag can later focus its category in the view.
+    return { view: "findings", id: name };
   }
   if (ref.kind === "route") {
     const method = nonEmpty(ref.method);

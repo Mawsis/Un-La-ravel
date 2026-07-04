@@ -206,8 +206,13 @@
   border-color: var(--accent);
 }
 
+/* Long tables scroll inside this container so the header can pin (issue #28):
+   position: sticky pins against the nearest scroll container, and overflow-x
+   already makes .table-scroll one — so it must own the vertical scroll too
+   (max-height), or the header would never stick while the page scrolls. */
 .table-scroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 75vh;
 }
 table.routes {
   width: 100%;
@@ -227,6 +232,13 @@ table.routes th {
   text-transform: uppercase;
   font-size: var(--text-2xs);
   letter-spacing: 0.04em;
+  /* Sticky header (issue #28) — pins to .table-scroll's top edge. The opaque
+     surface background is load-bearing: without it, scrolled rows show
+     through the pinned header. z-index keeps it above the chips in rows. */
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
 }
 table.routes th button {
   all: unset;
@@ -268,11 +280,21 @@ table.routes td.action {
 table.routes tr.dead {
   background: var(--danger-tint-soft);
 }
-.dead-tag {
+/* Inline danger flag (issue #28): DEAD on a dead-route row, Unguarded on a
+   model card. Borrows .entity-chip for the delegated chip navigation (it
+   cross-links to its finding category) but must read as danger in rest AND
+   hover — same compound-selector precedent as .entity-chip.verdict-link
+   above, so the danger token wins over the cyan accent in both states. */
+.entity-chip.danger-flag {
   color: var(--danger);
   font-weight: 700;
   font-size: var(--text-2xs);
-  margin-left: var(--space-2);
+}
+.entity-chip.danger-flag:hover {
+  color: var(--danger);
+}
+.entity-chip.danger-flag:focus-visible {
+  outline-color: var(--danger);
 }
 .mw {
   color: var(--text-dim);
@@ -351,10 +373,6 @@ table.routes tr.dead {
 .pill.warn {
   background: var(--warn-tint);
   color: var(--warn);
-}
-.pill.danger {
-  background: var(--danger-tint);
-  color: var(--danger);
 }
 .pill.dim {
   background: var(--surface-raised);

@@ -15,7 +15,7 @@
 // button. The delegated chip listener in main.js routes the click.
 
 import { $, escapeHtml } from "../dom.js";
-import { entityChip } from "../chip.js";
+import { entityChip, dangerFlag } from "../chip.js";
 
 export const SORTABLE_COLUMNS = [
   { key: "method", label: "Method" },
@@ -84,6 +84,35 @@ function routeSortValue(r, key) {
   return r[key] || "";
 }
 
+// routeRowHtml is the pure per-row template: one route (dead or live) to one
+// <tr> string, exported so the row's markup contract — method color-class,
+// mono column classes, the DEAD danger flag cross-linking to the dead_routes
+// finding (issue #28) — is unit-testable without a DOM.
+export function routeRowHtml(r, isDead) {
+  // The controller is a jump-to-able entity, so it renders as a cross-link
+  // chip (issue #24); the @action suffix stays plain escaped text. A route
+  // with no controller (closure/view route) has nothing to link to.
+  const action =
+    r.controller || r.action
+      ? (r.controller
+          ? entityChip({ kind: "controller", name: r.controller })
+          : "—") +
+        "@" +
+        escapeHtml(r.action || "—")
+      : '<span class="mw">(closure / view route)</span>';
+  const mw = (r.middleware || []).length
+    ? '<span class="mw">' + escapeHtml(r.middleware.join(", ")) + "</span>"
+    : '<span class="mw">—</span>';
+  return (
+    '<tr class="' + (isDead ? "dead" : "") + '">' +
+    '<td class="method m-' + escapeHtml(r.method || "") + '">' + escapeHtml(r.method || "") + "</td>" +
+    '<td class="uri">' + escapeHtml(r.uri || "") + (isDead ? " " + dangerFlag("dead_routes", "DEAD") : "") + "</td>" +
+    '<td class="action">' + action + "</td>" +
+    "<td>" + mw + "</td>" +
+    "</tr>"
+  );
+}
+
 function drawRouteRows(routes, deadSet, state) {
   const q = (state.filter || "").trim().toLowerCase();
   const filtered = routes.filter((r) => {
@@ -97,31 +126,7 @@ function drawRouteRows(routes, deadSet, state) {
   });
 
   const rows = sortRoutes(filtered, state)
-    .map((r) => {
-      const isDead = deadSet.has(deadKey(r));
-      // The controller is a jump-to-able entity, so it renders as a cross-link
-      // chip (issue #24); the @action suffix stays plain escaped text. A route
-      // with no controller (closure/view route) has nothing to link to.
-      const action =
-        r.controller || r.action
-          ? (r.controller
-              ? entityChip({ kind: "controller", name: r.controller })
-              : "—") +
-            "@" +
-            escapeHtml(r.action || "—")
-          : '<span class="mw">(closure / view route)</span>';
-      const mw = (r.middleware || []).length
-        ? '<span class="mw">' + escapeHtml(r.middleware.join(", ")) + "</span>"
-        : '<span class="mw">—</span>';
-      return (
-        '<tr class="' + (isDead ? "dead" : "") + '">' +
-        '<td class="method m-' + escapeHtml(r.method || "") + '">' + escapeHtml(r.method || "") + "</td>" +
-        '<td class="uri">' + escapeHtml(r.uri || "") + (isDead ? '<span class="dead-tag">DEAD</span>' : "") + "</td>" +
-        '<td class="action">' + action + "</td>" +
-        "<td>" + mw + "</td>" +
-        "</tr>"
-      );
-    })
+    .map((r) => routeRowHtml(r, deadSet.has(deadKey(r))))
     .join("");
   $("#routes-body").innerHTML = rows || '<tr><td colspan="4" class="hint" style="padding:16px">No routes match.</td></tr>';
 }

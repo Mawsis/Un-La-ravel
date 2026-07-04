@@ -98,6 +98,24 @@ func handleER(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, erResponse{Mermaid: er.Render(pm)})
 }
 
+// bootstrapResponse is the body of GET /api/bootstrap: a versionless
+// convenience payload, deliberately NOT part of the unlaravel.json contract,
+// telling the dashboard which project (if any) `unlaravel serve [path]` was
+// started with so it can auto-analyze on load instead of the developer
+// re-typing a path they already gave on the command line.
+type bootstrapResponse struct {
+	DefaultPath string `json:"default_path"`
+}
+
+// handleBootstrap returns a GET /api/bootstrap handler closed over the
+// server's configured default project path (empty when `serve` was started
+// with no path argument, in which case the response's default_path is "").
+func handleBootstrap(defaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, bootstrapResponse{DefaultPath: defaultPath})
+	}
+}
+
 // handleOpenAPI serves GET /api/openapi?path=<local-path>, returning the
 // OpenAPI 3 document itself (not wrapped) so Swagger UI can be pointed straight
 // at this URL.

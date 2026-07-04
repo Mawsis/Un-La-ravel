@@ -1,10 +1,12 @@
 // Models view: mass-assignment state, casts, indexes, orphan tables. Ported
-// from app.js's renderModels/drawModelCards and helpers with no behavior
-// change.
+// from app.js's renderModels/drawModelCards with no rendering behavior
+// change; the filter value is now owned by the caller (main.js, backed by
+// the router — design.md "URL & state") rather than local module state, so
+// a filter typed into this view survives refresh and Back/Forward.
 
 import { $, escapeHtml } from "../dom.js";
 
-export function renderModels(models, schemas) {
+export function renderModels(models, schemas, filter, onFilterChange) {
   const unguardedCount = models.filter(
     (m) => Array.isArray(m.guarded) && m.guarded.length === 0
   ).length;
@@ -13,8 +15,11 @@ export function renderModels(models, schemas) {
   badge.textContent = models.length;
   badge.classList.toggle("danger", unguardedCount > 0);
 
-  drawModelCards(models, schemas, "");
-  $("#model-filter").oninput = (e) => drawModelCards(models, schemas, e.target.value);
+  drawModelCards(models, schemas, filter || "");
+
+  const filterInput = $("#model-filter");
+  if (filterInput.value !== (filter || "")) filterInput.value = filter || "";
+  filterInput.oninput = (e) => onFilterChange(e.target.value);
 }
 
 // massAssignmentState classifies a model's fillable/guarded pair into one of

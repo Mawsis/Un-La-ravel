@@ -7,7 +7,7 @@ runtime). Each is pinned to an exact version; upstream license text is in
 
 | File | Package | Pinned version |
 |---|---|---|
-| `mermaid.min.js` | [mermaid](https://www.npmjs.com/package/mermaid) | 10.9.6 |
+| `elk.bundled.js` | [elkjs](https://www.npmjs.com/package/elkjs) | 0.9.3 |
 | `svg-pan-zoom.min.js` | [svg-pan-zoom](https://www.npmjs.com/package/svg-pan-zoom) | 3.6.2 |
 | `swagger-ui-bundle.js`, `swagger-ui.css` | [swagger-ui-dist](https://www.npmjs.com/package/swagger-ui-dist) | 5.32.8 |
 

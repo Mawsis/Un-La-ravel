@@ -26,12 +26,12 @@ The serve command starts a local web server hosting an embedded single-page
 dashboard and a JSON API. The API is JUST ANOTHER CONSUMER of the same analysis
 engine the CLI uses (ADR 0001/0004: one Project Model, many renderers): each
 request runs the identical pipeline and returns the identical unlaravel.json
-contract, alongside the Mermaid ER diagram and OpenAPI 3 document.
+contract, alongside the structured ER graph and OpenAPI 3 document.
 
 Point the dashboard (or the API) at any local Laravel project:
 
-  GET /api/analyze?path=<local-path>  -> { model, mermaid, openapi }
-  GET /api/er?path=<local-path>       -> { mermaid }
+  GET /api/analyze?path=<local-path>  -> { model, er, openapi }
+  GET /api/er?path=<local-path>       -> { er }
   GET /api/openapi?path=<local-path>  -> OpenAPI 3 document
 
 An optional [path] argument pre-fills the dashboard with that project, so

@@ -32,27 +32,23 @@ var errMissingPath = errors.New("missing required query parameter 'path'")
 //     embedded as json.RawMessage so it is serialized once, by the model's own
 //     ToJSON, and passed through verbatim — the web response can never drift
 //     from the CLI's JSON.
-//   - Mermaid is er.Render(model): the Mermaid erDiagram source the UI feeds to
-//     mermaid.js (kept until the browser renderer swap, issue #26).
 //   - ER is er.RenderGraph(model): the structured ER graph (nodes + edges) the
-//     new browser renderer draws — the same tables and relationships as the
-//     Mermaid string, as data instead of a diagram string (contract 1.5.0).
+//     browser SVG renderer draws — the tables and relationships as data, laid
+//     out client-side by ELK (issue #26). This replaced the former Mermaid
+//     erDiagram string, which the browser no longer consumes.
 //   - OpenAPI is openapi.Render(model): the OpenAPI 3 document, embedded raw so
 //     Swagger UI can consume it directly.
 type analyzeResponse struct {
 	Model   json.RawMessage `json:"model"`
-	Mermaid string          `json:"mermaid"`
 	ER      er.ERGraph      `json:"er"`
 	OpenAPI json.RawMessage `json:"openapi"`
 }
 
-// erResponse is the body of GET /api/er: the Mermaid erDiagram source plus the
-// structured ER graph, so a UI that only wants the diagram need not receive the
-// whole model. The Mermaid string is kept until the browser renderer swap
-// (issue #26); the "er" graph is the new contract the browser renderer draws.
+// erResponse is the body of GET /api/er: the structured ER graph the browser
+// SVG renderer draws, so a UI that only wants the diagram need not receive the
+// whole model.
 type erResponse struct {
-	Mermaid string     `json:"mermaid"`
-	ER      er.ERGraph `json:"er"`
+	ER er.ERGraph `json:"er"`
 }
 
 // errorResponse is the uniform error envelope every failing API request
@@ -62,11 +58,11 @@ type errorResponse struct {
 }
 
 // handleAnalyze serves GET /api/analyze?path=<local-path>. It runs the analysis
-// engine once and returns the model, its Mermaid ER diagram, and its OpenAPI 3
-// document in a single { model, mermaid, openapi } response — the primary
-// endpoint the dashboard consumes. A missing path or a non-Laravel target is a
-// 400 with a JSON error; a renderer failure on an otherwise-valid model is a
-// 500 (it is a server-side defect, not bad input).
+// engine once and returns the model, its structured ER graph, and its OpenAPI 3
+// document in a single { model, er, openapi } response — the primary endpoint
+// the dashboard consumes. A missing path or a non-Laravel target is a 400 with
+// a JSON error; a renderer failure on an otherwise-valid model is a 500 (it is
+// a server-side defect, not bad input).
 func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	pm, err := analyzeFromRequest(r)
 	if err != nil {
@@ -88,22 +84,21 @@ func handleAnalyze(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, analyzeResponse{
 		Model:   modelJSON,
-		Mermaid: er.Render(pm),
 		ER:      er.RenderGraph(pm),
 		OpenAPI: openAPIJSON,
 	})
 }
 
-// handleER serves GET /api/er?path=<local-path>, returning only the Mermaid
-// erDiagram source in a { mermaid } envelope — for a UI that renders the diagram
-// without needing the full model.
+// handleER serves GET /api/er?path=<local-path>, returning only the structured
+// ER graph in an { er } envelope — for a UI that renders the diagram without
+// needing the full model.
 func handleER(w http.ResponseWriter, r *http.Request) {
 	pm, err := analyzeFromRequest(r)
 	if err != nil {
 		writeAnalyzeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, erResponse{Mermaid: er.Render(pm), ER: er.RenderGraph(pm)})
+	writeJSON(w, http.StatusOK, erResponse{ER: er.RenderGraph(pm)})
 }
 
 // bootstrapResponse is the body of GET /api/bootstrap: a versionless

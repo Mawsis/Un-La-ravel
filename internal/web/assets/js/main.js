@@ -199,9 +199,13 @@ function activateView(name) {
 // Shift-click are the browser's built-in "open in new tab/window" gestures —
 // these are real <a href="#/view"> elements specifically so that keeps
 // working; preventDefault() unconditionally would silently swallow it.
+function isPlainLeftClick(e) {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+
 $$("a[data-view]").forEach((a) =>
   a.addEventListener("click", (e) => {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (!isPlainLeftClick(e)) return;
     e.preventDefault();
     const { params } = router.getCurrent();
     // Carry the current path forward across a view switch, drop any
@@ -227,6 +231,30 @@ router.subscribe(({ params }) => {
   }
   el.input.value = path;
   runAnalysis(path, { fromRouter: true }).then(renderCurrentView);
+});
+
+// ---- entity-chip cross-navigation (issue #24) -----------------------------
+// Chips (rendered by entityChip in chip.js) are created dynamically inside
+// panels on every analysis, so they can't be wired up individually the way the
+// static sidebar links are. One delegated listener on the document handles all
+// of them: a plain left-click on any .entity-chip[data-view] switches to that
+// entity's view, while the same modifier gestures as the sidebar keep native
+// open-in-new-tab working.
+//
+// Unlike the sidebar links, a chip navigates via the router so the switch is a
+// real, shareable URL change consistent with the rest of the app (#16/#17): it
+// carries the current ?path= forward and drops the view-specific params of the
+// view being left. Focusing the specific entity within the view (er.js's
+// focusTable, models/routes filter) lands in a later PR — this delivers
+// reference → chip → click → the entity's proper view.
+document.addEventListener("click", (e) => {
+  const chip = e.target.closest && e.target.closest("a.entity-chip[data-view]");
+  if (!chip || !isPlainLeftClick(e)) return;
+  e.preventDefault();
+  const { params } = router.getCurrent();
+  const next = new URLSearchParams();
+  if (params.get("path")) next.set("path", params.get("path"));
+  router.navigate(chip.dataset.view, next);
 });
 
 // ---- wire up ----------------------------------------------------------------

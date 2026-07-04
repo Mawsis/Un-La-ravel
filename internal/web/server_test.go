@@ -127,6 +127,7 @@ func TestHandler_Assets_Served(t *testing.T) {
 		"/js/store.js",
 		"/js/links.js",
 		"/js/search.js",
+		"/js/chip.js",
 		"/js/views/overview.js",
 		"/js/views/er.js",
 		"/js/views/models.js",
@@ -167,6 +168,21 @@ func TestHandler_OldAppJS_Gone(t *testing.T) {
 
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("GET /app.js: status = %d, want 404 (the old single-file bundle should no longer be embedded)", resp.StatusCode)
+	}
+}
+
+// TestHandler_JSTests_NotEmbedded asserts the JavaScript unit tests are not
+// shipped inside the Go binary. They live in internal/web/jstest/ specifically
+// so //go:embed assets never sweeps *.test.js into the embedded tree; a
+// regression (a test file placed back under assets/js/) would bloat the binary
+// with dead test code and would surface here as an unexpected 200.
+func TestHandler_JSTests_NotEmbedded(t *testing.T) {
+	ts := newTestServer(t)
+	resp := get(t, ts, "/js/chip.test.js")
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("GET /js/chip.test.js: status = %d, want 404 (JS test files must not be embedded in the binary)", resp.StatusCode)
 	}
 }
 

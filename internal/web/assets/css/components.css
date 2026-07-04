@@ -1,14 +1,19 @@
-/* Reusable components (design.md "Component inventory"): stat card, pill,
-   chip, finding card, table row states, empty/error/loading states. Ported
-   from the original inline stylesheet with hardcoded values replaced by
-   design tokens throughout. */
+/* Reusable components (stat card, pill, chip, finding card, table row states,
+   empty/error/loading states). Every color, space, and radius reads from a
+   design token (css/tokens.css) — the only raw color literal in this file is
+   the deliberate #fff of the Swagger light frame, documented at its use site.
+
+   Status hues follow the token semantics: --ok for healthy, --warn for
+   caution, --danger for problems. Brand red never appears here — brand red is
+   reserved for the wordmark; component danger states use the cooler --danger
+   so a real problem is never confused with brand chrome. */
 
 .hint {
   color: var(--text-dim);
   font-size: var(--text-base);
 }
 .hint code {
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-family: var(--mono);
@@ -47,7 +52,7 @@
   text-overflow: ellipsis;
 }
 .recent-path:hover {
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
 }
 .recent-remove {
   all: unset;
@@ -58,8 +63,8 @@
   line-height: 1;
 }
 .recent-remove:hover {
-  color: var(--red);
-  background: var(--bg-elev2);
+  color: var(--danger);
+  background: var(--surface-raised);
 }
 
 .proj-meta {
@@ -78,7 +83,7 @@
   margin: var(--space-5) 0 var(--space-2);
 }
 .card {
-  background: var(--bg-elev);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
@@ -96,7 +101,7 @@
   letter-spacing: 0.04em;
 }
 .card.warn .n {
-  color: var(--red);
+  color: var(--danger);
 }
 
 .er-hint {
@@ -105,7 +110,7 @@
   margin: 0 0 var(--space-2);
 }
 #er-diagram {
-  background: var(--bg-elev);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   height: 75vh;
@@ -120,17 +125,20 @@
   max-width: none !important;
 }
 /* Temporary highlight applied to a focused entity's box (ER cross-navigation,
-   PR 5). Defined here so the highlight token lives with the rest of the
-   design system even though the class is first used later in the rollout. */
+   PR 5). Flat and matte per the design system — a fading cyan outline, NOT a
+   glow/drop-shadow. Defined here so the highlight lives with the rest of the
+   component layer even though the class is first used later in the rollout. */
 .er-focus-highlight {
   animation: er-focus-pulse 1.6s ease-out 1;
 }
 @keyframes er-focus-pulse {
   0% {
-    filter: drop-shadow(0 0 6px var(--accent-2));
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   100% {
-    filter: drop-shadow(0 0 0 transparent);
+    outline: 2px solid transparent;
+    outline-offset: 2px;
   }
 }
 
@@ -138,7 +146,7 @@
   margin-bottom: var(--space-3);
 }
 .filter-row input {
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text);
   padding: var(--space-2) var(--space-3);
@@ -148,7 +156,7 @@
   font-size: var(--text-sm);
 }
 .filter-row input:focus-visible {
-  border-color: var(--accent-2);
+  border-color: var(--accent);
 }
 
 .table-scroll {
@@ -181,7 +189,7 @@ table.routes th button {
   gap: 4px;
 }
 table.routes th button:focus-visible {
-  outline: 2px solid var(--accent-2);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -190,28 +198,31 @@ table.routes td.method {
   font-weight: 700;
   white-space: nowrap;
 }
+/* HTTP method color coding — cyan owns the "safe/interactive" methods (GET
+   reads, POST creates), warn/amber the mutating PUT/PATCH, danger the DELETE.
+   --ok stays green for GET so the read verb still reads as calm/safe. */
 .m-GET {
-  color: var(--green);
+  color: var(--ok);
 }
 .m-POST {
-  color: var(--accent-2);
+  color: var(--accent);
 }
 .m-PUT,
 .m-PATCH {
-  color: var(--amber);
+  color: var(--warn);
 }
 .m-DELETE {
-  color: var(--red);
+  color: var(--danger);
 }
 table.routes td.uri,
 table.routes td.action {
   font-family: var(--mono);
 }
 table.routes tr.dead {
-  background: rgba(248, 81, 73, 0.08);
+  background: var(--danger-tint-soft);
 }
 .dead-tag {
-  color: var(--red);
+  color: var(--danger);
   font-weight: 700;
   font-size: var(--text-2xs);
   margin-left: var(--space-2);
@@ -238,15 +249,15 @@ table.routes tr.dead {
 }
 
 .finding {
-  background: var(--bg-elev);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--amber);
+  border-left: 3px solid var(--warn);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-2);
 }
 .finding.dead {
-  border-left-color: var(--red);
+  border-left-color: var(--danger);
 }
 .finding .h {
   font-weight: 600;
@@ -258,8 +269,8 @@ table.routes tr.dead {
   font-family: var(--mono);
 }
 .all-clear {
-  color: var(--green);
-  background: var(--bg-elev);
+  color: var(--ok);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
@@ -268,14 +279,14 @@ table.routes tr.dead {
 }
 
 .model-card {
-  background: var(--bg-elev);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-2);
 }
 .model-card.risk {
-  border-left: 3px solid var(--red);
+  border-left: 3px solid var(--danger);
 }
 .model-card .mh {
   font-family: var(--mono);
@@ -298,23 +309,23 @@ table.routes tr.dead {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   color: var(--text-dim);
 }
 .pill.ok {
-  background: rgba(63, 185, 80, 0.15);
-  color: var(--green);
+  background: var(--ok-tint);
+  color: var(--ok);
 }
 .pill.warn {
-  background: rgba(210, 153, 34, 0.15);
-  color: var(--amber);
+  background: var(--warn-tint);
+  color: var(--warn);
 }
 .pill.danger {
-  background: rgba(248, 81, 73, 0.15);
-  color: var(--red);
+  background: var(--danger-tint);
+  color: var(--danger);
 }
 .pill.dim {
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   color: var(--text-dim);
 }
 .chips {
@@ -326,7 +337,7 @@ table.routes tr.dead {
 .chip {
   font-family: var(--mono);
   font-size: var(--text-xs);
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
   border-radius: var(--radius-sm);
   padding: 2px 7px;
   margin-right: 4px;
@@ -340,7 +351,7 @@ table.routes tr.dead {
   margin-bottom: 4px;
 }
 .idx-kind.unique {
-  color: var(--green);
+  color: var(--ok);
   font-weight: 600;
   font-size: var(--text-2xs);
 }
@@ -353,7 +364,7 @@ table.routes tr.dead {
   font-family: var(--mono);
 }
 .fk-hint {
-  color: var(--amber);
+  color: var(--warn);
   font-size: var(--text-xs);
   margin-top: 4px;
 }
@@ -363,10 +374,11 @@ table.routes tr.dead {
   font-style: italic;
 }
 
-/* Swagger UI stays a light panel inside the dark shell (design.md "Deliberate
-   trades") — a token-consistent frame around vendored, unstyled-by-us
-   content, with color-scheme set so its native form controls render
-   correctly against a light background. */
+/* Swagger UI stays a light panel inside the dark shell (a token-consistent
+   frame around vendored, unstyled-by-us content). #fff here is a DELIBERATE
+   raw literal — the swagger-ui vendor CSS assumes a white background, and
+   color-scheme:light makes its native form controls render correctly. This is
+   the one documented exception to "no raw hex outside the token file". */
 .swagger-frame {
   background: #fff;
   border: 1px solid var(--border);
@@ -380,7 +392,7 @@ table.routes tr.dead {
   margin: 0 0 var(--space-2);
 }
 #swagger-ui {
-  background: #fff;
+  background: #fff; /* see .swagger-frame — same deliberate light-panel exception */
 }
 
 .loading,
@@ -390,9 +402,9 @@ table.routes tr.dead {
   color: var(--text-dim);
 }
 .error {
-  color: var(--red);
-  background: rgba(248, 81, 73, 0.06);
-  border: 1px solid rgba(248, 81, 73, 0.25);
+  color: var(--danger);
+  background: var(--danger-tint-soft);
+  border: 1px solid var(--danger-tint);
   border-radius: var(--radius-lg);
 }
 .spinner {
@@ -426,7 +438,7 @@ table.routes tr.dead {
   z-index: 200;
 }
 .search-dialog {
-  background: var(--bg-elev);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   width: min(560px, 92vw);
@@ -461,7 +473,7 @@ table.routes tr.dead {
   font-size: var(--text-sm);
 }
 .search-result[aria-selected="true"] {
-  background: var(--bg-elev2);
+  background: var(--surface-raised);
 }
 .search-result .kind {
   color: var(--text-dim);

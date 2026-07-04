@@ -10,7 +10,7 @@ body {
   padding: 0;
 }
 body {
-  background: var(--bg);
+  background: var(--surface);
   color: var(--text);
   font-family: var(--sans);
   font-size: var(--text-base);
@@ -29,7 +29,7 @@ a {
   top: 0;
   z-index: 100;
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
   padding: var(--space-2) var(--space-4);
   border-radius: 0 0 var(--radius-md) 0;
   font-weight: 600;
@@ -40,7 +40,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent-2);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 

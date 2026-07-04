@@ -10,103 +10,76 @@
 // of dead test code, and the runner test in internal/web/js_test.go invokes them
 // under `go test`.
 //
-// healthVerdict is a pure function of the analyzed model — no DOM — so it is
-// tested directly against model fixtures. Tests assert the *observable* verdict:
-// clean vs. problems, the itemized breakdown by category, and that each item
-// carries the finding link. They never assert DOM structure or class names,
-// which churn during the redesign.
+// healthVerdict is now a THIN READER of the server-computed findings array
+// (model.findings), not a recomputation from raw counts: the verdict is computed
+// once, server-side, into the unlaravel.json contract (internal/findings) so the
+// CLI, the JSON, and the dashboard agree by construction. These tests assert the
+// *observable* verdict — clean vs. problems, the itemized breakdown, and that each
+// item carries its finding link — against a model whose findings the server
+// supplied. They never assert DOM structure or class names.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { healthVerdict } from "../assets/js/verdict.js";
 
-test("a clean project yields a clean verdict with no problems", () => {
-  const v = healthVerdict({
-    dead_routes: [],
-    disagreements: [],
-    models: [{ name: "User", guarded: null }],
-  });
+test("a clean project (empty findings) yields a clean verdict with no problems", () => {
+  const v = healthVerdict({ findings: [] });
   assert.equal(v.clean, true);
   assert.deepEqual(v.problems, []);
 });
 
-test("dead routes surface one problem item that links to Findings", () => {
+test("a model with no findings key at all is treated as clean", () => {
+  const v = healthVerdict({});
+  assert.equal(v.clean, true);
+  assert.deepEqual(v.problems, []);
+});
+
+test("server findings surface as problem items that link to Findings", () => {
   const v = healthVerdict({
-    dead_routes: [
-      { method: "GET", uri: "/a" },
-      { method: "POST", uri: "/b" },
+    findings: [
+      { kind: "dead_routes", count: 2, label: "2 dead routes", view: "findings" },
     ],
-    disagreements: [],
-    models: [],
   });
   assert.equal(v.clean, false);
   assert.equal(v.problems.length, 1);
   const [p] = v.problems;
   assert.equal(p.kind, "dead_routes");
   assert.equal(p.count, 2);
+  assert.equal(p.label, "2 dead routes");
   assert.equal(p.view, "findings");
 });
 
-test("unguarded counts only models with an explicit empty $guarded, not omitted", () => {
-  // guarded === [] is the risky explicit `$guarded = []` escape hatch and IS a
-  // finding; guarded === null (property omitted) is guarded-by-omission and is
-  // NOT. A non-empty guarded list is also fine. Only the two [] models count.
+test("all server findings itemize in the order the server emitted them", () => {
   const v = healthVerdict({
-    dead_routes: [],
-    disagreements: [],
-    models: [
-      { name: "Open1", guarded: [] },
-      { name: "Open2", guarded: [] },
-      { name: "Safe", guarded: null },
-      { name: "Partial", guarded: ["id"] },
+    findings: [
+      { kind: "dead_routes", count: 1, label: "1 dead route", view: "findings" },
+      { kind: "disagreements", count: 3, label: "3 disagreements", view: "findings" },
+      { kind: "unguarded", count: 1, label: "1 unguarded model", view: "findings" },
     ],
-  });
-  assert.equal(v.problems.length, 1);
-  const [p] = v.problems;
-  assert.equal(p.kind, "unguarded");
-  assert.equal(p.count, 2);
-  assert.equal(p.view, "findings");
-});
-
-test("all three categories itemize in a fixed dead/disagreements/unguarded order", () => {
-  const v = healthVerdict({
-    dead_routes: [{ method: "GET", uri: "/x" }],
-    disagreements: [{ model: "Post" }, { model: "Tag" }, { model: "User" }],
-    models: [{ name: "Open", guarded: [] }],
   });
   assert.equal(v.clean, false);
   assert.deepEqual(
-    v.problems.map((p) => [p.kind, p.count]),
+    v.problems.map((p) => [p.kind, p.count, p.label]),
     [
-      ["dead_routes", 1],
-      ["disagreements", 3],
-      ["unguarded", 1],
+      ["dead_routes", 1, "1 dead route"],
+      ["disagreements", 3, "3 disagreements"],
+      ["unguarded", 1, "1 unguarded model"],
     ]
   );
 });
 
-test("each problem carries a human label with correct singular/plural wording", () => {
-  const one = healthVerdict({
+test("the verdict READS findings and does not recompute from raw counts", () => {
+  // The server is authoritative: even though dead_routes and an unguarded model
+  // are populated on the model, the (empty) findings array is what the verdict
+  // reflects. This proves the browser no longer re-derives the verdict — a raw
+  // model that disagrees with its findings follows the findings.
+  const v = healthVerdict({
+    findings: [],
     dead_routes: [{ method: "GET", uri: "/x" }],
     disagreements: [{ model: "Post" }],
     models: [{ name: "Open", guarded: [] }],
   });
-  assert.deepEqual(
-    one.problems.map((p) => p.label),
-    ["1 dead route", "1 disagreement", "1 unguarded model"]
-  );
-
-  const many = healthVerdict({
-    dead_routes: [{ uri: "/x" }, { uri: "/y" }],
-    disagreements: [{ model: "A" }, { model: "B" }],
-    models: [
-      { name: "O1", guarded: [] },
-      { name: "O2", guarded: [] },
-    ],
-  });
-  assert.deepEqual(
-    many.problems.map((p) => p.label),
-    ["2 dead routes", "2 disagreements", "2 unguarded models"]
-  );
+  assert.equal(v.clean, true);
+  assert.deepEqual(v.problems, []);
 });

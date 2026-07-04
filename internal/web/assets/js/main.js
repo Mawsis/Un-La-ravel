@@ -28,12 +28,13 @@ import { setResult, getResult } from "./state.js";
 import { addRecent } from "./store.js";
 import * as router from "./router.js";
 import { renderOverview } from "./views/overview.js";
-import { renderER } from "./views/er.js";
+import { renderER, focusTable } from "./views/er.js";
 import { renderModels } from "./views/models.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
 import { renderSwagger } from "./views/swagger.js";
 import { renderRecents } from "./views/recents.js";
+import { initSearch } from "./search.js";
 
 const el = {
   form: $("#search-form"),
@@ -101,23 +102,37 @@ function announce(message) {
 // state.js always replaces (never mutates) the result object.
 let renderedForResult = null;
 
+// lastFocusedTable tracks the ?table= value ER was last focused with, so a
+// navigation that changes the focus target (e.g. clicking a different
+// table's link while already on the ER view) calls focusTable again even
+// though the analysis result itself hasn't changed and ER's one-render-per-
+// analysis panel below is skipped.
+let lastFocusedTable = null;
+
 function renderCurrentView() {
   const result = getResult();
   if (!result) return;
   const { view, params } = router.getCurrent();
   const model = result.model || {};
+  const table = params.get("table");
 
   // Render once per analysis, not once per navigation — these panels don't
-  // depend on router params, and re-rendering ER on every view switch was
-  // destroying/recreating its svg-pan-zoom instance while hidden
-  // (display:none), which svg-pan-zoom can't handle (degenerate transform
-  // matrix on a zero-size container).
+  // depend on router params (other than ER's initial focus, handled below),
+  // and re-rendering ER on every view switch was destroying/recreating its
+  // svg-pan-zoom instance while hidden (display:none), which svg-pan-zoom
+  // can't handle (degenerate transform matrix on a zero-size container).
   if (renderedForResult !== result) {
     renderedForResult = result;
+    lastFocusedTable = null;
     renderOverview(model);
-    renderER(result.mermaid);
-    renderFindings(model.disagreements || [], model.dead_routes || []);
+    renderER(result.mermaid, table);
+    lastFocusedTable = table;
+    renderFindings(model.disagreements || [], model.dead_routes || [], params);
     renderSwagger(result.openapi);
+  } else if (view === "er" && table && table !== lastFocusedTable) {
+    // Same analysis, same diagram already mounted — just refocus.
+    focusTable(table);
+    lastFocusedTable = table;
   }
 
   // Filter/sort-driven content is cheap to redraw and its correctness
@@ -128,10 +143,10 @@ function renderCurrentView() {
     const next = new URLSearchParams(params);
     filter ? next.set("filter", filter) : next.delete("filter");
     router.navigate(view, next, { replace: true });
-  });
+  }, params);
   renderRoutes(model.routes || [], model.dead_routes || [], routesStateFromParams(params), (newState) => {
     router.navigate(view, paramsFromRoutesState(params, newState), { replace: true });
-  });
+  }, params);
 
   activateView(view);
 }
@@ -172,11 +187,19 @@ function activateView(name) {
   document.title = (label ? label.textContent.trim() : "Un(la)ravel") + " — Un(la)ravel";
 }
 
+// Any static link that switches views WITHOUT going through hrefFor()
+// (currently: the sidebar, plus the ER hint's "see Models" link) has a
+// static href with no path baked in — data-view marks it as one of these,
+// so its path gets injected from router state at click time. Cross-
+// navigation links built via hrefFor() (links.js) are NOT marked
+// data-view: they already bake in the current path when rendered, so a
+// plain native hash click works for them without interception.
+//
 // Only intercept a plain left-click. Middle-click, Ctrl/Cmd-click, and
 // Shift-click are the browser's built-in "open in new tab/window" gestures —
 // these are real <a href="#/view"> elements specifically so that keeps
 // working; preventDefault() unconditionally would silently swallow it.
-$$(".nav-views a").forEach((a) =>
+$$("a[data-view]").forEach((a) =>
   a.addEventListener("click", (e) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
@@ -227,6 +250,11 @@ renderRecents((path) => {
   el.input.value = path;
   runAnalysis(path).then(renderCurrentView);
 });
+
+initSearch(
+  () => (getResult() || {}).model || null,
+  () => router.getCurrent().params
+);
 
 // ---- boot sequence ------------------------------------------------------
 

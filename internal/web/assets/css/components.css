@@ -222,6 +222,21 @@ table.routes tr.dead {
   font-size: var(--text-xs);
 }
 
+/* link-button: an in-place cross-navigation trigger styled like a link but
+   implemented as a <button> because it changes view state via a callback
+   rather than navigating to an href (design.md "Cross-navigation") — e.g.
+   the routes table's controller cell, which filters this same view. */
+.link-button {
+  all: unset;
+  cursor: pointer;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: inherit;
+}
+.link-button:hover {
+  text-decoration: underline;
+}
+
 .finding {
   background: var(--bg-elev);
   border: 1px solid var(--border);
@@ -395,4 +410,76 @@ table.routes tr.dead {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Command palette (Cmd/Ctrl+K), design.md "Search". role="dialog"
+   aria-modal="true" with a focus trap; opened from either the sidebar
+   button or the keyboard shortcut — never shortcut-only. */
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 200;
+}
+.search-dialog {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: min(560px, 92vw);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+.search-input {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-4);
+  font-size: var(--text-lg);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.search-results {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+}
+.search-result {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.search-result[aria-selected="true"] {
+  background: var(--bg-elev2);
+}
+.search-result .kind {
+  color: var(--text-dim);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: 64px;
+}
+.search-result .label {
+  font-family: var(--mono);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-empty {
+  padding: var(--space-4);
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  text-align: center;
 }

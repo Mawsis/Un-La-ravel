@@ -30,6 +30,11 @@
         <a href="#/api" data-view="api">API Docs</a>
         <a href="#/findings" data-view="findings">Findings <span class="badge" id="badge-findings">0</span></a>
       </div>
+
+      <button type="button" class="search-button" id="search-open-btn">
+        <span>Search</span>
+        <kbd id="search-shortcut-hint">&#8984;K</kbd>
+      </button>
     </nav>
 
     <main class="content" id="main-content">
@@ -63,7 +68,7 @@
 
         <div class="panel" data-panel="er">
           <h2 class="sr-only">Entity-Relationship diagram</h2>
-          <p class="er-hint">Scroll to zoom · drag to pan · double-click to zoom in · +/− controls bottom-right</p>
+          <p class="er-hint">Scroll to zoom · drag to pan · double-click to zoom in · +/− controls bottom-right · <a href="#/models" data-view="models">see mass assignment &amp; casts in Models</a></p>
           <div id="er-diagram"></div>
         </div>
 
@@ -98,6 +103,24 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <div class="search-overlay hidden" id="search-overlay">
+    <div class="search-dialog" role="dialog" aria-modal="true" aria-label="Search" id="search-dialog">
+      <input
+        type="text"
+        id="search-input"
+        class="search-input"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="search-results"
+        aria-autocomplete="list"
+        placeholder="Search routes, models, tables, findings…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <ul role="listbox" id="search-results" class="search-results"></ul>
+    </div>
   </div>
 
   <script src="/vendor/mermaid.min.js"></script>

@@ -21,6 +21,24 @@
 // understand-then-judge order (dead routes → disagreements → unguarded models);
 // this reader preserves it.
 export function healthVerdict(model) {
-  const problems = (model && model.findings) || [];
+  const problems = findingsOf(model);
   return { clean: problems.length === 0, problems };
+}
+
+// healthChip summarizes the same server-computed findings into the persistent
+// sidebar chip's state (issue #23): clean, or one total issue count. Like
+// healthVerdict, it reads model.findings — never recomputing from raw counts.
+export function healthChip(model) {
+  const problems = findingsOf(model);
+  const count = problems.reduce((sum, p) => sum + (p.count || 0), 0);
+  if (count === 0) {
+    return { clean: true, count: 0, label: "clean" };
+  }
+  return { clean: false, count, label: count + (count === 1 ? " issue" : " issues") };
+}
+
+// findingsOf is the one place both readers pull the server-computed findings
+// array from the model, absent-key-safe.
+function findingsOf(model) {
+  return (model && model.findings) || [];
 }

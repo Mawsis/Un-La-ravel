@@ -8,12 +8,11 @@
 import { $, escapeHtml } from "../dom.js";
 import { hrefFor } from "../links.js";
 
+// The Findings count badge is NOT set here: sidebar.js owns it (issue #23),
+// driven by the server-computed model.findings so the badge and the health
+// chip agree by construction. This view renders only the panel body.
 export function renderFindings(disagreements, deadRoutes, currentParams) {
   const total = (disagreements || []).length + (deadRoutes || []).length;
-  const badge = $("#badge-findings");
-  badge.textContent = total;
-  badge.classList.toggle("danger", total > 0);
-
   const body = $("#findings-body");
   if (total === 0) {
     body.innerHTML = '<div class="all-clear">No dead routes, no Model↔Schema disagreements. All clear.</div>';

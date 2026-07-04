@@ -46,10 +46,46 @@
   font-size: var(--text-xs);
 }
 
+/* Persistent health chip (issue #23) — lives in the brand block so project
+   health is always in view. Status hues only: clean reads in --ok, issues in
+   the danger tint — NEVER brand red, so a real problem can't be mistaken for
+   brand chrome. Hidden (attribute) until the first analysis fills it. */
+.health-chip {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.health-chip.is-clean {
+  background: var(--ok-tint);
+  color: var(--ok);
+}
+.health-chip.is-issues {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
 .nav-views {
   display: flex;
   flex-direction: column;
+  gap: var(--space-4);
+}
+.nav-group {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
+}
+/* Group headings are real <h2>s for AT; the small-caps label look is styling. */
+.nav-heading {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 .nav-views a {
   display: flex;
@@ -161,8 +197,13 @@
     align-items: center;
     overflow-x: auto;
   }
-  .nav-views {
+  .nav-views,
+  .nav-group {
     flex-direction: row;
+    align-items: center;
+  }
+  .nav-heading {
+    margin: 0;
   }
   .content {
     padding: var(--space-4);

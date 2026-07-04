@@ -32,6 +32,7 @@ import { renderER, focusTable } from "./views/er.js";
 import { renderModels } from "./views/models.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
+import { renderSidebarHealth } from "./sidebar.js";
 import { renderSwagger } from "./views/swagger.js";
 import { renderRecents } from "./views/recents.js";
 import { initSearch } from "./search.js";
@@ -125,6 +126,7 @@ function renderCurrentView() {
     renderedForResult = result;
     lastFocusedTable = null;
     renderOverview(model);
+    renderSidebarHealth(model);
     renderER(result.mermaid, table);
     lastFocusedTable = table;
     renderFindings(model.disagreements || [], model.dead_routes || [], params);

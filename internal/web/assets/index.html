@@ -20,15 +20,27 @@
       <div class="brand">
         <h1><span class="un">Un</span>(<span class="la">la</span>)<span class="un">ravel</span></h1>
         <span class="tag">Laravel project explorer</span>
+        <!-- Persistent health chip (issue #23): empty until the first analysis,
+             then "✓ clean" or "⚠ N issues" — filled by renderSidebarHealth. -->
+        <span class="health-chip" id="health-chip" hidden></span>
       </div>
 
       <div class="nav-views">
-        <a href="#/overview" data-view="overview" aria-current="page">Overview</a>
-        <a href="#/er" data-view="er">ER Diagram</a>
-        <a href="#/models" data-view="models">Models <span class="badge" id="badge-models">0</span></a>
-        <a href="#/routes" data-view="routes">Routes <span class="badge" id="badge-routes">0</span></a>
-        <a href="#/api" data-view="api">API Docs</a>
-        <a href="#/findings" data-view="findings">Findings <span class="badge" id="badge-findings">0</span></a>
+        <!-- Understand-then-judge grouping (issue #23): structure before
+             health. Real headings so AT exposes the grouping as structure;
+             the uppercase rendering is CSS (text-transform), not shouting. -->
+        <div class="nav-group">
+          <h2 class="nav-heading">Structure</h2>
+          <a href="#/overview" data-view="overview" aria-current="page">Overview</a>
+          <a href="#/er" data-view="er">ER Diagram</a>
+          <a href="#/models" data-view="models">Models <span class="badge" id="badge-models">0</span></a>
+          <a href="#/routes" data-view="routes">Routes <span class="badge" id="badge-routes">0</span></a>
+          <a href="#/api" data-view="api">API Docs</a>
+        </div>
+        <div class="nav-group">
+          <h2 class="nav-heading">Health</h2>
+          <a href="#/findings" data-view="findings">Findings <span class="badge" id="badge-findings">0</span></a>
+        </div>
       </div>
 
       <button type="button" class="search-button" id="search-open-btn">

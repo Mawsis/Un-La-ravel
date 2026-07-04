@@ -9,14 +9,13 @@
 // onStateChange callback rather than keeping its own state. That keeps this
 // file router-agnostic and testable in isolation.
 //
-// The controller cell links to a filtered view of THIS SAME view (design.md
-// "Cross-navigation": "A Route's Controller cell → filters the Routes
-// view") — implemented as a click handler that calls onStateChange directly
-// rather than an <a href>, since it's an in-view state change, not
-// cross-view navigation; going through a full hash round-trip would be
-// indirection for no benefit.
+// The controller cell renders as a shared entity-chip cross-link (issue #24):
+// the controller is a jump-to-able entity, so it carries the consistent cyan
+// chip visual language via entityChip rather than being an in-view filter
+// button. The delegated chip listener in main.js routes the click.
 
 import { $, escapeHtml } from "../dom.js";
+import { entityChip } from "../chip.js";
 
 export const SORTABLE_COLUMNS = [
   { key: "method", label: "Method" },
@@ -38,9 +37,7 @@ export function renderRoutes(routes, deadRoutes, state, onStateChange) {
     const sortDir = state.sortKey === sortKey ? -(state.sortDir || 1) : 1;
     onStateChange({ ...state, sortKey, sortDir });
   });
-  drawRouteRows(routes, deadSet, state, (controller) => {
-    onStateChange({ ...state, filter: controller });
-  });
+  drawRouteRows(routes, deadSet, state);
 
   const filterInput = $("#route-filter");
   if (filterInput.value !== (state.filter || "")) filterInput.value = state.filter || "";
@@ -87,7 +84,7 @@ function routeSortValue(r, key) {
   return r[key] || "";
 }
 
-function drawRouteRows(routes, deadSet, state, onControllerClick) {
+function drawRouteRows(routes, deadSet, state) {
   const q = (state.filter || "").trim().toLowerCase();
   const filtered = routes.filter((r) => {
     if (!q) return true;
@@ -102,10 +99,16 @@ function drawRouteRows(routes, deadSet, state, onControllerClick) {
   const rows = sortRoutes(filtered, state)
     .map((r) => {
       const isDead = deadSet.has(deadKey(r));
+      // The controller is a jump-to-able entity, so it renders as a cross-link
+      // chip (issue #24); the @action suffix stays plain escaped text. A route
+      // with no controller (closure/view route) has nothing to link to.
       const action =
         r.controller || r.action
-          ? '<button type="button" class="link-button" data-controller="' + escapeHtml(r.controller || "") + '">' +
-            escapeHtml((r.controller || "—") + "@" + (r.action || "—")) + "</button>"
+          ? (r.controller
+              ? entityChip({ kind: "controller", name: r.controller })
+              : "—") +
+            "@" +
+            escapeHtml(r.action || "—")
           : '<span class="mw">(closure / view route)</span>';
       const mw = (r.middleware || []).length
         ? '<span class="mw">' + escapeHtml(r.middleware.join(", ")) + "</span>"
@@ -121,10 +124,4 @@ function drawRouteRows(routes, deadSet, state, onControllerClick) {
     })
     .join("");
   $("#routes-body").innerHTML = rows || '<tr><td colspan="4" class="hint" style="padding:16px">No routes match.</td></tr>';
-
-  if (onControllerClick) {
-    document.querySelectorAll("#routes-body button[data-controller]").forEach((btn) => {
-      if (btn.dataset.controller) btn.onclick = () => onControllerClick(btn.dataset.controller);
-    });
-  }
 }

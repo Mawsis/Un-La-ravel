@@ -98,6 +98,9 @@
   text-decoration: none;
   font-size: var(--text-sm);
   font-weight: 500;
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease);
 }
 .nav-views a:hover {
   color: var(--text);
@@ -170,6 +173,7 @@
   font-weight: 600;
   cursor: pointer;
   font-size: var(--text-base);
+  transition: background-color var(--motion-fast) var(--motion-ease);
 }
 .content-header button:hover {
   background: var(--accent-hover);
@@ -182,8 +186,20 @@
 .panel {
   display: none;
 }
+/* Panels toggle via display, which can't transition — the entering panel gets
+   a one-shot fade instead. Opacity only: a translate would read as decorative
+   "settle", which issue #25 excludes. */
 .panel.active {
   display: block;
+  animation: panel-in var(--motion-view) var(--motion-ease) 1;
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 860px) {

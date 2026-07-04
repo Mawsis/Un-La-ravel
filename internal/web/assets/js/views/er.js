@@ -9,14 +9,21 @@
 // entityLabel">NAME</text>...<rect class="er entityBox">...</g>.
 
 import { $, escapeHtml } from "../dom.js";
+import { erThemeVariables } from "./er-theme.js";
 
 let panZoom = null;
 let currentSvg = null; // the currently-rendered <svg>, so focusTable can run after renderER without a caller-managed handoff
 
 if (window.mermaid) {
+  // Theme the interim diagram from the design tokens (issue #25): "base" is
+  // the only Mermaid theme that applies themeVariables, and the variables are
+  // read from tokens.css at init so it stays the single source of truth. The
+  // mapping itself is pure and unit-tested (jstest/er-theme.test.js).
+  const readToken = (name) => getComputedStyle(document.documentElement).getPropertyValue(name);
   mermaid.initialize({
     startOnLoad: false,
-    theme: "dark",
+    theme: "base",
+    themeVariables: erThemeVariables(readToken),
     securityLevel: "loose",
     // useMaxWidth:false stops Mermaid shrinking a large diagram to the
     // container width (which made big schemas unreadable); the SVG renders

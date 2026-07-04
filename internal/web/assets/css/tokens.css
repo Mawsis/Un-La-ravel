@@ -85,4 +85,17 @@
   --radius-sm: 5px;
   --radius-md: 8px;
   --radius-lg: 10px;
+
+  /* Motion (issue #25) — functional only: state changes the user caused, at
+     native-feeling speed. --motion-fast is hover/press feedback; --motion-view
+     is view/panel/filter changes. No decorative, settle, or stagger timing
+     exists on purpose — if a duration wants to be longer than these, it is
+     decoration and doesn't belong in this app (ADR-worthy if that changes). */
+  --motion-fast: 150ms;
+  --motion-view: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Attention marker (ER entity-focus highlight): longer than the transition
+     scale on purpose — it must survive the pan that precedes it and still be
+     visible when the eye arrives. An attention hold, not a transition. */
+  --motion-highlight: 800ms;
 }

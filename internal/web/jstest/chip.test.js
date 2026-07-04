@@ -18,7 +18,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { chipTarget, entityChip } from "../assets/js/chip.js";
+import { chipTarget, entityChip, dangerFlag } from "../assets/js/chip.js";
 
 test("a model reference targets the Models view, keyed by model name", () => {
   assert.deepEqual(chipTarget({ kind: "model", name: "User" }), {
@@ -46,6 +46,21 @@ test("a route reference targets the Routes view, keyed by method + URI", () => {
     chipTarget({ kind: "route", method: "GET", uri: "/users/{user}" }),
     { view: "routes", id: "GET /users/{user}" }
   );
+});
+
+test("a finding reference targets the Findings view, keyed by finding kind", () => {
+  // Issue #28: inline danger flags (dead-route rows, unguarded-model cards)
+  // cross-link to their corresponding finding category in the Findings view.
+  // The name field carries the machine-readable Finding.Kind from the
+  // contract (internal/model/findings.go): dead_routes / unguarded / ...
+  assert.deepEqual(chipTarget({ kind: "finding", name: "dead_routes" }), {
+    view: "findings",
+    id: "dead_routes",
+  });
+  assert.deepEqual(chipTarget({ kind: "finding", name: "unguarded" }), {
+    view: "findings",
+    id: "unguarded",
+  });
 });
 
 test("an unknown or missing kind resolves to no target", () => {
@@ -87,6 +102,27 @@ test("entityChip escapes its label and id (names come from parsed source)", () =
   const html = entityChip({ kind: "model", name: '<img src=x onerror=alert(1)>' });
   assert.doesNotMatch(html, /<img/);
   assert.match(html, /&lt;img/);
+});
+
+test("dangerFlag renders a danger-classed cross-link to the finding category", () => {
+  // Issue #28: the inline DEAD / Unguarded markers are chips, so they ride the
+  // same delegated navigation handler in main.js (a.entity-chip[data-view]),
+  // but carry the compound danger-flag class so CSS paints them with the
+  // danger token instead of the interactive cyan (same pattern as the
+  // verdict-link chips from issue #27).
+  const html = dangerFlag("dead_routes", "DEAD");
+  assert.match(html, /<a\b/);
+  assert.match(html, /class="entity-chip danger-flag"/);
+  assert.match(html, /href="#\/findings"/);
+  assert.match(html, /data-view="findings"/);
+  assert.match(html, /data-entity-id="dead_routes"/);
+  assert.match(html, />DEAD<\/a>/);
+});
+
+test("dangerFlag escapes its label", () => {
+  const html = dangerFlag("unguarded", "<b>x</b>");
+  assert.doesNotMatch(html, /<b>/);
+  assert.match(html, /&lt;b&gt;/);
 });
 
 test("an unresolvable reference degrades to inert escaped text, not a link", () => {

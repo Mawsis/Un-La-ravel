@@ -1,0 +1,24 @@
+/* Vendored typography (issue #22) — the two self-hosted faces, served from the
+   embedded /vendor/fonts/ subtree so the dashboard needs no CDN and no build
+   step. Both are variable fonts (one latin woff2 each covers every weight the
+   UI uses); both are SIL OFL 1.1 (see vendor/licenses/). Consumers never name
+   these families directly — they reach them through the type tokens in
+   tokens.css (--display, --mono). */
+
+/* Instrument Sans — the display/brand face: wordmark and large headings. */
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/vendor/fonts/instrument-sans-latin-wght-normal.woff2") format("woff2");
+}
+
+/* JetBrains Mono — the code face: URIs, types, table names, code content. */
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/vendor/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2");
+}

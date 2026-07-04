@@ -32,17 +32,22 @@ import { renderER, focusTable } from "./views/er.js";
 import { renderModels } from "./views/models.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
+import { renderSidebarHealth } from "./sidebar.js";
 import { renderSwagger } from "./views/swagger.js";
 import { renderRecents } from "./views/recents.js";
+import { samplePathFrom } from "./views/hero.js";
 import { initSearch } from "./search.js";
 
 const el = {
   form: $("#search-form"),
   input: $("#path-input"),
   btn: $("#analyze-btn"),
+  hero: $("#hero"),
+  sampleBtn: $("#sample-btn"),
   intro: $("#intro"),
   status: $("#status"),
   results: $("#results"),
+  content: $("#main-content"),
 };
 
 let currentPath = null; // the project path the last successful analysis ran against
@@ -55,7 +60,13 @@ async function runAnalysis(path, { fromRouter = false } = {}) {
     currentPath = path;
     setResult(result);
     addRecent(path, (result.model || {}).project_name);
+    // Leave first-run: the hero and its extras go away, and the path form
+    // shrinks from hero primary action to the compact header bar (a CSS
+    // concern keyed off .first-run). An analysis *failure* deliberately
+    // keeps the hero: the user is still on the entry screen.
+    el.hero.classList.add("hidden");
     el.intro.classList.add("hidden");
+    el.content.classList.remove("first-run");
     el.results.classList.remove("hidden");
     const routeCount = ((result.model || {}).routes || []).length;
     announce("Analyzed " + path + " — " + routeCount + " route(s) found.");
@@ -125,6 +136,7 @@ function renderCurrentView() {
     renderedForResult = result;
     lastFocusedTable = null;
     renderOverview(model);
+    renderSidebarHealth(model);
     renderER(result.mermaid, table);
     lastFocusedTable = table;
     renderFindings(model.disagreements || [], model.dead_routes || [], params);
@@ -306,6 +318,17 @@ async function boot() {
       next.set("path", body.default_path);
       router.navigate(router.getCurrent().view, next, { replace: true });
       return;
+    }
+    // No serve-arg default: if the server has the bundled sample project
+    // (issue #29), reveal the hero's "try it on the sample project" button.
+    // A click is an explicit "analyze this" — same contract as the form.
+    const samplePath = samplePathFrom(res.ok ? body : null);
+    if (samplePath) {
+      el.sampleBtn.hidden = false;
+      el.sampleBtn.addEventListener("click", () => {
+        el.input.value = samplePath;
+        runAnalysis(samplePath).then(renderCurrentView);
+      });
     }
   } catch (e) {
     // /api/bootstrap unreachable — fall through to the empty entry screen.

@@ -8,6 +8,63 @@
    reserved for the wordmark; component danger states use the cooler --danger
    so a real problem is never confused with brand chrome. */
 
+/* First-run hero (issue #29) — the logo-led empty state. The inline SVG mark
+   in index.html reads --brand/--accent itself, so everything here is layout
+   plus the two identity type moments (wordmark, value prop), which carry the
+   display face. main.js hides the hero after the first successful analysis. */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-12) 0 var(--space-5);
+}
+.hero-logo {
+  width: min(300px, 70%);
+  height: auto;
+}
+.hero-wordmark {
+  font-family: var(--display);
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.hero-wordmark .un {
+  color: var(--brand);
+}
+.hero-wordmark .la {
+  color: var(--text-dim);
+}
+.hero-valueprop {
+  font-family: var(--display);
+  font-size: var(--text-lg);
+  color: var(--text-dim);
+  margin: 0;
+}
+.hero-valueprop code {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+}
+
+/* The evaluator's shortcut under the hero: quieter than the cyan Analyze
+   button (the primary action), but clearly interactive. */
+.sample-btn {
+  align-self: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.sample-btn:hover {
+  border-color: var(--accent);
+}
+
 .hint {
   color: var(--text-dim);
   font-size: var(--text-base);
@@ -50,6 +107,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: background-color var(--motion-fast) var(--motion-ease);
 }
 .recent-path:hover {
   background: var(--surface-raised);
@@ -61,6 +119,9 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   line-height: 1;
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease);
 }
 .recent-remove:hover {
   color: var(--danger);
@@ -104,6 +165,48 @@
   color: var(--danger);
 }
 
+/* Health verdict (issue #27): leads the Overview so problems out-shout the
+   inventory grid below. Clean state is calm; problems carry the danger token. */
+.verdict {
+  margin: var(--space-4) 0 var(--space-2);
+}
+.verdict-clean {
+  color: var(--text-dim);
+  font-size: var(--text-base);
+  margin: 0;
+}
+.verdict-problems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.verdict-item {
+  display: flex;
+}
+/* A verdict problem borrows .entity-chip for the dynamic in-app-link behavior
+   (the delegated navigation handler in main.js keys on .entity-chip[data-view])
+   and its mono/hover/focus styling, but a problem is not a neutral reference —
+   it must read as danger, not the cyan accent. The compound .entity-chip.verdict-link
+   selector (specificity 0,2,0) deliberately beats the later, single-class
+   .entity-chip color rule (0,1,0) so danger wins in both rest and hover. */
+.entity-chip.verdict-link {
+  color: var(--danger);
+  font-weight: 600;
+}
+.entity-chip.verdict-link:hover {
+  color: var(--danger);
+  border-bottom-color: currentColor;
+}
+
+/* The inventory grid is demoted below the verdict: quieter than the verdict,
+   still scannable. */
+.cards .card .n {
+  color: var(--text-dim);
+}
+
 .er-hint {
   color: var(--text-dim);
   font-size: var(--text-xs);
@@ -129,7 +232,7 @@
    glow/drop-shadow. Defined here so the highlight lives with the rest of the
    component layer even though the class is first used later in the rollout. */
 .er-focus-highlight {
-  animation: er-focus-pulse 1.6s ease-out 1;
+  animation: er-focus-pulse var(--motion-highlight) ease-out 1;
 }
 @keyframes er-focus-pulse {
   0% {
@@ -154,13 +257,19 @@
   width: 320px;
   max-width: 100%;
   font-size: var(--text-sm);
+  transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .filter-row input:focus-visible {
   border-color: var(--accent);
 }
 
+/* Long tables scroll inside this container so the header can pin (issue #28):
+   position: sticky pins against the nearest scroll container, and overflow-x
+   already makes .table-scroll one — so it must own the vertical scroll too
+   (max-height), or the header would never stick while the page scrolls. */
 .table-scroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: 75vh;
 }
 table.routes {
   width: 100%;
@@ -180,6 +289,13 @@ table.routes th {
   text-transform: uppercase;
   font-size: var(--text-2xs);
   letter-spacing: 0.04em;
+  /* Sticky header (issue #28) — pins to .table-scroll's top edge. The opaque
+     surface background is load-bearing: without it, scrolled rows show
+     through the pinned header. z-index keeps it above the chips in rows. */
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
 }
 table.routes th button {
   all: unset;
@@ -221,11 +337,21 @@ table.routes td.action {
 table.routes tr.dead {
   background: var(--danger-tint-soft);
 }
-.dead-tag {
+/* Inline danger flag (issue #28): DEAD on a dead-route row, Unguarded on a
+   model card. Borrows .entity-chip for the delegated chip navigation (it
+   cross-links to its finding category) but must read as danger in rest AND
+   hover — same compound-selector precedent as .entity-chip.verdict-link
+   above, so the danger token wins over the cyan accent in both states. */
+.entity-chip.danger-flag {
   color: var(--danger);
   font-weight: 700;
   font-size: var(--text-2xs);
-  margin-left: var(--space-2);
+}
+.entity-chip.danger-flag:hover {
+  color: var(--danger);
+}
+.entity-chip.danger-flag:focus-visible {
+  outline-color: var(--danger);
 }
 .mw {
   color: var(--text-dim);
@@ -305,10 +431,6 @@ table.routes tr.dead {
   background: var(--warn-tint);
   color: var(--warn);
 }
-.pill.danger {
-  background: var(--danger-tint);
-  color: var(--danger);
-}
 .pill.dim {
   background: var(--surface-raised);
   color: var(--text-dim);
@@ -341,6 +463,9 @@ table.routes tr.dead {
   border-bottom: 1px solid transparent;
   border-radius: 2px;
   cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
 }
 .entity-chip:hover {
   color: var(--accent-hover);

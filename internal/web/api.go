@@ -110,17 +110,23 @@ func handleER(w http.ResponseWriter, r *http.Request) {
 // convenience payload, deliberately NOT part of the unlaravel.json contract,
 // telling the dashboard which project (if any) `unlaravel serve [path]` was
 // started with so it can auto-analyze on load instead of the developer
-// re-typing a path they already gave on the command line.
+// re-typing a path they already gave on the command line. sample_path names
+// the bundled sample project (testdata/fixture-app) when it can be found on
+// disk, backing the empty state's "try it on the sample project" button
+// (issue #29); "" means no sample is available and the button stays hidden.
 type bootstrapResponse struct {
 	DefaultPath string `json:"default_path"`
+	SamplePath  string `json:"sample_path"`
 }
 
 // handleBootstrap returns a GET /api/bootstrap handler closed over the
 // server's configured default project path (empty when `serve` was started
-// with no path argument, in which case the response's default_path is "").
-func handleBootstrap(defaultPath string) http.HandlerFunc {
+// with no path argument, in which case the response's default_path is "")
+// and the resolved sample-project path (empty when the bundled fixture
+// isn't reachable from where the server runs).
+func handleBootstrap(defaultPath, samplePath string) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, bootstrapResponse{DefaultPath: defaultPath})
+		writeJSON(w, http.StatusOK, bootstrapResponse{DefaultPath: defaultPath, SamplePath: samplePath})
 	}
 }
 

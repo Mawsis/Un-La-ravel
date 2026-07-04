@@ -30,6 +30,7 @@ generates:
 • An OpenAPI 3 specification
 • A route map, with dead-route detection
 • Model↔schema disagreement findings
+• A health verdict via 'unlaravel doctor' (non-zero exit on findings — CI-ready)
 
 Use 'unlaravel help [command]' for more information about a command.
 	`),
@@ -57,6 +58,7 @@ func init() {
 	// Add subcommands to the root command
 	// We'll create these commands in separate files for better organization
 	addAnalyzeCommand()
+	addDoctorCommand()
 	addServeCommand()
 }
 

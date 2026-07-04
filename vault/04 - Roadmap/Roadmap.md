@@ -79,7 +79,8 @@ Originally listed under Deferred as out of scope for the "CLI + package" done-de
 Four flagship capabilities, all consuming the existing Project Model — no re-architecture, per ADR 0001. Each is its own vertical slice/PR.
 - [ ] Engine deepening I: `$fillable`/`$guarded`/`$casts` on Model, `indexes` on Table → contract `1.4.0`.
 - [ ] Shared query layer (`internal/query`) + `unlaravel why` / `unlaravel trace` → contract `1.5.0` (route-model-binding edges). New ADR 0008.
-- [ ] Findings model (`internal/findings`) + `unlaravel doctor` + middleware alias extraction → contract `1.6.0`. New ADR 0009.
+- [x] Findings model (`internal/findings`) + `unlaravel doctor` → contract `1.6.0`. Server-computed health verdict (dead routes, disagreements, unguarded models) serialized into the contract; `doctor` exits non-zero on findings (CI gate); the dashboard verdict becomes a thin reader of `model.findings`. [[ADR 0008 - Findings model and doctor|ADR 0008]] (the query-layer slice above shipped without its own ADR, so this took the next free number).
+- [ ] _(remaining half of the 1.6.0 slice)_ Middleware alias extraction — aliases from the HTTP Kernel applied on routes/groups. Its own vertical slice/PR.
 - [ ] AI integration: `unlaravel mcp` (official `modelcontextprotocol/go-sdk`, read-only tools wrapping the query layer) + `unlaravel context`. New ADR 0010.
 - [ ] CI guardrails: `unlaravel check` (exit-code gate) + `unlaravel diff` (structural changelog between two `unlaravel.json` snapshots).
 - [ ] _(optional, cuttable)_ Through/polymorphic relationship kinds → contract `1.7.0`.

@@ -7,6 +7,7 @@
 
 import { $, escapeHtml } from "../dom.js";
 import { hrefFor } from "../links.js";
+import { dangerFlag } from "../chip.js";
 
 export function renderModels(models, schemas, filter, onFilterChange, currentParams) {
   const unguardedCount = models.filter(
@@ -41,11 +42,17 @@ function massAssignmentState(m) {
   return "protected";
 }
 
-function renderMassAssignmentSection(m) {
+// massAssignmentHtml renders a model's mass-assignment section. Pure (model
+// in, markup out) and exported so the unguarded state's markup contract — an
+// inline danger flag cross-linking to the unguarded finding (issue #28) — is
+// unit-testable without a DOM.
+export function massAssignmentHtml(m) {
   const state = massAssignmentState(m);
   if (state === "unguarded") {
+    // The state marker doubles as the danger flag: a chip painted with the
+    // danger token that jumps to the Findings view's unguarded category.
     return (
-      '<span class="pill danger">Unguarded</span>' +
+      dangerFlag("unguarded", "Unguarded") +
       '<div class="empty-note">$guarded = [] — every column is mass-assignable</div>'
     );
   }
@@ -156,7 +163,7 @@ function drawModelCards(models, schemas, filter, currentParams) {
       return (
         '<div class="model-card' + (state === "unguarded" ? " risk" : "") + '">' +
         '<div class="mh">' + escapeHtml(m.name || "") + ' <span class="mw">-&gt; ' + tableSuffix + "</span></div>" +
-        renderMassAssignmentSection(m) +
+        massAssignmentHtml(m) +
         renderCastsSection(m.casts) +
         renderIndexesSection(table) +
         renderFkHints(table) +

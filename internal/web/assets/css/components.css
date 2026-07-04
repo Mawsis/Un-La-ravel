@@ -125,10 +125,19 @@
 .verdict-item {
   display: flex;
 }
-.verdict-link {
+/* A verdict problem borrows .entity-chip for the dynamic in-app-link behavior
+   (the delegated navigation handler in main.js keys on .entity-chip[data-view])
+   and its mono/hover/focus styling, but a problem is not a neutral reference —
+   it must read as danger, not the cyan accent. The compound .entity-chip.verdict-link
+   selector (specificity 0,2,0) deliberately beats the later, single-class
+   .entity-chip color rule (0,1,0) so danger wins in both rest and hover. */
+.entity-chip.verdict-link {
   color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
   font-weight: 600;
+}
+.entity-chip.verdict-link:hover {
+  color: var(--danger);
+  border-bottom-color: currentColor;
 }
 
 /* The inventory grid is demoted below the verdict: quieter than the verdict,

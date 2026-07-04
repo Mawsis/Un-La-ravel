@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.4.0",
+  "schema_version": "1.5.0",
   "project_name": "blog",
   "laravel_version": "11.x",
   "schemas": [

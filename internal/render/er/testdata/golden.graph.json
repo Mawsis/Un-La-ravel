@@ -1,0 +1,100 @@
+{
+  "nodes": [
+    {
+      "table": "users",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "key": "PK"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "key": ""
+        }
+      ]
+    },
+    {
+      "table": "posts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "key": "PK"
+        },
+        {
+          "name": "author_id",
+          "type": "bigInteger",
+          "key": "FK"
+        },
+        {
+          "name": "legacy_author_id",
+          "type": "bigInteger",
+          "key": "FK"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "key": ""
+        }
+      ]
+    },
+    {
+      "table": "roles",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "key": "PK"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "key": ""
+        },
+        {
+          "name": "slug",
+          "type": "string",
+          "key": "UK"
+        },
+        {
+          "name": "tenant_id",
+          "type": "bigInteger",
+          "key": ""
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "key": ""
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "users",
+      "to": "posts",
+      "kind": "one-to-many",
+      "label": "references (author_id)"
+    },
+    {
+      "from": "users",
+      "to": "posts",
+      "kind": "one-to-many",
+      "label": "posts (hasMany)"
+    },
+    {
+      "from": "users",
+      "to": "roles",
+      "kind": "many-to-many",
+      "label": "roles (belongsToMany)"
+    },
+    {
+      "from": "posts",
+      "to": "users",
+      "kind": "many-to-one",
+      "label": "author (belongsTo)"
+    }
+  ]
+}

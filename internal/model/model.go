@@ -37,7 +37,15 @@ import (
 // Bumped to 1.4.0 when the Eloquent slice added "fillable", "guarded", and
 // "casts" to each Model, and the Schema slice added "indexes" to each Table:
 // another backward-compatible growth of the contract.
-const CurrentSchemaVersion = "1.4.0"
+//
+// Bumped to 1.5.0 when the ER-diagram engine swap (issue #21) added the
+// structured ER graph to the served ER response: the web /api/er and
+// /api/analyze payloads now carry an "er" object (nodes + edges over the
+// tables and relationships) alongside the existing Mermaid string, the data
+// contract the new browser renderer draws. The ProjectModel struct itself is
+// unchanged — this bump versions the served renderer output, growing the
+// contract backward-compatibly so consumers can detect the richer response.
+const CurrentSchemaVersion = "1.5.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

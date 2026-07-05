@@ -2,7 +2,7 @@
 // (issue #30) that renders correctly OUTSIDE the app — a docs page, a code
 // review, an image viewer — where the app's stylesheets and CSS custom
 // properties don't exist. The design constraint is self-containment: the
-// exported markup carries its own resolved styling, because a var(--accent) or
+// exported markup carries its own resolved styling, because a var(--resolved) or
 // an external .er-box rule resolves to nothing once the SVG leaves the page.
 //
 // standaloneSvg is a pure string transform (unit-tested, no DOM); the PNG path

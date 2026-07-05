@@ -50,8 +50,11 @@ export function massAssignmentHtml(m) {
   const state = massAssignmentState(m);
   if (state === "unguarded") {
     // The state marker doubles as the danger flag: a chip painted with the
-    // danger token that jumps to the Findings view's unguarded category.
+    // danger token that jumps to the Findings view's unguarded category,
+    // led by the shared severity dot (issue #38 — dot + card tint, never a
+    // side-stripe). The dot is decorative; "Unguarded" carries the meaning.
     return (
+      '<span class="status-dot danger" aria-hidden="true"></span>' +
       dangerFlag("unguarded", "Unguarded") +
       '<div class="empty-note">$guarded = [] — every column is mass-assignable</div>'
     );

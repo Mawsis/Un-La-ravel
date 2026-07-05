@@ -474,19 +474,38 @@ table.routes tr.dead {
   font-size: var(--text-xs);
 }
 
+/* Severity reads as a leading status dot + a background tint (issue #38) —
+   never a colored side-stripe. The soft tints keep the cards calm; the dot is
+   the at-a-glance danger/warn marker. */
 .finding {
-  background: var(--surface-elevated);
+  background: var(--warn-tint-soft);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--warn);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-2);
 }
 .finding.dead {
-  border-left-color: var(--danger);
+  background: var(--danger-tint-soft);
 }
 .finding .h {
   font-weight: 600;
+}
+/* The shared severity dot: purely visual (aria-hidden in markup — the row's
+   text already says "Dead route:" / "Disagreement:"), colored by the status
+   tokens, sized to read at a glance without shouting. */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+.status-dot.warn {
+  background: var(--warn);
+}
+.status-dot.danger {
+  background: var(--danger);
 }
 .finding .r {
   color: var(--text-dim);
@@ -512,7 +531,7 @@ table.routes tr.dead {
   margin-bottom: var(--space-2);
 }
 .model-card.risk {
-  border-left: 3px solid var(--danger);
+  background: var(--danger-tint-soft);
 }
 .model-card .mh {
   font-family: var(--mono);

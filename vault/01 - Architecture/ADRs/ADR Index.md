@@ -17,6 +17,7 @@ Architecture Decision Records — *why* the project is shaped the way it is. Eac
 | [[ADR 0006 - Two-phase extraction with symbol table\|0006]] | Two-phase extraction + symbol table | ✅ accepted | Correct cross-file edges; dangling refs = free dead-route detection |
 | [[ADR 0007 - No database in core\|0007]] | No database in the core | ✅ accepted | In-memory graph + JSON; SQLite/GORM is premature infra (overrides brief) |
 | [[ADR 0008 - Findings model and doctor\|0008]] | Health verdict is a server-computed contract field | ✅ accepted | One `findings` array computed once server-side; CLI/JSON/dashboard agree by construction; `doctor` gates CI |
+| [[ADR 0009 - ER settle animation and diagram export\|0009]] | ER settle animation + SVG/PNG export | ✅ accepted | A once-per-session settle is the un-ravel metaphor, not decoration; a narrow recorded exception to #25's no-settle rule, done as a token-timed transition so the motion tests don't loosen |
 
 ## How these connect
 

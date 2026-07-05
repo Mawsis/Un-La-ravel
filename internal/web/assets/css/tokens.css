@@ -88,9 +88,10 @@
 
   /* Motion (issue #25) — functional only: state changes the user caused, at
      native-feeling speed. --motion-fast is hover/press feedback; --motion-view
-     is view/panel/filter changes. No decorative, settle, or stagger timing
-     exists on purpose — if a duration wants to be longer than these, it is
-     decoration and doesn't belong in this app (ADR-worthy if that changes). */
+     is view/panel/filter changes. Decorative stagger/count-up timing stays out
+     on purpose — if a duration wants to be longer than these, it is decoration
+     and doesn't belong here. The two longer tokens below (--motion-highlight,
+     --motion-settle) are ADR-recorded exceptions, not everyday transitions. */
   --motion-fast: 150ms;
   --motion-view: 200ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
@@ -98,4 +99,11 @@
      scale on purpose — it must survive the pan that precedes it and still be
      visible when the eye arrives. An attention hold, not a transition. */
   --motion-highlight: 800ms;
+  /* ER settle (issue #30, ADR 0009): the one sanctioned "resolve" animation —
+     entity boxes ease from a rough arrangement into their ELK-laid-out
+     positions on first render, the un-ravel metaphor at the moment structure
+     resolves. Longer than a transition because it's a one-shot signature
+     moment, not feedback; plays once and respects prefers-reduced-motion. This
+     is the deliberate, ADR-recorded exception to issue #25's no-settle rule. */
+  --motion-settle: 620ms;
 }

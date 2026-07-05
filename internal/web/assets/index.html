@@ -104,7 +104,13 @@
 
         <div class="panel" data-panel="er">
           <h2 class="sr-only">Entity-Relationship diagram</h2>
-          <p class="er-hint">Scroll to zoom · drag to pan · double-click to zoom in · +/− controls bottom-right · <a href="#/models" data-view="models">see mass assignment &amp; casts in Models</a></p>
+          <div class="er-toolbar">
+            <p class="er-hint">Scroll to zoom · drag to pan · double-click to zoom in · +/− controls bottom-right · <a href="#/models" data-view="models">see mass assignment &amp; casts in Models</a></p>
+            <div class="er-export" role="group" aria-label="Export diagram">
+              <button type="button" id="er-export-svg" class="er-export-btn">Export SVG</button>
+              <button type="button" id="er-export-png" class="er-export-btn">Export PNG</button>
+            </div>
+          </div>
           <div id="er-diagram"></div>
         </div>
 

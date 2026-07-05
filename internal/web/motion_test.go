@@ -80,6 +80,12 @@ var keyframesRe = regexp.MustCompile(`@keyframes\s+([a-zA-Z0-9_-]+)`)
 // functional (state the user caused), none decorative. A new keyframe added
 // anywhere else is exactly the count-up/stagger/settle decoration issue #25
 // rules out, so it must be argued into this list, not slipped past it.
+//
+// The issue #30 ER settle is deliberately NOT here: it's a one-shot FLIP-style
+// transition on inline transforms (armed by .er-settling, timed by the
+// --motion-settle token), not a @keyframes, so it needs no allowlist entry. The
+// #25→#30 policy reversal it represents is recorded in ADR 0009; the token that
+// times it is documented in tokens.css.
 var allowedKeyframes = map[string]bool{
 	"spin":           true, // loading spinner — in-progress feedback
 	"er-focus-pulse": true, // entity-focus highlight — cross-navigation landing marker

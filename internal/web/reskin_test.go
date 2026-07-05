@@ -70,6 +70,26 @@ func TestReskin_UppercaseOnlyOnTrueHeadings(t *testing.T) {
 	}
 }
 
+// TestReskin_HeroCopyNoEmDash pins the copy fix: the hero value prop is the
+// tool's most-read sentence, and an em dash there reads as machine-generated
+// (PRD anti-reference checklist). Plain punctuation only.
+func TestReskin_HeroCopyNoEmDash(t *testing.T) {
+	ts := newTestServer(t)
+	html := string(readBody(t, get(t, ts, "/")))
+
+	start := strings.Index(html, `class="hero-valueprop"`)
+	if start < 0 {
+		t.Fatal("index.html missing the hero-valueprop paragraph")
+	}
+	end := strings.Index(html[start:], "</p>")
+	if end < 0 {
+		t.Fatal("hero-valueprop paragraph is unterminated")
+	}
+	if valueProp := html[start : start+end]; strings.Contains(valueProp, "—") {
+		t.Errorf("hero value prop still carries an em dash: %q — replace with plain punctuation", valueProp)
+	}
+}
+
 // TestReskin_StatStripQuietByDesign removes the dimmed-numbers CSS apology:
 // the Overview verdict must win over the inventory strip by the stat numbers'
 // SIZE (a step below the old --text-xl), not by a `.cards .card .n` override

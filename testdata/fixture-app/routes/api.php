@@ -30,6 +30,15 @@ Route::post('/posts', [PostController::class, 'store'])
 //   GET  /legacy       -> PostController@show
 Route::get('/legacy', 'PostController@show');
 
+// DELIBERATE PUBLIC WRITE (unauthenticated_write blocker): a POST route with NO
+// middleware — anyone can invoke it without logging in. It resolves cleanly to
+// PostController@store, so it is NOT a dead route; the only thing wrong with it
+// is the missing auth. This is the ONE intentional unauthenticated *write* in the
+// fixture, exercising the auth classifier's blocker path end-to-end (issue #50),
+// exactly as the dead route below exercises phase-two resolution.
+//   POST /webhooks     -> PostController@store   ⚠ PUBLIC WRITE (unauthenticated_write)
+Route::post('/webhooks', [PostController::class, 'store']);
+
 // A route GROUP: prefix('admin') + middleware(['auth:sanctum','throttle:api'])
 // wrap the inner routes. The prefix flattens into each inner URI and the group
 // middleware is inherited by each inner route (the group-flattening algorithm).

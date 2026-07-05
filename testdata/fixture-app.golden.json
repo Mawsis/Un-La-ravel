@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.8.0",
+  "schema_version": "1.9.0",
   "project_name": "acme/blog",
   "laravel_version": "^11.0",
   "schemas": [
@@ -322,6 +322,7 @@
       "controller": "PostController",
       "action": "index",
       "middleware": [],
+      "auth": "unauthenticated",
       "fqn": "App\\Http\\Controllers\\PostController"
     },
     {
@@ -330,6 +331,7 @@
       "controller": "PostController",
       "action": "show",
       "middleware": [],
+      "auth": "unauthenticated",
       "fqn": "App\\Http\\Controllers\\PostController"
     },
     {
@@ -340,6 +342,7 @@
       "middleware": [
         "auth"
       ],
+      "auth": "authenticated",
       "name": "posts.store",
       "fqn": "App\\Http\\Controllers\\PostController",
       "form_request": "App\\Http\\Requests\\StorePostRequest"
@@ -350,7 +353,18 @@
       "controller": "PostController",
       "action": "show",
       "middleware": [],
+      "auth": "unauthenticated",
       "fqn": "App\\Http\\Controllers\\PostController"
+    },
+    {
+      "method": "POST",
+      "uri": "/webhooks",
+      "controller": "PostController",
+      "action": "store",
+      "middleware": [],
+      "auth": "unauthenticated",
+      "fqn": "App\\Http\\Controllers\\PostController",
+      "form_request": "App\\Http\\Requests\\StorePostRequest"
     },
     {
       "method": "GET",
@@ -361,6 +375,7 @@
         "auth:sanctum",
         "throttle:api"
       ],
+      "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\UserController"
     },
     {
@@ -372,6 +387,7 @@
         "auth:sanctum",
         "throttle:api"
       ],
+      "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
     },
     {
@@ -383,6 +399,7 @@
         "auth:sanctum",
         "throttle:api"
       ],
+      "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
     },
     {
@@ -394,6 +411,7 @@
         "auth:sanctum",
         "throttle:api"
       ],
+      "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
     },
     {
@@ -405,6 +423,7 @@
         "auth:sanctum",
         "throttle:api"
       ],
+      "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
     },
     {
@@ -416,6 +435,7 @@
         "auth:sanctum",
         "throttle:api"
       ],
+      "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
     },
     {
@@ -426,7 +446,8 @@
       "middleware": [
         "auth:sanctum",
         "throttle:api"
-      ]
+      ],
+      "auth": "authenticated"
     }
   ],
   "controllers": [
@@ -564,6 +585,20 @@
       "count": 1,
       "label": "1 unguarded model",
       "view": "findings"
+    },
+    {
+      "kind": "unauthenticated_write",
+      "severity": "blocker",
+      "count": 1,
+      "label": "1 unauthenticated write route",
+      "view": "auth"
+    },
+    {
+      "kind": "unauthenticated_read",
+      "severity": "warn",
+      "count": 3,
+      "label": "3 unauthenticated read routes",
+      "view": "auth"
     }
   ]
 }

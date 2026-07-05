@@ -239,6 +239,59 @@
           }
         }
       }
+    },
+    "/webhooks": {
+      "post": {
+        "operationId": "PostController_store",
+        "tags": [
+          "PostController"
+        ],
+        "summary": "PostController@store",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "published": {
+                    "type": "boolean"
+                  },
+                  "status": {
+                    "type": "string",
+                    "nullable": true,
+                    "enum": [
+                      "draft",
+                      "published"
+                    ]
+                  },
+                  "tags": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "rule: alpha_dash"
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 255
+                  }
+                },
+                "required": [
+                  "title",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   }
 }

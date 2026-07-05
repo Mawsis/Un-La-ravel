@@ -57,6 +57,13 @@ type Route struct {
 	// inherited from enclosing groups. Names only; alias→class resolution is out
 	// of scope for this slice.
 	Middleware []string `json:"middleware"`
+	// Auth is the route's authentication state, computed from Middleware by the
+	// classifier (issue #50): one of AuthAuthenticated, AuthUnauthenticated, or
+	// AuthUnknown. It is written into the contract so the dashboard reads auth
+	// coverage from the model rather than re-classifying middleware in the
+	// browser (ADR 0008). Not omitempty: every route carries an explicit state,
+	// so a consumer never has to infer "authenticated" from an absent key.
+	Auth string `json:"auth"`
 	// Name is the route's name when one was assigned via ->name(...). Omitted
 	// from JSON when empty.
 	Name string `json:"name,omitempty"`
@@ -71,6 +78,27 @@ type Route struct {
 	// takes no FormRequest parameter.
 	FormRequest string `json:"form_request,omitempty"`
 }
+
+// Route auth states. These are the stable machine-readable values written to
+// Route.Auth, the per-route answer to "does this route's flattened middleware
+// stack authenticate?" (issue #50). Defined once here; never hardcode the
+// literal elsewhere. Precision over coverage (ADR 0002): a stack of only
+// unrecognized custom middleware is AuthUnknown, never guessed as one or the
+// other.
+const (
+	// AuthAuthenticated marks a route whose middleware stack contains a
+	// conventional Laravel auth middleware (`auth`, `auth:<guard>`,
+	// `auth.basic`, or a Sanctum/Passport guard).
+	AuthAuthenticated = "authenticated"
+	// AuthUnauthenticated marks a route whose middleware stack is empty or
+	// contains only middleware that is definitively not authentication — the
+	// route is reachable without logging in.
+	AuthUnauthenticated = "unauthenticated"
+	// AuthUnknown marks a route whose stack contains custom middleware the
+	// classifier does not recognize and no conventional auth middleware, so it
+	// declines to guess whether that custom middleware authenticates.
+	AuthUnknown = "unknown"
+)
 
 // Dead-route kinds. These are the stable machine-readable values written to
 // DeadRoute.Kind so consumers can branch without parsing the human-readable

@@ -4,10 +4,10 @@
 // so refresh, Back/Forward, and copy-paste-share all just work. localStorage
 // (store.js) is convenience only and never load-bearing for correctness.
 //
-// Views are the six sidebar destinations: overview, er, models, routes, api,
-// findings.
+// Views are the seven sidebar destinations: overview, er, models, routes, api,
+// findings, auth (the auth-coverage view, issue #50).
 
-const VALID_VIEWS = new Set(["overview", "er", "models", "routes", "api", "findings"]);
+const VALID_VIEWS = new Set(["overview", "er", "models", "routes", "api", "findings", "auth"]);
 const DEFAULT_VIEW = "overview";
 
 const listeners = new Set();

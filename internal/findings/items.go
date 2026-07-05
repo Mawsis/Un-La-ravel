@@ -1,6 +1,10 @@
 package findings
 
-import "github.com/Mawsis/Un-La-ravel/internal/model"
+import (
+	"strings"
+
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+)
 
 // Item is a single, per-item finding: one dead route, one unguarded model, or
 // one Model↔Schema disagreement — the granular counterpart to the category
@@ -96,6 +100,46 @@ func Items(pm *model.ProjectModel) []Item {
 			})
 		}
 	}
+	// Auth findings come last in the understand-then-judge order (issue #50): one
+	// item per route reachable without authentication, split by verb so a
+	// mutating route is a write finding (blocker) and a non-mutating one is a read
+	// finding (warning). Authenticated and unknown routes emit nothing — a finding
+	// is a problem, and only definitively-unauthenticated routes are the problem.
+	// The route's own source order is preserved, keeping the output deterministic.
+	for _, r := range pm.Routes {
+		if Classify(r.Middleware) != model.AuthUnauthenticated {
+			continue
+		}
+		items = append(items, Item{
+			Kind:   authFindingKind(r.Method),
+			Method: r.Method,
+			URI:    r.URI,
+		})
+	}
 
 	return items
+}
+
+// authFindingKind maps an unauthenticated route's HTTP verb to its finding kind:
+// a mutating verb (POST/PUT/PATCH/DELETE) is an unauthenticated WRITE (blocker),
+// anything else (GET/HEAD/OPTIONS) an unauthenticated READ (warning). The split
+// is the reason the two kinds exist — the same missing-auth fact is graver on a
+// route that changes state than on one that only reads.
+func authFindingKind(method string) string {
+	if isWriteMethod(method) {
+		return model.FindingUnauthenticatedWrite
+	}
+	return model.FindingUnauthenticatedRead
+}
+
+// isWriteMethod reports whether an HTTP verb mutates state. The set is the four
+// mutating verbs Laravel routes use; matching is case-insensitive so a route
+// recorded as "post" classifies like "POST", though the extractor uppercases.
+func isWriteMethod(method string) bool {
+	switch strings.ToUpper(method) {
+	case "POST", "PUT", "PATCH", "DELETE":
+		return true
+	default:
+		return false
+	}
 }

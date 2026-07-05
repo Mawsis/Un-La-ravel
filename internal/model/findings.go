@@ -21,6 +21,16 @@ const (
 	// explicitly wrote `protected $guarded = []`, Laravel's "everything is
 	// mass-assignable" escape hatch (a non-nil, empty Model.Guarded).
 	FindingUnguarded = "unguarded"
+	// FindingUnauthenticatedWrite marks the "N unauthenticated write route(s)"
+	// category (issue #50) — routes with a mutating verb (POST/PUT/PATCH/DELETE)
+	// whose flattened middleware stack does not authenticate. An unauthenticated
+	// write is a blocker: anyone can mutate state without logging in.
+	FindingUnauthenticatedWrite = "unauthenticated_write"
+	// FindingUnauthenticatedRead marks the "N unauthenticated read route(s)"
+	// category (issue #50) — GET (and other non-mutating) routes whose flattened
+	// middleware stack does not authenticate. An unauthenticated read is a
+	// warning: public data exposure, worth surfacing but not a hard stop.
+	FindingUnauthenticatedRead = "unauthenticated_read"
 )
 
 // Finding severities. These are the stable machine-readable values written to
@@ -30,10 +40,12 @@ const (
 // re-deriving severity from Kind.
 const (
 	// SeverityBlocker is a problem a consumer should treat as must-fix — an
-	// unguarded model exposes every column to mass assignment.
+	// unguarded model exposes every column to mass assignment, or an
+	// unauthenticated write route lets anyone mutate state without logging in.
 	SeverityBlocker = "blocker"
 	// SeverityWarn is a problem worth surfacing but not a hard stop — a dead
-	// route or a Model↔Schema disagreement.
+	// route, a Model↔Schema disagreement, or an unauthenticated read route
+	// (public data exposure).
 	SeverityWarn = "warn"
 	// SeverityInfo is the least-severe level and the forward-compatible default
 	// for any kind not yet in the severity table.
@@ -69,9 +81,11 @@ func SeverityAtLeast(sev, threshold string) bool {
 // at a call site — Verdict and any future producer stamp severity through
 // SeverityFor, and adding a kind is a one-line edit in one place.
 var severityByKind = map[string]string{
-	FindingUnguarded:     SeverityBlocker,
-	FindingDeadRoutes:    SeverityWarn,
-	FindingDisagreements: SeverityWarn,
+	FindingUnguarded:            SeverityBlocker,
+	FindingUnauthenticatedWrite: SeverityBlocker,
+	FindingDeadRoutes:           SeverityWarn,
+	FindingDisagreements:        SeverityWarn,
+	FindingUnauthenticatedRead:  SeverityWarn,
 }
 
 // SeverityFor returns the severity for a finding kind from the single

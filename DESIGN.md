@@ -120,7 +120,9 @@ is tight (`--space-2`). No single padding value applied everywhere. Cap prose at
 
 Never a colored left border. Severity reads as: a **leading status dot** (`--danger`
 / `--warn` / `--ok`) plus a **background tint** (`--danger-tint` etc.), optionally
-a leading label. Applies to findings, model-cards, dead-route rows.
+a leading label. Applies to findings, model-cards, dead-route rows, and the Auth
+view's unauthenticated-route rows (a write reads as the danger dot *and* says
+"write", so the signal survives without hue).
 
 ### Stat display
 

@@ -37,6 +37,7 @@ func TestSidebar_NavGroupedStructureThenHealth(t *testing.T) {
 		`data-view="api"`,
 		">Health<",
 		`data-view="findings"`,
+		`data-view="auth"`,
 	}
 	last := -1
 	for _, m := range markers {
@@ -50,9 +51,12 @@ func TestSidebar_NavGroupedStructureThenHealth(t *testing.T) {
 		last = idx
 	}
 
-	// The Findings count badge stays always visible under the HEALTH group.
-	if !strings.Contains(html, `id="badge-findings"`) {
-		t.Error("index.html missing the always-visible Findings badge")
+	// The Findings and Auth (issue #50) count badges stay always visible under
+	// the HEALTH group.
+	for _, badge := range []string{`id="badge-findings"`, `id="badge-auth"`} {
+		if !strings.Contains(html, badge) {
+			t.Errorf("index.html missing the always-visible badge %s", badge)
+		}
 	}
 }
 

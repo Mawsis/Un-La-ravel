@@ -495,6 +495,11 @@ func buildProjectModel(
 		pm.AddController(c)
 	}
 	for _, r := range routes {
+		// Stamp the per-route auth state from the flattened middleware (issue #50)
+		// so the contract carries it and the dashboard reads coverage rather than
+		// re-classifying in the browser (ADR 0008). Classify is the single source
+		// of the authenticated/unauthenticated/unknown decision the findings use.
+		r.Auth = findings.Classify(r.Middleware)
 		pm.AddRoute(r)
 	}
 	for _, dr := range deadRoutes {

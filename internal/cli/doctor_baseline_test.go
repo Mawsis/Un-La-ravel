@@ -115,6 +115,13 @@ func TestDoctorCommand_Baseline_AllSuppressedExitsZero(t *testing.T) {
 		{Kind: model.FindingDisagreements, Model: "Post", Relationship: "editor"},
 		{Kind: model.FindingDisagreements, Model: "Post", Relationship: "lens"},
 		{Kind: model.FindingUnguarded, Class: "Category"},
+		// The auth findings the fixture now carries (issue #50): the deliberate
+		// public write and the three middleware-less public reads. Baselining
+		// EVERY finding is what makes the gate pass.
+		{Kind: model.FindingUnauthenticatedWrite, Method: "POST", URI: "/webhooks"},
+		{Kind: model.FindingUnauthenticatedRead, Method: "GET", URI: "/posts"},
+		{Kind: model.FindingUnauthenticatedRead, Method: "GET", URI: "/posts/{id}"},
+		{Kind: model.FindingUnauthenticatedRead, Method: "GET", URI: "/legacy"},
 	})
 
 	cmd := newDoctorCommand()

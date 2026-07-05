@@ -74,7 +74,20 @@ import (
 // findings by severity and a CI gate rank them without re-deriving severity from
 // kind. A backward-compatible growth: the key is inserted after "kind", every
 // existing finding gains it, and consumers that ignore it are unaffected.
-const CurrentSchemaVersion = "1.8.0"
+//
+// Bumped to 1.9.0 when auth coverage (issue #50) added the per-route "auth" field
+// and two new finding kinds. Each Route now carries "auth" — "authenticated",
+// "unauthenticated", or "unknown" — computed from its flattened middleware by the
+// classifier in internal/findings (conventional Laravel auth middleware only;
+// unrecognized custom middleware is "unknown", never guessed — precision over
+// coverage, ADR 0002). The "findings" array gains two kinds: "unauthenticated_write"
+// (a blocker: a POST/PUT/PATCH/DELETE route reachable without auth) and
+// "unauthenticated_read" (a warning: a non-mutating route reachable without auth),
+// which link to the new Auth view rather than the findings view. A
+// backward-compatible growth: the new route key is appended after "middleware",
+// the new finding kinds append after the existing categories, and consumers that
+// ignore them are unaffected.
+const CurrentSchemaVersion = "1.9.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

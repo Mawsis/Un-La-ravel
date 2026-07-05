@@ -68,6 +68,14 @@ _Avoid_: broken route, 404 (a 404 is a *runtime* miss; a Dead Route is a *static
 A request/response pipeline stage. Its **alias** is declared in the HTTP **Kernel**; its **application** is declared on a **Route** or route group.
 _Avoid_: filter, interceptor
 
+**Auth state**:
+A **Route**'s answer to "does its flattened **Middleware** stack authenticate?" — one of `authenticated`, `unauthenticated`, or `unknown`. Computed from the middleware names alone by matching Laravel's *conventional* auth middleware (`auth`, `auth:<guard>`, `auth.basic`, Sanctum/Passport guards). Unrecognized custom middleware is `unknown`, never guessed ([[ADR 0002 - Six-node MVP scope|precision over coverage]]): a custom guard we can't read might or might not authenticate, and pretending to know either way would either hide a real hole or cry wolf. The state is stamped onto every Route in the contract, so the dashboard reads it rather than re-classifying ([[ADR 0008 - Findings model and the doctor gate]]).
+_Avoid_: protected/guarded (that's the mass-assignment sense of **guarded**), secured, logged-in
+
+**Unauthenticated Route**:
+A **Route** whose **Auth state** is `unauthenticated` — reachable without logging in. Like a **Dead Route**, it is a **finding**, not an error: the tool reports it; it does not fail on it. Split by verb, because the same missing-auth fact is graver on a route that changes state: an unauthenticated *write* (POST/PUT/PATCH/DELETE) is a `blocker`, an unauthenticated *read* a `warn`. An `unknown`-auth route is deliberately NOT a finding. An intentionally-public route is silenced through the **baseline**, not by weakening the classifier.
+_Avoid_: insecure route, vulnerability, open endpoint (overstates a static fact into a runtime exploit claim)
+
 **FormRequest**:
 A validation class in `app/Http/Requests` whose `rules()` array defines the accepted request body for a **Route**. Source of OpenAPI request-body schemas.
 _Avoid_: validator, request (too generic)

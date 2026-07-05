@@ -32,9 +32,10 @@ const fpSep = "\x1f" // ASCII Unit Separator
 // that identifies THAT finding across reorderings and line moves. It reads only
 // the identifying fields defined for the item's Kind:
 //
-//   - dead route   → kind, method, URI, controller
-//   - unguarded    → kind, class
-//   - disagreement → kind, model, relationship
+//   - dead route          → kind, method, URI, controller
+//   - unguarded           → kind, class
+//   - disagreement        → kind, model, relationship
+//   - unauthenticated     → kind, method, URI  (both the write and read kinds)
 //
 // The Kind is always the first part, so two findings of different kinds can
 // never share a fingerprint even if their remaining fields coincide. An unknown
@@ -48,6 +49,12 @@ func Fingerprint(item findings.Item) string {
 		return join(item.Kind, item.Class)
 	case model.FindingDisagreements:
 		return join(item.Kind, item.Model, item.Relationship)
+	case model.FindingUnauthenticatedWrite, model.FindingUnauthenticatedRead:
+		// A public route is identified by its verb + path, so baselining one
+		// intentional public route (issue #50) suppresses only that route, not
+		// every public route of the same kind. Kind leads, so a write and a read
+		// at the same path never share a fingerprint.
+		return join(item.Kind, item.Method, item.URI)
 	default:
 		return join(item.Kind)
 	}

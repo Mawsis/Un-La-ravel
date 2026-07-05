@@ -32,6 +32,7 @@ import { renderER, focusTable } from "./views/er.js";
 import { renderModels } from "./views/models.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
+import { renderAuth } from "./views/auth.js";
 import { renderSidebarHealth } from "./sidebar.js";
 import { resettleThreadMark } from "./thread-mark.js";
 import { prepareOverviewWow, maybePlayOverviewWow } from "./views/overview-wow.js";
@@ -146,6 +147,7 @@ function renderCurrentView() {
     renderER(result.er, table);
     lastFocusedTable = table;
     renderFindings(model.disagreements || [], model.dead_routes || [], params);
+    renderAuth(model.routes || [], params);
     renderSwagger(result.openapi);
   } else if (view === "er" && table && table !== lastFocusedTable) {
     // Same analysis, same diagram already mounted — just refocus.

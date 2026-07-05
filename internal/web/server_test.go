@@ -299,7 +299,7 @@ func TestHandler_Analyze_FixtureApp(t *testing.T) {
 	if got, want := len(shape.Models), 4; got != want {
 		t.Errorf("model.models count = %d, want %d", got, want)
 	}
-	if got, want := len(shape.Routes), 11; got != want {
+	if got, want := len(shape.Routes), 12; got != want {
 		t.Errorf("model.routes count = %d, want %d", got, want)
 	}
 	if got, want := len(shape.FormRequests), 1; got != want {

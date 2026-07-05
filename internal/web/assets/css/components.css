@@ -651,6 +651,26 @@ table.routes tr.dead {
   font-size: var(--text-base);
 }
 
+/* Auth view (issue #50): the verdict sentence leads in the tool's own human
+   voice (DESIGN.md §2 — body face, never mono), stated as a calm fact. */
+.auth-verdict {
+  font-size: var(--text-base);
+  color: var(--text);
+  margin-bottom: var(--space-5);
+}
+/* Each middleware-stack group heads its unauthenticated routes. The stack is a
+   list of middleware names — machine voice, mono — set dim and small so the
+   route rows below carry the weight. */
+.auth-group {
+  margin-bottom: var(--space-5);
+}
+.auth-stack {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+  margin-bottom: var(--space-2);
+}
+
 .model-card {
   background: var(--surface-elevated);
   border: 1px solid var(--border);

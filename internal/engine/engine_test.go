@@ -64,7 +64,8 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 	// From fixture-app.golden.json:
 	//   "schemas": 4 tables  (users, posts, categories, lenses)
 	//   "models": 4 models   (Category, Lens, Post, User)
-	//   "routes": 11 routes
+	//   "routes": 12 routes (11 original + the deliberate public write /webhooks
+	//     added for issue #50's unauthenticated_write blocker path)
 	//   "controllers": 4 controllers
 	//   "dead_routes": 1
 	//   "form_requests": 1
@@ -77,7 +78,7 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 	}{
 		{"schemas (tables)", len(pm.Schemas), 4},
 		{"models", len(pm.Models), 4},
-		{"routes", len(pm.Routes), 11},
+		{"routes", len(pm.Routes), 12},
 		{"controllers", len(pm.Controllers), 4},
 		{"dead_routes", len(pm.DeadRoutes), 1},
 		{"form_requests", len(pm.FormRequests), 1},
@@ -99,8 +100,10 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 // understand-then-judge order. The fixture app carries every category — 1 dead
 // route, 2 disagreements (Post.editor's missing FK column and Post.lens's
 // name-mismatched table, issue #36), 1 unguarded model (a Model that wrote
-// `protected $guarded = []`) — so all three findings fire, proving the engine
-// runs Verdict last, over the fully assembled model.
+// `protected $guarded = []`), 1 unauthenticated write (the public POST /webhooks
+// added for issue #50) and 3 unauthenticated reads (GET /posts, GET /posts/{id},
+// GET /legacy — the middleware-less reads) — so every category fires, proving the
+// engine runs Verdict last, over the fully assembled model.
 func TestAnalyze_FixtureApp_Findings(t *testing.T) {
 	root := repoRoot(t)
 	fixtureApp := filepath.Join(root, "testdata", "fixture-app")
@@ -112,11 +115,14 @@ func TestAnalyze_FixtureApp_Findings(t *testing.T) {
 
 	// Severity is derived through the single model.SeverityFor table — the same
 	// source the producer uses — so this expectation can't drift from the mapping
-	// (dead routes/disagreements → warn, unguarded → blocker).
+	// (dead routes/disagreements/unauthenticated reads → warn, unguarded and
+	// unauthenticated writes → blocker). Auth findings link to the auth view.
 	want := []model.Finding{
 		{Kind: model.FindingDeadRoutes, Severity: model.SeverityFor(model.FindingDeadRoutes), Count: 1, Label: "1 dead route", View: "findings"},
 		{Kind: model.FindingDisagreements, Severity: model.SeverityFor(model.FindingDisagreements), Count: 2, Label: "2 disagreements", View: "findings"},
 		{Kind: model.FindingUnguarded, Severity: model.SeverityFor(model.FindingUnguarded), Count: 1, Label: "1 unguarded model", View: "findings"},
+		{Kind: model.FindingUnauthenticatedWrite, Severity: model.SeverityFor(model.FindingUnauthenticatedWrite), Count: 1, Label: "1 unauthenticated write route", View: "auth"},
+		{Kind: model.FindingUnauthenticatedRead, Severity: model.SeverityFor(model.FindingUnauthenticatedRead), Count: 3, Label: "3 unauthenticated read routes", View: "auth"},
 	}
 	if len(pm.Findings) != len(want) {
 		t.Fatalf("Findings = %+v, want %+v", pm.Findings, want)
@@ -124,6 +130,40 @@ func TestAnalyze_FixtureApp_Findings(t *testing.T) {
 	for i := range want {
 		if pm.Findings[i] != want[i] {
 			t.Errorf("Findings[%d] = %+v, want %+v", i, pm.Findings[i], want[i])
+		}
+	}
+}
+
+// TestAnalyze_FixtureApp_RouteAuthStamped verifies the engine stamps each Route's
+// Auth field from its flattened middleware (issue #50) — the per-route auth state
+// the contract carries so the dashboard reads coverage rather than re-classifying
+// (ADR 0008). The fixture's `auth`/`auth:sanctum` routes are authenticated and its
+// middleware-less reads are unauthenticated; asserting a few known routes proves
+// the classifier runs over the assembled routes.
+func TestAnalyze_FixtureApp_RouteAuthStamped(t *testing.T) {
+	root := repoRoot(t)
+	fixtureApp := filepath.Join(root, "testdata", "fixture-app")
+
+	pm, err := engine.Analyze(fixtureApp)
+	if err != nil {
+		t.Fatalf("engine.Analyze(%q): %v", fixtureApp, err)
+	}
+
+	// key a route by "METHOD URI" to look up its stamped auth state.
+	auth := map[string]string{}
+	for _, r := range pm.Routes {
+		auth[r.Method+" "+r.URI] = r.Auth
+	}
+
+	want := map[string]string{
+		"GET /posts":           model.AuthUnauthenticated, // no middleware
+		"POST /posts":          model.AuthAuthenticated,   // ->middleware('auth')
+		"GET /admin/users":     model.AuthAuthenticated,   // group auth:sanctum
+		"POST /admin/comments": model.AuthAuthenticated,   // group auth:sanctum
+	}
+	for route, wantAuth := range want {
+		if got := auth[route]; got != wantAuth {
+			t.Errorf("route %q auth = %q, want %q", route, got, wantAuth)
 		}
 	}
 }

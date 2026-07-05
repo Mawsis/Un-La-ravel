@@ -214,7 +214,9 @@ func TestE2E_FixtureApp_RouteShape(t *testing.T) {
 	}
 
 	// The apiResource on comments must have expanded to the five REST routes.
-	if got, want := len(pm.Routes), 11; got != want {
+	// 12 total: 11 original + the deliberate public write POST /webhooks (issue
+	// #50's unauthenticated_write blocker fixture).
+	if got, want := len(pm.Routes), 12; got != want {
 		t.Fatalf("routes count = %d, want %d", got, want)
 	}
 
@@ -419,6 +421,10 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 		pm.AddController(c)
 	}
 	for _, r := range routes {
+		// Stamp the per-route auth state from the flattened middleware exactly as
+		// the engine's buildProjectModel does (issue #50), so the golden pins the
+		// same "auth" field the real `unlaravel analyze` emits.
+		r.Auth = findings.Classify(r.Middleware)
 		pm.AddRoute(r)
 	}
 	for _, dr := range rp.deadRoutes {

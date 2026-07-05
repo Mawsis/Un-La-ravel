@@ -3,6 +3,7 @@ GET     /posts                PostController@index       -
 GET     /posts/{id}           PostController@show        -
 POST    /posts                PostController@store       auth
 GET     /legacy               PostController@show        -
+POST    /webhooks             PostController@store       -
 GET     /admin/users          UserController@index       auth:sanctum, throttle:api
 GET     /admin/comments       CommentController@index    auth:sanctum, throttle:api
 POST    /admin/comments       CommentController@store    auth:sanctum, throttle:api

@@ -82,6 +82,7 @@ func buildKnownModel() *ProjectModel {
 		Controller: "PostController",
 		Action:     "index",
 		Middleware: []string{"web", "auth"},
+		Auth:       AuthAuthenticated,
 		Name:       "posts.index",
 		FQN:        `App\Http\Controllers\PostController`,
 	})

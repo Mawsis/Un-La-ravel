@@ -95,6 +95,32 @@ func TestFingerprintUnknownKind(t *testing.T) {
 	}
 }
 
+// TestFingerprintAuthPerRoute covers the auth kinds (issue #50): an
+// unauthenticated route fingerprints on its method + URI, so baselining one
+// intentional public route suppresses only THAT route — not every public route
+// of the same kind. Two different public writes must fingerprint differently, and
+// a write and a read at the same path must not collide.
+func TestFingerprintAuthPerRoute(t *testing.T) {
+	webhooks := findings.Item{Kind: model.FindingUnauthenticatedWrite, Method: "POST", URI: "/webhooks"}
+	other := findings.Item{Kind: model.FindingUnauthenticatedWrite, Method: "POST", URI: "/callbacks"}
+	if Fingerprint(webhooks) == Fingerprint(other) {
+		t.Errorf("two distinct public writes share a fingerprint; baselining one would suppress the other")
+	}
+
+	// Same path, different verb → different finding (a public read vs a public
+	// write), so different fingerprints.
+	read := findings.Item{Kind: model.FindingUnauthenticatedRead, Method: "GET", URI: "/webhooks"}
+	write := findings.Item{Kind: model.FindingUnauthenticatedWrite, Method: "POST", URI: "/webhooks"}
+	if Fingerprint(read) == Fingerprint(write) {
+		t.Errorf("an unauthenticated read and write collided on fingerprint")
+	}
+
+	// A public read fingerprints on its own method + URI, stable across two calls.
+	if Fingerprint(read) != Fingerprint(findings.Item{Kind: model.FindingUnauthenticatedRead, Method: "GET", URI: "/webhooks"}) {
+		t.Errorf("identical public reads fingerprinted differently")
+	}
+}
+
 // Cycle 3 — Subtract splits a findings list into survivors (not in the baseline)
 // and suppressed (in the baseline), keyed by fingerprint and independent of
 // item order.

@@ -26,8 +26,11 @@ export function renderRecents(onSelect) {
     recents
       .map(
         (r) =>
+          // Name over path: several projects can share a composer name
+          // (three acme/blog checkouts), so the path is the disambiguator.
           '<li><button type="button" class="recent-path" data-path="' + escapeHtml(r.path) + '">' +
-          escapeHtml(r.projectName || r.path) +
+          (r.projectName ? '<span class="recent-name">' + escapeHtml(r.projectName) + "</span>" : "") +
+          '<span class="path">' + escapeHtml(r.path) + "</span>" +
           '</button><button type="button" class="recent-remove" data-path="' + escapeHtml(r.path) + '" aria-label="Remove ' + escapeHtml(r.path) + ' from recent projects">&times;</button></li>'
       )
       .join("") +

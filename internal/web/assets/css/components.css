@@ -13,23 +13,25 @@
    plus the two identity type moments (wordmark, value prop), which carry the
    display face. main.js hides the hero after the first successful analysis. */
 .hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: var(--space-2);
-  padding: var(--space-12) 0 var(--space-5);
+  padding: 0 0 var(--space-5);
 }
 .hero-logo {
-  width: min(300px, 70%);
+  width: min(400px, 100%);
   height: auto;
+}
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 .hero-wordmark {
   font-family: var(--display);
-  font-size: var(--text-3xl);
+  font-size: var(--text-hero);
   font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.05;
   margin: 0;
+  text-wrap: balance;
 }
 .hero-wordmark .un {
   color: var(--brand);
@@ -51,7 +53,7 @@
 /* The evaluator's shortcut under the hero: quieter than the cyan Analyze
    button (the primary action), but clearly interactive. */
 .sample-btn {
-  align-self: center;
+  align-self: flex-start;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--resolved);
@@ -127,6 +129,55 @@
   color: var(--danger);
   background: var(--surface-raised);
 }
+/* A recent entry is name (the human handle) over path (the machine truth):
+   three projects named acme/blog were previously indistinguishable. */
+.recent-name {
+  display: block;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+.recent-path .path {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+
+/* Sidebar search affordance (issue #44): it had no styles at all and fell
+   back to the native light button inside the dark shell. It reads as what it
+   is — a search field you can press — with the shortcut as a quiet kbd. */
+.search-button {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+.search-button:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.search-button kbd {
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+  color: var(--text-dim);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
 
 .proj-meta {
   color: var(--text-dim);
@@ -137,33 +188,64 @@
   color: var(--text);
 }
 
+/* The Overview tally (issue #44): bare figures, not boxed tiles — five
+   identical cards in a row were the banned identical-card-grid. These
+   numbers are the un-ravel tally (the sanctioned stat moment, anti-ref #4):
+   they advance with the constellation and read as one strip of counts. */
 .cards {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-8);
   margin: var(--space-5) 0 var(--space-2);
 }
-.card {
-  background: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
-  min-width: 120px;
-}
-/* Stat numbers sit one step below the section-heading size on purpose
-   (issue #38): the Overview verdict out-scales the inventory strip by
-   design, so no downstream rule needs to dim these numbers to demote them. */
 .card .n {
-  font-size: var(--text-lg);
-  font-weight: 700;
+  font-family: var(--mono);
+  font-size: var(--text-2xl);
+  font-weight: 600;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 .card .l {
   font-size: var(--text-xs);
   color: var(--text-dim);
+  margin-top: 2px;
 }
 .card.warn .n {
   color: var(--danger);
+}
+
+/* Overview wow moment (issue #39 variant A, committed via #44). The one
+   brand-register surface: the canvas draws the mark un-raveling into the
+   project's constellation, and the cards below ARE the tally — their numbers
+   advance with the settled fraction and carry the unresolved red until their
+   kind has fully resolved (the sanctioned stat animation, anti-ref #4).
+   Under reduced motion overview-wow.js draws the static end-state and never
+   adds these classes. */
+.overview-wow {
+  margin: var(--space-4) 0 var(--space-2);
+}
+#overview-canvas {
+  display: block;
+  width: 100%;
+  height: min(46vh, 440px);
+}
+.card.tallying .n {
+  color: var(--unresolved);
+  transition: color var(--motion-settle) var(--motion-ease);
+}
+/* The verdict is the wow's closing line: held back while the constellation
+   settles, resolving in as the tally completes. Without the wow (reduced
+   motion, revisits) it is simply present. */
+.verdict.wow-pending {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.verdict.wow-shown {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--motion-settle) var(--motion-ease),
+    transform var(--motion-settle) var(--motion-ease);
 }
 
 /* Health verdict (issue #27): leads the Overview so problems out-shout the

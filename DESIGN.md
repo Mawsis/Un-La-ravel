@@ -160,7 +160,13 @@ left border > 1px.
 - Every motion degrades under `prefers-reduced-motion`: the resolved end-state
   shows statically, no dance.
 
-## 7. The Overview wow moment (gated — prototype first)
+## 7. The Overview wow moment (gate passed — variant A shipped)
+
+> **Status:** the throwaway prototype was judged by the owner and variant A
+> (the constellation) landed. It ships as `overview-wow.js` +
+> `overview-constellation.js` (issue #44): once per analysis, held until the
+> Overview is visible, static resolved end-state under reduced motion, colors
+> read from the token layer at play time.
 
 The one brand-register surface. The Laravel mark un-ravels into an **abstract
 constellation** of the project's entities (points, not the literal 54-table ER),

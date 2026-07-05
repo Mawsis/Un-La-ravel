@@ -106,11 +106,11 @@
   color: var(--text);
   background: var(--surface-raised);
 }
-/* Active nav is an interactive-state moment, so it reads in the cyan accent. */
+/* Active nav is an interactive-state moment, so it reads in the resolved cyan. */
 .nav-views a[aria-current="page"] {
   color: var(--text);
   background: var(--surface-raised);
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--resolved);
   padding-left: calc(var(--space-3) - 2px);
 }
 .nav-views .badge {
@@ -121,7 +121,7 @@
   font-size: var(--text-xs);
 }
 .nav-views a[aria-current="page"] .badge {
-  background: var(--accent);
+  background: var(--resolved);
   color: var(--on-accent);
 }
 .nav-views .badge.danger {
@@ -180,11 +180,11 @@
   font-size: var(--text-sm);
 }
 .content-header input:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--resolved);
 }
 /* Primary action — the everyday button, so cyan (not brand red). */
 .content-header button {
-  background: var(--accent);
+  background: var(--resolved);
   color: var(--on-accent);
   border: none;
   padding: 9px 18px;
@@ -195,7 +195,7 @@
   transition: background-color var(--motion-fast) var(--motion-ease);
 }
 .content-header button:hover {
-  background: var(--accent-hover);
+  background: var(--resolved-hover);
 }
 .content-header button:disabled {
   opacity: 0.5;

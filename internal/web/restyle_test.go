@@ -34,22 +34,25 @@ func fetchAsset(t *testing.T, path string) string {
 	return string(readBody(t, resp))
 }
 
-// TestTokens_SemanticNamesAndNeutralRamp is the tracer bullet: the served
-// tokens.css must declare the semantic token names issue #20 prescribes, with
-// the neutral-ramp + brand/accent/danger/warn values, and the old blue-slate
-// surface (#0d1117) must be gone.
-func TestTokens_SemanticNamesAndNeutralRamp(t *testing.T) {
+// TestTokens_ThreadRolesAndWarmedNeutrals is the tracer bullet for the design
+// system migration (issue #37 / DESIGN.md §1): the served tokens.css must
+// declare the thread-role tokens (--resolved / --unresolved / --brand), author
+// every neutral in warmed OKLCH (~25° hue), and carry no trace of the retired
+// --accent name or the Tailwind-default neutral ramp.
+func TestTokens_ThreadRolesAndWarmedNeutrals(t *testing.T) {
 	css := fetchAsset(t, "/css/tokens.css")
 
-	// Semantic token names (dark-first single source of truth). A future light
-	// theme is a values swap, so these names must exist regardless of value.
+	// Semantic token names. The thread metaphor is carried by *state roles*
+	// (resolved/unresolved), not a decorative accent; a future light theme is
+	// still a values swap, so these names must exist regardless of value.
 	wantNames := []string{
 		"--surface:",
 		"--surface-elevated:",
 		"--border:",
 		"--text:",
-		"--accent:", // cyan — interactive
-		"--brand:",  // Laravel red — identity
+		"--resolved:",   // cyan — "the tool resolved this"
+		"--unresolved:", // brand-adjacent red — "still tangled"
+		"--brand:",      // Laravel red — identity
 		"--danger:",
 		"--warn:",
 	}
@@ -59,25 +62,35 @@ func TestTokens_SemanticNamesAndNeutralRamp(t *testing.T) {
 		}
 	}
 
-	// Neutral ramp values from issue #20 (pure Tailwind neutral, dark-first).
-	wantValues := map[string]string{
-		"surface":          "#0A0A0A",
-		"surface-elevated": "#171717",
-		"text":             "#FAFAFA",
-		"dim text":         "#A3A3A3",
-		"brand red":        "#F53003",
-		"danger red":       "#EF4444",
-		"warn amber":       "#F59E0B",
-	}
-	for label, hex := range wantValues {
-		if !containsHexFold(css, hex) {
-			t.Errorf("tokens.css missing %s value %q", label, hex)
+	// The retired accent name must be gone from the token layer — a consumer
+	// referencing var(--accent) would silently resolve to nothing.
+	for _, retired := range []string{"--accent:", "--accent-hover:"} {
+		if strings.Contains(css, retired) {
+			t.Errorf("tokens.css still declares retired token %q — renamed to the resolved role", retired)
 		}
 	}
 
-	// The old blue-slate GitHub surface must be gone from the token layer.
-	if containsHexFold(css, "#0d1117") {
-		t.Error("tokens.css still contains the old blue-slate surface #0d1117")
+	// Neutrals are authored in OKLCH, warmed toward the brand hue (DESIGN.md
+	// §1). Assert the authored values for the poles of the ramp.
+	wantValues := map[string]string{
+		"surface":          "oklch(0.145 0.008 25)",
+		"surface-elevated": "oklch(0.205 0.009 25)",
+		"text":             "oklch(0.97 0.004 25)",
+		"dim text":         "oklch(0.72 0.008 25)",
+		"brand red":        "#F53003",
+	}
+	for label, val := range wantValues {
+		if !containsHexFold(css, val) {
+			t.Errorf("tokens.css missing %s value %q", label, val)
+		}
+	}
+
+	// The Tailwind-default pure-neutral ramp is anti-reference #1: its
+	// signature grays must be gone from the token layer.
+	for _, hex := range []string{"#0d1117", "#0a0a0a", "#171717", "#262626", "#404040", "#525252", "#fafafa", "#a3a3a3"} {
+		if containsHexFold(css, hex) {
+			t.Errorf("tokens.css still contains Tailwind-default neutral %q — neutrals are authored in warmed OKLCH", hex)
+		}
 	}
 }
 
@@ -85,6 +98,88 @@ func TestTokens_SemanticNamesAndNeutralRamp(t *testing.T) {
 // is case-insensitive, so #FAFAFA and #fafafa are the same color).
 func containsHexFold(css, hex string) bool {
 	return strings.Contains(strings.ToLower(css), strings.ToLower(hex))
+}
+
+// TestTokens_ModularTypeScale asserts the type scale is the real ~1.25 modular
+// scale from DESIGN.md §2: body bumps to 15px for legibility, the top steps
+// out-scale body (19/24/30/38), and the display sizes exist as NAMED tokens
+// (--text-2xl / --text-3xl / --text-hero) so headings scale through the system
+// instead of ad-hoc pixel literals.
+func TestTokens_ModularTypeScale(t *testing.T) {
+	css := fetchAsset(t, "/css/tokens.css")
+
+	wantScale := map[string]string{
+		"--text-2xs:":  "11px",
+		"--text-xs:":   "12px",
+		"--text-sm:":   "13px",
+		"--text-base:": "15px",
+		"--text-lg:":   "19px",
+		"--text-xl:":   "24px",
+		"--text-2xl:":  "30px",
+		"--text-3xl:":  "38px",
+	}
+	for name, px := range wantScale {
+		if !strings.Contains(css, name+" "+px) {
+			t.Errorf("tokens.css missing type-scale step %q = %s", name, px)
+		}
+	}
+
+	// The hero step is fluid — assert the token exists and is a clamp(), not a
+	// fixed literal, so the wow moment scales with the viewport.
+	if !regexp.MustCompile(`--text-hero:\s*clamp\(`).MatchString(css) {
+		t.Error("tokens.css missing fluid --text-hero: clamp(...) display token")
+	}
+}
+
+// fontSizeLiteralRe matches a font-size declaration whose value is a raw px
+// literal (including inside clamp()), i.e. one that bypasses the type-scale
+// tokens.
+var fontSizeLiteralRe = regexp.MustCompile(`font-size:\s*[^;]*\d+px`)
+
+// TestConsumers_NoAdHocFontSizeLiterals enforces DESIGN.md §2: display steps
+// are tokens, not literals. Every font-size in a consumer stylesheet must
+// route through a --text-* token; a raw px value means a heading or stat has
+// opted out of the modular scale and would silently miss a future scale change.
+func TestConsumers_NoAdHocFontSizeLiterals(t *testing.T) {
+	for _, sheet := range shellStylesheets {
+		css := fetchAsset(t, sheet)
+		for _, match := range fontSizeLiteralRe.FindAllString(css, -1) {
+			t.Errorf("%s has ad-hoc font-size literal %q — type sizes belong to the --text-* scale in tokens.css", sheet, match)
+		}
+	}
+}
+
+// coloredTextRe matches a color declaration that sets one of the status/role
+// hues (as opposed to the neutral --text/--text-dim pair).
+var coloredTextRe = regexp.MustCompile(`color:\s*var\(--(warn|danger|ok|resolved|unresolved|brand)\b`)
+
+// TestConsumers_NoColoredTextAt2xs enforces the small-text legibility rule
+// from DESIGN.md §1–2: --text-2xs (11px) is dense metadata only — never
+// colored. The prior amber-at-11px failure came from exactly this pairing, so
+// any rule block that sets both var(--text-2xs) and a status/role text color
+// is a regression. Colored labels live at --text-xs (12px) or above.
+func TestConsumers_NoColoredTextAt2xs(t *testing.T) {
+	for _, sheet := range shellStylesheets {
+		css := fetchAsset(t, sheet)
+		for _, block := range strings.Split(css, "}") {
+			if strings.Contains(block, "var(--text-2xs)") && coloredTextRe.MatchString(block) {
+				t.Errorf("%s pairs --text-2xs with a colored text role in rule %q — colored small text must be >=12px", sheet, strings.TrimSpace(block))
+			}
+		}
+	}
+}
+
+// TestTokens_WarnLegibleOnDark pins the other half of the amber fix: --warn is
+// the lighter amber shade (DESIGN.md §1, "small colored text ... uses a
+// lighter shade on dark"), not the darker default that failed AA in context.
+func TestTokens_WarnLegibleOnDark(t *testing.T) {
+	css := fetchAsset(t, "/css/tokens.css")
+	if !containsHexFold(css, "#fbbf24") {
+		t.Error("tokens.css --warn is not the lighter on-dark amber #fbbf24")
+	}
+	if regexp.MustCompile(`--warn:\s*#f59e0b`).MatchString(strings.ToLower(css)) {
+		t.Error("tokens.css --warn still the darker #f59e0b amber")
+	}
 }
 
 // shellStylesheets are the stylesheets that make up the app shell + component
@@ -108,6 +203,10 @@ func TestShell_NoDanglingOldTokens(t *testing.T) {
 		"var(--green)",
 		"var(--red)",
 		"var(--amber)",
+		// Retired by the design-system migration (issue #37): the cyan role is
+		// --resolved now. (--on-accent deliberately survives — see tokens.css.)
+		"var(--accent)",
+		"var(--accent-hover)",
 	}
 	for _, sheet := range shellStylesheets {
 		css := fetchAsset(t, sheet)

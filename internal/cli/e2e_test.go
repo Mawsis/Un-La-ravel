@@ -107,7 +107,7 @@ func TestE2E_FixtureApp_ModelShape(t *testing.T) {
 		t.Errorf("laravel version = %q, want %q", got, want)
 	}
 
-	wantTables := []string{"users", "posts", "categories"}
+	wantTables := []string{"users", "posts", "categories", "lenses"}
 	gotTables := tableNames(pm)
 	if !equalStrings(gotTables, wantTables) {
 		t.Fatalf("tables = %v, want %v", gotTables, wantTables)
@@ -129,18 +129,28 @@ func TestE2E_FixtureApp_ModelShape(t *testing.T) {
 }
 
 // TestE2E_FixtureApp_EloquentShape asserts the Eloquent half of the contract
-// that the goldens encode: the three Models (in lexical discovery order
-// Category, Post, User) with their relationships, and the single deliberate
-// Model↔Schema Disagreement (Post.editor referencing the missing editor_id
-// column). A careless -update that corrupts model extraction or the correlation
-// still fails here.
+// that the goldens encode: the four Models (in lexical discovery order
+// Category, Lens, Post, User) with their relationships, and the two deliberate
+// Model↔Schema Disagreements — Post.editor referencing the missing editor_id
+// column, and Post.lens targeting Lens's name-mismatched inferred table with
+// the issue #36 did-you-mean suggestion. A careless -update that corrupts
+// model extraction or the correlation still fails here.
 func TestE2E_FixtureApp_EloquentShape(t *testing.T) {
 	root := repoRoot(t)
 	pm := analyzeFixture(t, filepath.Join(root, fixtureAppRel))
 
-	wantModels := []string{"Category", "Post", "User"}
+	wantModels := []string{"Category", "Lens", "Post", "User"}
 	if got := modelNames(pm); !equalStrings(got, wantModels) {
 		t.Fatalf("models = %v, want %v", got, wantModels)
+	}
+
+	// Lens's inferred table is the deliberate issue #36 name mismatch: the
+	// best-effort inflector reads the trailing "s" as an existing plural, so
+	// the model honestly reports "lens" even though the migration created
+	// "lenses" (the correction lives in the disagreement, never a rebind).
+	lens := findModel(t, pm, "Lens")
+	if got, want := lens.Table, "lens"; got != want {
+		t.Errorf("Lens table = %q, want %q (honest inferred name)", got, want)
 	}
 
 	post := findModel(t, pm, "Post")
@@ -148,19 +158,28 @@ func TestE2E_FixtureApp_EloquentShape(t *testing.T) {
 		{Kind: "belongsTo", Method: "author", Target: "User", ForeignKey: "user_id"},
 		{Kind: "belongsTo", Method: "category", Target: "Category"},
 		{Kind: "belongsTo", Method: "editor", Target: "User", ForeignKey: "editor_id"},
+		{Kind: "belongsTo", Method: "lens", Target: "Lens"},
 	}
 	if got := post.Relationships; !equalRelationships(got, wantRels) {
 		t.Errorf("Post relationships = %+v, want %+v", got, wantRels)
 	}
 
-	// Exactly one Disagreement: Post.editor's explicit editor_id FK never
-	// created on the posts table.
-	if got, want := len(pm.Disagreements), 1; got != want {
+	// Two Disagreements, in relationship-declaration order: Post.editor's
+	// explicit editor_id FK never created on the posts table, then Post.lens
+	// targeting the name-mismatched table with the did-you-mean suggestion.
+	if got, want := len(pm.Disagreements), 2; got != want {
 		t.Fatalf("disagreements count = %d, want %d: %+v", got, want, pm.Disagreements)
 	}
 	d := pm.Disagreements[0]
 	if d.Model != "Post" || d.Relationship != "editor" || d.Kind != model.DisagreementMissingFKColumn {
 		t.Errorf("disagreement = %+v, want Post/editor/%s", d, model.DisagreementMissingFKColumn)
+	}
+	d = pm.Disagreements[1]
+	if d.Model != "Post" || d.Relationship != "lens" || d.Kind != model.DisagreementMissingTable {
+		t.Errorf("disagreement = %+v, want Post/lens/%s", d, model.DisagreementMissingTable)
+	}
+	if !strings.Contains(d.Reason, `did you mean "lenses"? add protected $table = 'lenses' to Lens`) {
+		t.Errorf("lens disagreement reason %q lacks the did-you-mean suggestion", d.Reason)
 	}
 }
 

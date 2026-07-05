@@ -1,0 +1,161 @@
+// Package web_test — reskin_test.go covers issue #38: the working-view reskin
+// (calm register). Like restyle_test.go it asserts on the served asset bytes —
+// the design system lives entirely in static assets, so the shipped CSS/HTML
+// text IS the public interface — and it mechanizes the PRD's grep-able
+// anti-reference checklist so slop cannot regress:
+//
+//   - no colored side-stripe accents (border-left/right wider than 1px);
+//     severity reads as a leading status dot + a background tint instead;
+//   - uppercase is reserved for true section headings (the nav group labels);
+//   - the inventory stat strip is quiet by size, not by a dimmed-numbers
+//     CSS override;
+//   - the hero value prop carries no em dash;
+//   - ER edges style resolved (cyan) vs unresolved (red) via the thread-role
+//     tokens.
+package web_test
+
+import (
+	"regexp"
+	"strings"
+	"testing"
+)
+
+// sideStripeRe matches a border-left/right declaration whose width is 2px or
+// more — the colored side-stripe accent the PRD bans outright. A 1px border is
+// a hairline, not a stripe; anything wider on one side is doing severity work
+// the status dot + tint now own. border-left-color is included because a
+// color-only override exists solely to repaint a stripe declared elsewhere.
+var sideStripeRe = regexp.MustCompile(`border-(left|right)(-color)?:\s*(([2-9]|\d{2,})px)?[^;}]*`)
+
+// TestReskin_NoSideStripes is the tracer bullet for issue #38: no shell
+// stylesheet may declare a side-stripe. The finding cards, model risk cards,
+// and active nav all carried one; after the reskin the only legal
+// border-left/right is a 1px hairline (the sidebar's border-right).
+func TestReskin_NoSideStripes(t *testing.T) {
+	for _, sheet := range shellStylesheets {
+		css := fetchAsset(t, sheet)
+		for _, match := range sideStripeRe.FindAllString(css, -1) {
+			if isHairline(match) {
+				continue
+			}
+			t.Errorf("%s declares side-stripe %q — severity reads as status dot + tint, never a colored side border", sheet, strings.TrimSpace(match))
+		}
+	}
+}
+
+// isHairline reports whether a border-left/right declaration is the allowed
+// 1px structural hairline rather than a stripe.
+func isHairline(decl string) bool {
+	return strings.Contains(decl, "1px") && !regexp.MustCompile(`\d{2,}px`).MatchString(decl)
+}
+
+// TestReskin_UppercaseOnlyOnTrueHeadings enforces the PRD's uppercase rule:
+// hierarchy comes from scale, weight, and face-contrast — not from the
+// uppercase-micro-label reflex. The only sanctioned text-transform: uppercase
+// is the nav group headings (Structure / Health), which are true section
+// headings (real <h2>s). Stat labels, table headers, subheads, pills, and
+// search-result kinds must not shout.
+func TestReskin_UppercaseOnlyOnTrueHeadings(t *testing.T) {
+	for _, sheet := range shellStylesheets {
+		css := fetchAsset(t, sheet)
+		for _, block := range strings.Split(css, "}") {
+			if !strings.Contains(block, "text-transform: uppercase") {
+				continue
+			}
+			if strings.Contains(block, ".nav-heading") {
+				continue
+			}
+			t.Errorf("%s uses text-transform: uppercase outside .nav-heading in rule %q — uppercase is reserved for true section headings", sheet, strings.TrimSpace(block))
+		}
+	}
+}
+
+// TestReskin_EREdgesCarryThreadRoles pins the diagram's edge styling to the
+// thread-role tokens: resolved edges read in the --resolved cyan, and the
+// er-edge-unresolved class (set from issue #36's EREdge flag) reads in the
+// --unresolved red, so a relationship the tool had to repair is visibly
+// distinct from one it resolved cleanly.
+func TestReskin_EREdgesCarryThreadRoles(t *testing.T) {
+	css := fetchAsset(t, "/css/components.css")
+
+	var resolvedCyan, unresolvedRed bool
+	for _, block := range strings.Split(css, "}") {
+		sel := block[:strings.LastIndex(block+"{", "{")]
+		if strings.Contains(sel, ".er-edge-unresolved") {
+			unresolvedRed = strings.Contains(block, "var(--unresolved)")
+			continue
+		}
+		if strings.Contains(sel, ".er-edge") && !strings.Contains(sel, "-eloquent") && !strings.Contains(sel, "-schema") {
+			resolvedCyan = strings.Contains(block, "stroke: var(--resolved)")
+		}
+	}
+	if !resolvedCyan {
+		t.Error("components.css: .er-edge does not stroke in var(--resolved) — resolved edges must carry the cyan thread role")
+	}
+	if !unresolvedRed {
+		t.Error("components.css: missing .er-edge-unresolved stroking in var(--unresolved) — repaired edges must be visibly distinct")
+	}
+}
+
+// TestReskin_HeroCopyNoEmDash pins the copy fix: the hero value prop is the
+// tool's most-read sentence, and an em dash there reads as machine-generated
+// (PRD anti-reference checklist). Plain punctuation only.
+func TestReskin_HeroCopyNoEmDash(t *testing.T) {
+	ts := newTestServer(t)
+	html := string(readBody(t, get(t, ts, "/")))
+
+	start := strings.Index(html, `class="hero-valueprop"`)
+	if start < 0 {
+		t.Fatal("index.html missing the hero-valueprop paragraph")
+	}
+	end := strings.Index(html[start:], "</p>")
+	if end < 0 {
+		t.Fatal("hero-valueprop paragraph is unterminated")
+	}
+	if valueProp := html[start : start+end]; strings.Contains(valueProp, "—") {
+		t.Errorf("hero value prop still carries an em dash: %q — replace with plain punctuation", valueProp)
+	}
+}
+
+// TestReskin_StatStripQuietByDesign removes the dimmed-numbers CSS apology:
+// the Overview verdict must win over the inventory strip by the stat numbers'
+// SIZE (a step below the old --text-xl), not by a `.cards .card .n` override
+// dimming them after the fact.
+func TestReskin_StatStripQuietByDesign(t *testing.T) {
+	css := fetchAsset(t, "/css/components.css")
+	if strings.Contains(css, ".cards .card .n") {
+		t.Error("components.css still carries the .cards .card .n dimmed-numbers override — the stat strip must be quiet by size and placement, not a CSS apology")
+	}
+	for _, block := range strings.Split(css, "}") {
+		sel := block[:strings.LastIndex(block+"{", "{")]
+		if strings.TrimSpace(sel) == ".card .n" && strings.Contains(block, "var(--text-xl)") {
+			t.Error("components.css .card .n still sits at --text-xl — the stat number must step down so the verdict out-scales it by design")
+		}
+	}
+}
+
+// TestReskin_FaceSplitInFindings pins the human/machine face split (DESIGN.md
+// §2) where it was inverted: a finding's SUBJECT (a route URI, a
+// Model::relation) is a project identifier, so it renders in the mono face;
+// the finding's REASON is the tool's own sentence, so it must NOT be mono.
+// A reader tells "the tool talking" from "my code" by typeface alone.
+func TestReskin_FaceSplitInFindings(t *testing.T) {
+	css := fetchAsset(t, "/css/components.css")
+
+	var subjectMono, reasonMono bool
+	for _, block := range strings.Split(css, "}") {
+		sel := block[:strings.LastIndex(block+"{", "{")]
+		if strings.Contains(sel, ".finding .h a") && strings.Contains(block, "var(--mono)") {
+			subjectMono = true
+		}
+		if strings.Contains(sel, ".finding .r") && strings.Contains(block, "var(--mono)") {
+			reasonMono = true
+		}
+	}
+	if !subjectMono {
+		t.Error("components.css: .finding .h a (the identifier subject) is not in the mono face")
+	}
+	if reasonMono {
+		t.Error("components.css: .finding .r (the tool's sentence) is still mono — tool prose belongs to the body face")
+	}
+}

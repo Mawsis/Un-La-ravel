@@ -77,6 +77,30 @@ func TestFindDisagreements(t *testing.T) {
 			},
 		},
 		{
+			name: "missing table with a pluralization sibling suggests protected $table",
+			models: []model.Model{
+				// WaiterCalls' inferred table is over-pluralized (issue #36):
+				// the real waiter_calls exists, so the finding must become
+				// actionable — name the real table and the $table fix.
+				modelWith("User", "users",
+					model.Relationship{Kind: "hasMany", Method: "calls", Target: "WaiterCalls"},
+				),
+				modelWith("WaiterCalls", "waiter_callses"),
+			},
+			tables: []model.Table{
+				tableWithColumns("users", "id"),
+				tableWithColumns("waiter_calls", "id"),
+			},
+			want: []model.Disagreement{
+				{
+					Model:        "User",
+					Relationship: "calls",
+					Reason:       `target table "waiter_callses" for model "WaiterCalls" not found in schema — did you mean "waiter_calls"? add protected $table = 'waiter_calls' to WaiterCalls`,
+					Kind:         model.DisagreementMissingTable,
+				},
+			},
+		},
+		{
 			name: "relationship to an unknown target model yields missing_table",
 			models: []model.Model{
 				modelWith("User", "users",

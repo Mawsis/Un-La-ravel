@@ -50,8 +50,11 @@ export function massAssignmentHtml(m) {
   const state = massAssignmentState(m);
   if (state === "unguarded") {
     // The state marker doubles as the danger flag: a chip painted with the
-    // danger token that jumps to the Findings view's unguarded category.
+    // danger token that jumps to the Findings view's unguarded category,
+    // led by the shared severity dot (issue #38 — dot + card tint, never a
+    // side-stripe). The dot is decorative; "Unguarded" carries the meaning.
     return (
+      '<span class="status-dot danger" aria-hidden="true"></span>' +
       dangerFlag("unguarded", "Unguarded") +
       '<div class="empty-note">$guarded = [] — every column is mass-assignable</div>'
     );
@@ -85,10 +88,10 @@ export function massAssignmentHtml(m) {
 function renderCastsSection(casts) {
   const list = casts || [];
   if (list.length === 0) {
-    return '<div class="subhead">CASTS</div><div class="empty-note">No casts declared</div>';
+    return '<div class="subhead">Casts</div><div class="empty-note">No casts declared</div>';
   }
   return (
-    '<div class="subhead">CASTS</div><div class="chips">' +
+    '<div class="subhead">Casts</div><div class="chips">' +
     list
       .map((c) => '<span class="chip">' + escapeHtml(c.column || "") + ": " + escapeHtml(c.type || "") + "</span>")
       .join("") +
@@ -99,12 +102,12 @@ function renderCastsSection(casts) {
 // renderIndexesSection renders the indexes for a table (found or not).
 function renderIndexesSection(table) {
   if (!table) {
-    return '<div class="subhead">INDEXES</div><div class="empty-note">Table not found in schema</div>';
+    return '<div class="subhead">Indexes</div><div class="empty-note">Table not found in schema</div>';
   }
   const indexes = table.indexes || [];
   if (indexes.length === 0) {
     return (
-      '<div class="subhead">INDEXES (' + escapeHtml(table.name) + ')</div>' +
+      '<div class="subhead">Indexes (' + escapeHtml(table.name) + ')</div>' +
       '<div class="empty-note">No indexes declared</div>'
     );
   }
@@ -120,7 +123,7 @@ function renderIndexesSection(table) {
       );
     })
     .join("");
-  return '<div class="subhead">INDEXES (' + escapeHtml(table.name) + ')</div>' + rows;
+  return '<div class="subhead">Indexes (' + escapeHtml(table.name) + ')</div>' + rows;
 }
 
 // renderFkHints flags foreign-key columns (excluding primary keys) with no
@@ -175,7 +178,7 @@ function drawModelCards(models, schemas, filter, currentParams) {
   const orphanTables = (schemas || []).filter((t) => !claimedTables.has(t.name)).filter((t) => matches("", t.name));
   let orphanHtml = "";
   if (orphanTables.length > 0) {
-    orphanHtml += '<div class="subhead">TABLES WITHOUT MODELS (' + orphanTables.length + ")</div>";
+    orphanHtml += '<div class="subhead">Tables without models (' + orphanTables.length + ")</div>";
     orphanHtml += orphanTables
       .map((t) => {
         const colCount = (t.columns || []).length;

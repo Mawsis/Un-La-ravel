@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/tablematch"
 )
 
 // FindDisagreements correlates the extracted Models against the extracted
@@ -61,12 +62,13 @@ import (
 func FindDisagreements(models []model.Model, tables []model.Table) []model.Disagreement {
 	tableColumns := indexTables(tables)
 	modelTables := indexModelTables(models)
+	tableNames := listTableNames(tables)
 
 	var disagreements []model.Disagreement
 
 	for _, m := range models {
 		for _, rel := range m.Relationships {
-			if d, ok := checkTarget(m, rel, modelTables, tableColumns); ok {
+			if d, ok := checkTarget(m, rel, modelTables, tableColumns, tableNames); ok {
 				disagreements = append(disagreements, d)
 			}
 			if d, ok := checkForeignKey(m, rel, tableColumns); ok {
@@ -105,15 +107,31 @@ func indexModelTables(models []model.Model) map[string]string {
 	return index
 }
 
+// listTableNames lists the schema tables' names in discovery order, the form
+// tablematch.Reconcile consumes.
+func listTableNames(tables []model.Table) []string {
+	names := make([]string, 0, len(tables))
+	for _, t := range tables {
+		names = append(names, t.Name)
+	}
+	return names
+}
+
 // checkTarget verifies that a relationship's target resolves to a table present
 // in the Schema. It returns a DisagreementMissingTable finding (and true) when
 // the target Model is unknown, or when the target Model's table is absent from
 // the Schema; otherwise it returns the zero Disagreement and false.
+//
+// When the missing table has an unambiguous singular/plural sibling in the
+// Schema (issue #36: the inferred "waiter_callses" for a real "waiter_calls"),
+// the Reason becomes actionable: it names the real table and suggests the
+// `protected $table` fix on the target Model.
 func checkTarget(
 	m model.Model,
 	rel model.Relationship,
 	modelTables map[string]string,
 	tableColumns map[string]map[string]struct{},
+	tableNames []string,
 ) (model.Disagreement, bool) {
 	targetTable, known := modelTables[rel.Target]
 	if !known {
@@ -129,14 +147,21 @@ func checkTarget(
 	}
 
 	if _, ok := tableColumns[targetTable]; !ok {
+		reason := fmt.Sprintf(
+			"target table %q for model %q not found in schema",
+			targetTable, rel.Target,
+		)
+		if real, matched := tablematch.Reconcile(targetTable, tableNames); matched {
+			reason += fmt.Sprintf(
+				" — did you mean %q? add protected $table = '%s' to %s",
+				real, real, rel.Target,
+			)
+		}
 		return model.Disagreement{
 			Model:        m.Name,
 			Relationship: rel.Method,
-			Reason: fmt.Sprintf(
-				"target table %q for model %q not found in schema",
-				targetTable, rel.Target,
-			),
-			Kind: model.DisagreementMissingTable,
+			Reason:       reason,
+			Kind:         model.DisagreementMissingTable,
 		}, true
 	}
 

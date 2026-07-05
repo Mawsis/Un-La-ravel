@@ -346,6 +346,17 @@ func TestTableName(t *testing.T) {
 		{"Day", "days"},       // vowel+y keeps regular -s
 		{"Person", "people"},  // irregular
 		{"Child", "children"}, // irregular
+		// Already-plural stems stay as they are instead of gaining a second
+		// plural suffix (issue #36: WaiterCalls must not become waiter_callses).
+		{"WaiterCalls", "waiter_calls"},
+		{"ActivityLogs", "activity_logs"},
+		// Genuinely singular s-endings still pluralize with -es.
+		{"Status", "statuses"},
+		{"Bus", "buses"},
+		{"Class", "classes"},
+		// Uncountables keep their form (RestaurantStaff -> restaurant_staff).
+		{"RestaurantStaff", "restaurant_staff"},
+		{"Sheep", "sheep"},
 	}
 
 	for _, tt := range tests {

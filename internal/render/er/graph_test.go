@@ -88,7 +88,8 @@ func TestRenderGraph_SchemaForeignKeyEdges(t *testing.T) {
 	graph := RenderGraph(pm)
 
 	want := []EREdge{
-		{From: "users", To: "posts", Kind: "one-to-many", Label: "references (author_id)"},
+		{From: "users", To: "posts", Kind: "one-to-many",
+			Label: "references (author_id)", Origin: "schema"},
 	}
 	if len(graph.Edges) != len(want) {
 		t.Fatalf("Edges = %d (%+v), want %d", len(graph.Edges), graph.Edges, len(want))
@@ -103,7 +104,10 @@ func TestRenderGraph_SchemaForeignKeyEdges(t *testing.T) {
 // belongsToMany → many-to-many. Each edge resolves the target Model to its table
 // (From = declaring table, To = target table), carries a "method (kind)" label,
 // and an association whose target Model was not extracted is silently dropped —
-// mirroring how a foreign key to an absent table is dropped.
+// mirroring how a foreign key to an absent table is dropped. Every table here
+// exists in the schema, so the edges carry Origin "eloquent" and stay resolved
+// (the never-orphan invariant of issue #36 requires endpoints to be schema
+// nodes; reconciliation has its own test).
 func TestRenderGraph_EloquentCardinalityEdges(t *testing.T) {
 	user := model.NewModel("User")
 	user.Table = "users"
@@ -125,15 +129,70 @@ func TestRenderGraph_EloquentCardinalityEdges(t *testing.T) {
 	role.Table = "roles"
 
 	pm := model.New("blog", "11.x").
+		AddTable(model.NewTable("users")).AddTable(model.NewTable("posts")).
+		AddTable(model.NewTable("profiles")).AddTable(model.NewTable("roles")).
 		AddModel(user).AddModel(post).AddModel(profile).AddModel(role)
 
 	graph := RenderGraph(pm)
 
 	want := []EREdge{
-		{From: "users", To: "posts", Kind: "one-to-many", Label: "posts (hasMany)"},
-		{From: "users", To: "profiles", Kind: "one-to-one", Label: "profile (hasOne)"},
-		{From: "users", To: "roles", Kind: "many-to-many", Label: "roles (belongsToMany)"},
-		{From: "posts", To: "users", Kind: "many-to-one", Label: "author (belongsTo)"},
+		{From: "users", To: "posts", Kind: "one-to-many", Label: "posts (hasMany)", Origin: "eloquent"},
+		{From: "users", To: "profiles", Kind: "one-to-one", Label: "profile (hasOne)", Origin: "eloquent"},
+		{From: "users", To: "roles", Kind: "many-to-many", Label: "roles (belongsToMany)", Origin: "eloquent"},
+		{From: "posts", To: "users", Kind: "many-to-one", Label: "author (belongsTo)", Origin: "eloquent"},
+	}
+	if len(graph.Edges) != len(want) {
+		t.Fatalf("Edges = %d (%+v), want %d", len(graph.Edges), graph.Edges, len(want))
+	}
+	for i, w := range want {
+		if graph.Edges[i] != w {
+			t.Errorf("Edges[%d] = %+v, want %+v", i, graph.Edges[i], w)
+		}
+	}
+}
+
+// TestRenderGraph_EloquentEdgeReconciliation asserts the never-orphan
+// guarantee (issue #36): an Eloquent edge endpoint whose table is absent from
+// the schema is either retargeted to its unambiguous singular/plural sibling
+// node (marked unresolved so the renderer can style the repair) or dropped —
+// the builder never hands the layout engine an edge to a non-existent node.
+// The declaring model's own table is reconciled the same way as the target's:
+// WaiterCalls' over-pluralized "waiter_callses" draws from the real
+// "waiter_calls" node.
+func TestRenderGraph_EloquentEdgeReconciliation(t *testing.T) {
+	waiterCalls := model.NewModel("WaiterCalls")
+	waiterCalls.Table = "waiter_callses" // over-pluralized inference, table absent
+	waiterCalls.Relationships = []model.Relationship{
+		{Kind: "belongsTo", Method: "user", Target: "User"},
+		// Phantom's table has no schema sibling — this edge must be dropped,
+		// not guessed.
+		{Kind: "belongsTo", Method: "phantom", Target: "Phantom"},
+	}
+	user := model.NewModel("User")
+	user.Table = "users"
+	user.Relationships = []model.Relationship{
+		// Both endpoints exist as-is: a clean, resolved edge.
+		{Kind: "hasMany", Method: "posts", Target: "Post"},
+	}
+	post := model.NewModel("Post")
+	post.Table = "posts"
+	phantom := model.NewModel("Phantom")
+	phantom.Table = "phantoms"
+
+	users := model.NewTable("users")
+	posts := model.NewTable("posts")
+	calls := model.NewTable("waiter_calls")
+	pm := model.New("cafe", "11.x").
+		AddTable(users).AddTable(posts).AddTable(calls).
+		AddModel(waiterCalls).AddModel(user).AddModel(post).AddModel(phantom)
+
+	graph := RenderGraph(pm)
+
+	want := []EREdge{
+		{From: "waiter_calls", To: "users", Kind: "many-to-one",
+			Label: "user (belongsTo)", Origin: "eloquent", Unresolved: true},
+		{From: "users", To: "posts", Kind: "one-to-many",
+			Label: "posts (hasMany)", Origin: "eloquent"},
 	}
 	if len(graph.Edges) != len(want) {
 		t.Fatalf("Edges = %d (%+v), want %d", len(graph.Edges), graph.Edges, len(want))

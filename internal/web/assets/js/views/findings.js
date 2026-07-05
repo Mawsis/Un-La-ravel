@@ -8,6 +8,22 @@
 import { $, escapeHtml } from "../dom.js";
 import { hrefFor } from "../links.js";
 
+// findingRowHtml is the pure per-finding template (issue #38): severity reads
+// as a leading status dot + the card's tint, never a side-stripe. The dot is
+// aria-hidden because the row's own text ("Dead route:" / "Disagreement:")
+// already says what the color means. Exported so the row's markup contract is
+// unit-testable without a DOM, mirroring routeRowHtml in routes.js.
+export function findingRowHtml(f) {
+  const dead = f.severity === "danger";
+  return (
+    '<div class="finding' + (dead ? " dead" : "") + '">' +
+    '<div class="h">' +
+    '<span class="status-dot ' + (dead ? "danger" : "warn") + '" aria-hidden="true"></span>' +
+    escapeHtml(f.title) + ' <a href="' + escapeHtml(f.href) + '">' + escapeHtml(f.subject) + "</a></div>" +
+    '<div class="r">' + escapeHtml(f.reason || "") + "</div></div>"
+  );
+}
+
 // The Findings count badge is NOT set here: sidebar.js owns it (issue #23),
 // driven by the server-computed model.findings so the badge and the health
 // chip agree by construction. This view renders only the panel body.
@@ -21,23 +37,25 @@ export function renderFindings(disagreements, deadRoutes, currentParams) {
 
   let html = "";
   (deadRoutes || []).forEach((d) => {
-    const subject = (d.method || "") + " " + (d.uri || "");
     // hrefFor's output is already percent-encoded by URLSearchParams and
-    // can't contain a literal '"' — escapeHtml here is defense-in-depth
-    // consistency with search.js, not a fix for a live gap.
-    const href = escapeHtml(hrefFor("route", d.uri || "", currentParams));
-    html +=
-      '<div class="finding dead"><div class="h">Dead route: <a href="' + href + '">' +
-      escapeHtml(subject) + "</a></div>" +
-      '<div class="r">' + escapeHtml(d.reason || d.kind || "") + "</div></div>";
+    // can't contain a literal '"' — escaping in findingRowHtml is
+    // defense-in-depth consistency with search.js, not a fix for a live gap.
+    html += findingRowHtml({
+      severity: "danger",
+      title: "Dead route:",
+      subject: (d.method || "") + " " + (d.uri || ""),
+      href: hrefFor("route", d.uri || "", currentParams),
+      reason: d.reason || d.kind || "",
+    });
   });
   (disagreements || []).forEach((d) => {
-    const subject = (d.model || "") + "::" + (d.relationship || "");
-    const href = escapeHtml(hrefFor("model", d.model || "", currentParams));
-    html +=
-      '<div class="finding"><div class="h">Disagreement: <a href="' + href + '">' +
-      escapeHtml(subject) + "</a></div>" +
-      '<div class="r">' + escapeHtml(d.reason || d.kind || "") + "</div></div>";
+    html += findingRowHtml({
+      severity: "warn",
+      title: "Disagreement:",
+      subject: (d.model || "") + "::" + (d.relationship || ""),
+      href: hrefFor("model", d.model || "", currentParams),
+      reason: d.reason || d.kind || "",
+    });
   });
   body.innerHTML = html;
 }

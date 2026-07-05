@@ -22,7 +22,7 @@ export function renderRecents(onSelect) {
   }
 
   container.innerHTML =
-    '<div class="subhead">RECENT PROJECTS</div><ul class="recents-list">' +
+    '<div class="subhead">Recent projects</div><ul class="recents-list">' +
     recents
       .map(
         (r) =>

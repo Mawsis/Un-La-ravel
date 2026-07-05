@@ -76,25 +76,33 @@
       "from": "users",
       "to": "posts",
       "kind": "one-to-many",
-      "label": "references (author_id)"
+      "label": "references (author_id)",
+      "origin": "schema",
+      "unresolved": false
     },
     {
       "from": "users",
       "to": "posts",
       "kind": "one-to-many",
-      "label": "posts (hasMany)"
+      "label": "posts (hasMany)",
+      "origin": "eloquent",
+      "unresolved": false
     },
     {
       "from": "users",
       "to": "roles",
       "kind": "many-to-many",
-      "label": "roles (belongsToMany)"
+      "label": "roles (belongsToMany)",
+      "origin": "eloquent",
+      "unresolved": false
     },
     {
       "from": "posts",
       "to": "users",
       "kind": "many-to-one",
-      "label": "author (belongsTo)"
+      "label": "author (belongsTo)",
+      "origin": "eloquent",
+      "unresolved": false
     }
   ]
 }

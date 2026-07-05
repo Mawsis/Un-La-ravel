@@ -101,7 +101,7 @@ func TestEmptyState_LogoLedHero(t *testing.T) {
 		{"inline SVG logo", `class="hero-logo"`},
 		{"wordmark", `class="hero-wordmark"`},
 		{"value proposition", `class="hero-valueprop"`},
-		{"value proposition copy", "no boot, no database, no"},
+		{"value proposition copy", "No boot, no database, no"},
 		{"path form (primary action)", `id="path-input"`},
 		{"sample button", `id="sample-btn"`},
 		{"recents container", `id="recents"`},

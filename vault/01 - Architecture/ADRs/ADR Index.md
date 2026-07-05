@@ -18,6 +18,7 @@ Architecture Decision Records — *why* the project is shaped the way it is. Eac
 | [[ADR 0007 - No database in core\|0007]] | No database in the core | ✅ accepted | In-memory graph + JSON; SQLite/GORM is premature infra (overrides brief) |
 | [[ADR 0008 - Findings model and doctor\|0008]] | Health verdict is a server-computed contract field | ✅ accepted | One `findings` array computed once server-side; CLI/JSON/dashboard agree by construction; `doctor` gates CI |
 | [[ADR 0009 - ER settle animation and diagram export\|0009]] | ER settle animation + SVG/PNG export | ✅ accepted | A once-per-session settle is the un-ravel metaphor, not decoration; a narrow recorded exception to #25's no-settle rule, done as a token-timed transition so the motion tests don't loosen |
+| [[ADR 0010 - Design system and the thread metaphor\|0010]] | Design system: thread roles, warmed OKLCH, modular scale | ✅ accepted | PRODUCT.md/DESIGN.md become the committed intention; red/cyan turn into `unresolved`/`resolved` state roles, neutrals warm off the Tailwind ramp, and six grep-able anti-references gate every visual PR |
 
 ## How these connect
 

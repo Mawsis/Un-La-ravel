@@ -90,7 +90,6 @@
 .nav-views a {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
@@ -102,18 +101,31 @@
     color var(--motion-fast) var(--motion-ease),
     background-color var(--motion-fast) var(--motion-ease);
 }
+/* Every link reserves the marker slot (transparent at rest) so the label
+   doesn't shift when a link becomes active. */
+.nav-views a::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+}
 .nav-views a:hover {
   color: var(--text);
   background: var(--surface-raised);
 }
-/* Active nav is an interactive-state moment, so it reads in the cyan accent. */
+/* Active nav is a leading filled marker in the resolved cyan (issue #38) —
+   an interactive-state moment, never a colored left border. */
 .nav-views a[aria-current="page"] {
   color: var(--text);
   background: var(--surface-raised);
-  border-left: 2px solid var(--accent);
-  padding-left: calc(var(--space-3) - 2px);
+}
+.nav-views a[aria-current="page"]::before {
+  background: var(--resolved);
 }
 .nav-views .badge {
+  margin-left: auto;
   background: var(--surface-raised);
   color: var(--text-dim);
   border-radius: 20px;
@@ -121,7 +133,7 @@
   font-size: var(--text-xs);
 }
 .nav-views a[aria-current="page"] .badge {
-  background: var(--accent);
+  background: var(--resolved);
   color: var(--on-accent);
 }
 .nav-views .badge.danger {
@@ -180,11 +192,11 @@
   font-size: var(--text-sm);
 }
 .content-header input:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--resolved);
 }
 /* Primary action — the everyday button, so cyan (not brand red). */
 .content-header button {
-  background: var(--accent);
+  background: var(--resolved);
   color: var(--on-accent);
   border: none;
   padding: 9px 18px;
@@ -195,7 +207,7 @@
   transition: background-color var(--motion-fast) var(--motion-ease);
 }
 .content-header button:hover {
-  background: var(--accent-hover);
+  background: var(--resolved-hover);
 }
 .content-header button:disabled {
   opacity: 0.5;

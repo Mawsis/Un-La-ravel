@@ -242,3 +242,39 @@ test("edge classes come from the contract's origin field, with unresolved edges 
   assert.match(svg, /class="er-edge er-edge-schema"/);
   assert.match(svg, /class="er-edge er-edge-eloquent er-edge-unresolved"/);
 });
+
+test("an unresolved edge carries er-edge-unresolved; resolved edges never do", () => {
+  // The edge-reconciliation contract (issue #36) flags edges the tool had to
+  // repair with unresolved: true; the reskin (issue #38) styles that flag red
+  // vs the resolved cyan. Edges without the flag — including older models
+  // that predate it — must render as resolved. The endpoints exist as nodes:
+  // renderSvg pairs styling with drawableEdges, and an edge whose endpoint
+  // is unknown is never drawn at all (the issue #36 orphan guard).
+  const g = {
+    layout: {
+      width: 100,
+      height: 100,
+      children: [],
+      edges: [
+        { id: "e0", sections: [{ startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }] },
+        { id: "e1", sections: [{ startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }] },
+      ],
+    },
+    graph: {
+      nodes: [
+        { table: "users", columns: [] },
+        { table: "posts", columns: [] },
+        { table: "commentz", columns: [] },
+      ],
+      edges: [
+        { from: "users", to: "posts", kind: "one-to-many", label: "references (author_id)" },
+        { from: "users", to: "commentz", kind: "one-to-many", label: "comments (hasMany)", unresolved: true },
+      ],
+    },
+  };
+  const svg = renderSvg(g.layout, g.graph);
+  assert.match(svg, /class="er-edge er-edge-eloquent er-edge-unresolved"/);
+  // The resolved schema edge carries no unresolved marker.
+  assert.match(svg, /class="er-edge er-edge-schema"/);
+  assert.equal((svg.match(/er-edge-unresolved/g) || []).length, 1);
+});

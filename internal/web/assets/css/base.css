@@ -26,7 +26,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 a {
-  color: var(--accent);
+  color: var(--resolved);
 }
 
 /* Skip-link: visually hidden until focused, so keyboard users can jump past
@@ -36,7 +36,7 @@ a {
   left: -9999px;
   top: 0;
   z-index: 100;
-  background: var(--accent);
+  background: var(--resolved);
   color: var(--on-accent);
   padding: var(--space-2) var(--space-4);
   border-radius: 0 0 var(--radius-md) 0;
@@ -48,7 +48,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--resolved);
   outline-offset: 2px;
 }
 

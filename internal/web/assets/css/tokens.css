@@ -1,52 +1,66 @@
 /* Design tokens — the single source of truth for color, type scale, spacing,
-   and radii (issue #20, "token foundation"). Every other stylesheet in this
-   directory reads from these custom properties rather than hardcoding a color,
-   space, or radius, so the palette and scale have exactly one place to change.
+   and radii. This file is the token layer of the design system specified in
+   DESIGN.md (derived from PRODUCT.md, recorded in ADR 0010); where this file
+   and DESIGN.md disagree, DESIGN.md wins and this file is wrong. Every other
+   stylesheet reads from these custom properties rather than hardcoding a
+   color, space, or radius, so the palette and scale have exactly one place to
+   change.
 
-   Color is dark-first and named SEMANTICALLY, not by hue: --surface, --accent,
-   --brand, --danger, --warn. A future light theme is therefore a values swap
-   inside this file — no consumer stylesheet needs to know which color a token
-   resolves to. Two poles carry the product's "un-ravel" metaphor:
+   Color carries the product's thread metaphor as SEMANTIC STATE ROLES, not
+   decorative accents:
 
-     - --brand  = Laravel's current brand red (#F53003), the "source" pole. Used
-       surgically for identity moments (logo, wordmark) — NOT the everyday
-       button color.
-     - --accent = cyan, the "resolved" pole. Owns the interactive chrome:
-       buttons, links, focus rings, active nav.
+     - --resolved   = cyan, "the tool resolved this". Owns interactive chrome
+       (buttons, links, focus, active nav), resolved ER edges, entity-chips.
+     - --unresolved = brand-adjacent red, "still tangled / mismatched".
+       Unresolved ER edges, disagreements, name-mismatch flags. Never used as
+       decoration — the metaphor stays meaningful because it stays scarce.
+     - --brand      = Laravel's brand red (#F53003), identity only: wordmark,
+       logo, the un-ravel moment.
+
+   Neutrals are authored in OKLCH with a small chroma (0.004–0.010) warmed
+   toward the brand hue (~25°) — present enough to feel like *this* tool, low
+   enough that a routes table read for an hour never feels tinted. Never pure
+   #000/#fff; the one documented exception is the vendored Swagger light frame
+   in components.css.
 
    Danger and warning are a cooler red and amber, deliberately distinct from
-   the brand red so a real problem is never mistaken for brand chrome. Surfaces
-   are the pure Tailwind `neutral` ramp — flat and matte, no glow, no ambient
+   --unresolved/--brand so a real *problem* is never mistaken for the
+   metaphor's "unresolved". Surfaces stay flat and matte — no glow, no ambient
    effects. */
 :root {
-  /* Surface — pure neutral ramp (Tailwind neutral), darkest first. */
-  --surface: #0a0a0a; /* app background */
-  --surface-elevated: #171717; /* cards, sidebar, panels */
-  --surface-raised: #262626; /* inputs, badges, chips (one step up) */
+  /* Surface — warmed-neutral ramp (OKLCH, hue 25°), darkest first. */
+  --surface: oklch(0.145 0.008 25); /* app background (~#0c0a0a) */
+  --surface-elevated: oklch(0.205 0.009 25); /* cards, sidebar, panels (~#181615) */
+  --surface-raised: oklch(0.265 0.01 25); /* inputs, badges, chips (~#272321) */
 
-  /* Border — two weights off the same ramp. */
-  --border: #404040;
-  --border-strong: #525252;
+  /* Border — two hairline weights off the same warmed ramp. */
+  --border: oklch(0.35 0.01 25); /* ~#413b39 */
+  --border-strong: oklch(0.44 0.01 25); /* ~#544d4a */
 
   /* Text */
-  --text: #fafafa;
-  --text-dim: #a3a3a3;
+  --text: oklch(0.97 0.004 25); /* ~#faf8f7 */
+  --text-dim: oklch(0.72 0.008 25); /* ~#a8a09d */
 
-  /* Accent (cyan) — the interactive/"resolved" pole: buttons, links, focus,
-     active nav. --on-accent is the readable text/icon color ON an accent fill. */
-  --accent: #22d3ee;
-  --accent-hover: #67e8f9;
-  --on-accent: #0a0a0a;
+  /* Thread roles — the metaphor as color. --resolved is the old cyan accent
+     renamed to say what it *means*; --on-accent is the readable text/icon
+     color ON a resolved fill (name kept: it describes the fill relationship,
+     not the hue). */
+  --resolved: oklch(0.78 0.13 210);
+  --resolved-hover: oklch(0.85 0.1 210);
+  --on-accent: oklch(0.145 0.008 25);
+  --unresolved: oklch(0.62 0.2 27);
 
-  /* Brand (Laravel red) — the identity/"source" pole. Brand moments only. */
+  /* Brand (Laravel red) — identity moments only. */
   --brand: #f53003;
   --brand-hover: #c42602;
   --brand-faded: #ffe2dd;
 
-  /* Status — cooler red + amber, visually distinct from --brand. --ok is the
-     "healthy/clean" signal (kept for verdict + method color coding). */
+  /* Status — cooler red + amber, visually distinct from --unresolved. --ok is
+     the "healthy/clean" signal (kept for verdict + method color coding). */
   --danger: #ef4444;
-  --warn: #f59e0b;
+  /* Amber is the lighter on-dark shade (DESIGN.md §1): the darker #f59e0b
+     failed legibility at small sizes on these surfaces. */
+  --warn: #fbbf24;
   --ok: #22c55e;
 
   /* Tinted status surfaces — low-alpha fills for pills, finding cards, row
@@ -54,22 +68,32 @@
      rgba() literals live here, not scattered across the component stylesheet. */
   --danger-tint: rgba(239, 68, 68, 0.14);
   --danger-tint-soft: rgba(239, 68, 68, 0.07);
-  --warn-tint: rgba(245, 158, 11, 0.14);
+  --warn-tint: rgba(251, 191, 36, 0.14);
+  --warn-tint-soft: rgba(251, 191, 36, 0.07);
   --ok-tint: rgba(34, 197, 94, 0.14);
 
-  /* Type — three stacks with distinct jobs (issue #22). --display and --mono
-     lead with the vendored faces from fonts.css (Instrument Sans, JetBrains
-     Mono — self-hosted woff2, no CDN); --sans stays a pure system stack so
-     body/UI text renders instantly without paying any webfont cost. */
+  /* Type — three stacks with distinct jobs (issue #22), split by VOICE:
+     --display is the human voice (the tool's sentences, headings, verdicts,
+     wordmark); --mono is the machine voice (every project identifier: table,
+     column, route URI, model, controller); --sans is body/UI reading text on
+     a pure system stack, zero webfont cost. The face split is a hard rule
+     (DESIGN.md §2): a reader must tell "the tool talking" from "your code" by
+     typeface alone. */
   --display: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Scale — real ~1.25 modular scale (DESIGN.md §2). Display steps are
+     tokens, not ad-hoc literals, so headings out-scale body through the
+     system. --text-2xs is dense metadata only, never colored small text. */
   --text-2xs: 11px;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
+  --text-xs: 12px; /* chips, captions */
+  --text-sm: 13px; /* table body, secondary */
+  --text-base: 15px; /* body — up from 14 for legibility */
+  --text-lg: 19px; /* lead paragraph, sub-headings */
+  --text-xl: 24px; /* section headings */
+  --text-2xl: 30px; /* view titles */
+  --text-3xl: 38px; /* Overview hero / wordmark */
+  --text-hero: clamp(38px, 6vw, 60px); /* the un-ravel wow number/mark */
 
   /* Space (4/8/12/16/20/24/32/48) */
   --space-1: 4px;

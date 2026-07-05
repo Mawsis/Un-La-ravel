@@ -9,7 +9,7 @@
    so a real problem is never confused with brand chrome. */
 
 /* First-run hero (issue #29) — the logo-led empty state. The inline SVG mark
-   in index.html reads --brand/--accent itself, so everything here is layout
+   in index.html reads --brand/--resolved itself, so everything here is layout
    plus the two identity type moments (wordmark, value prop), which carry the
    display face. main.js hides the hero after the first successful analysis. */
 .hero {
@@ -26,7 +26,7 @@
 }
 .hero-wordmark {
   font-family: var(--display);
-  font-size: clamp(28px, 4vw, 40px);
+  font-size: var(--text-3xl);
   font-weight: 600;
   letter-spacing: -0.02em;
   margin: 0;
@@ -54,7 +54,7 @@
   align-self: center;
   background: transparent;
   border: 1px solid var(--border);
-  color: var(--accent);
+  color: var(--resolved);
   padding: 8px 16px;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
@@ -62,7 +62,7 @@
   transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .sample-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--resolved);
 }
 
 .hint {
@@ -150,16 +150,17 @@
   padding: var(--space-3) var(--space-4);
   min-width: 120px;
 }
+/* Stat numbers sit one step below the section-heading size on purpose
+   (issue #38): the Overview verdict out-scales the inventory strip by
+   design, so no downstream rule needs to dim these numbers to demote them. */
 .card .n {
-  font-size: 26px;
+  font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 .card .l {
   font-size: var(--text-xs);
   color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .card.warn .n {
   color: var(--danger);
@@ -189,7 +190,7 @@
 /* A verdict problem borrows .entity-chip for the dynamic in-app-link behavior
    (the delegated navigation handler in main.js keys on .entity-chip[data-view])
    and its mono/hover/focus styling, but a problem is not a neutral reference —
-   it must read as danger, not the cyan accent. The compound .entity-chip.verdict-link
+   it must read as danger, not the resolved cyan. The compound .entity-chip.verdict-link
    selector (specificity 0,2,0) deliberately beats the later, single-class
    .entity-chip color rule (0,1,0) so danger wins in both rest and hover. */
 .entity-chip.verdict-link {
@@ -199,12 +200,6 @@
 .entity-chip.verdict-link:hover {
   color: var(--danger);
   border-bottom-color: currentColor;
-}
-
-/* The inventory grid is demoted below the verdict: quieter than the verdict,
-   still scannable. */
-.cards .card .n {
-  color: var(--text-dim);
 }
 
 .er-hint {
@@ -240,10 +235,10 @@
   transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .er-export-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--resolved);
 }
 .er-export-btn:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--resolved);
   outline-offset: 2px;
 }
 #er-diagram {
@@ -303,20 +298,25 @@
   fill: var(--brand);
 }
 .er-badge-fk {
-  fill: var(--accent);
+  fill: var(--resolved);
 }
 .er-badge-uk {
   fill: var(--warn);
 }
-/* Relationship edges. Schema foreign keys read solid; Eloquent associations
-   read dashed, so both are shown and stay distinguishable. */
+/* Relationship edges carry the thread roles (issue #38): a resolved edge is
+   the --resolved cyan (schema FK solid, Eloquent relation dashed, both kept
+   and distinguishable by dash); an edge the reconciliation pass had to
+   repair (issue #36's unresolved flag) is the --unresolved red — the one
+   place in the working views a repaired relationship is visibly distinct. */
 .er-edge {
-  stroke: var(--text-dim);
+  stroke: var(--resolved);
   stroke-width: 1.5;
 }
 .er-edge-eloquent {
-  stroke: var(--accent);
   stroke-dasharray: 5 4;
+}
+.er-edge-unresolved {
+  stroke: var(--unresolved);
 }
 /* Crow's-foot markers inherit the edge color via currentColor-style fill so
    they match the line they terminate. */
@@ -334,7 +334,7 @@
 }
 @keyframes er-focus-pulse {
   0% {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--resolved);
     outline-offset: 2px;
   }
   100% {
@@ -374,7 +374,7 @@
   transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .filter-row input:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--resolved);
 }
 
 /* Long tables scroll inside this container so the header can pin (issue #28):
@@ -400,9 +400,7 @@ table.routes td {
 table.routes th {
   color: var(--text-dim);
   font-weight: 600;
-  text-transform: uppercase;
-  font-size: var(--text-2xs);
-  letter-spacing: 0.04em;
+  font-size: var(--text-xs);
   /* Sticky header (issue #28) — pins to .table-scroll's top edge. The opaque
      surface background is load-bearing: without it, scrolled rows show
      through the pinned header. z-index keeps it above the chips in rows. */
@@ -419,7 +417,7 @@ table.routes th button {
   gap: 4px;
 }
 table.routes th button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--resolved);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -435,7 +433,7 @@ table.routes td.method {
   color: var(--ok);
 }
 .m-POST {
-  color: var(--accent);
+  color: var(--resolved);
 }
 .m-PUT,
 .m-PATCH {
@@ -455,11 +453,12 @@ table.routes tr.dead {
    model card. Borrows .entity-chip for the delegated chip navigation (it
    cross-links to its finding category) but must read as danger in rest AND
    hover — same compound-selector precedent as .entity-chip.verdict-link
-   above, so the danger token wins over the cyan accent in both states. */
+   above, so the danger token wins over the resolved cyan in both states. */
 .entity-chip.danger-flag {
   color: var(--danger);
   font-weight: 700;
-  font-size: var(--text-2xs);
+  /* Colored text never sits at --text-2xs (DESIGN.md §2 legibility rule). */
+  font-size: var(--text-xs);
 }
 .entity-chip.danger-flag:hover {
   color: var(--danger);
@@ -473,25 +472,49 @@ table.routes tr.dead {
   font-size: var(--text-xs);
 }
 
+/* Severity reads as a leading status dot + a background tint (issue #38) —
+   never a colored side-stripe. The soft tints keep the cards calm; the dot is
+   the at-a-glance danger/warn marker. */
 .finding {
-  background: var(--surface-elevated);
+  background: var(--warn-tint-soft);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--warn);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-2);
 }
 .finding.dead {
-  border-left-color: var(--danger);
+  background: var(--danger-tint-soft);
 }
 .finding .h {
   font-weight: 600;
 }
+/* Face split (DESIGN.md §2): the finding's subject is a project identifier
+   (route URI, Model::relation) — machine voice, mono. */
+.finding .h a {
+  font-family: var(--mono);
+}
+/* The shared severity dot: purely visual (aria-hidden in markup — the row's
+   text already says "Dead route:" / "Disagreement:"), colored by the status
+   tokens, sized to read at a glance without shouting. */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+.status-dot.warn {
+  background: var(--warn);
+}
+.status-dot.danger {
+  background: var(--danger);
+}
+/* The reason is the tool's own sentence — human voice, body face, never mono. */
 .finding .r {
   color: var(--text-dim);
   font-size: var(--text-sm);
   margin-top: 2px;
-  font-family: var(--mono);
 }
 .all-clear {
   color: var(--ok);
@@ -500,7 +523,7 @@ table.routes tr.dead {
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   text-align: center;
-  font-size: 15px;
+  font-size: var(--text-base);
 }
 
 .model-card {
@@ -511,29 +534,29 @@ table.routes tr.dead {
   margin-bottom: var(--space-2);
 }
 .model-card.risk {
-  border-left: 3px solid var(--danger);
+  background: var(--danger-tint-soft);
 }
 .model-card .mh {
   font-family: var(--mono);
   font-weight: 700;
   margin-bottom: var(--space-2);
 }
+/* Card section heading — hierarchy from weight and the dim color, not from
+   the retired uppercase-micro-label treatment (issue #38). */
 .subhead {
   color: var(--text-dim);
-  text-transform: uppercase;
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
   margin: var(--space-2) 0 4px;
 }
 .pill {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 20px;
-  font-size: var(--text-2xs);
+  /* 12px, not 11: the ok/warn variants color this text, and colored text
+     never sits at --text-2xs (the prior amber-at-11px legibility failure). */
+  font-size: var(--text-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   background: var(--surface-raised);
   color: var(--text-dim);
 }
@@ -566,13 +589,13 @@ table.routes tr.dead {
 }
 
 /* Entity-chip / cross-link (issue #24): the shared visual language for "this is
-   a thing you can jump to." Cyan is the interactive/"resolved" accent pole (see
+   a thing you can jump to." Cyan is the --resolved thread role (see
    tokens.css) — it's what distinguishes a jump-to-able reference from a passive
    .chip. is-plain is the degraded, unlinkable form (unknown entity kind). */
 .entity-chip {
   font-family: var(--mono);
   font-size: var(--text-xs);
-  color: var(--accent);
+  color: var(--resolved);
   text-decoration: none;
   border-bottom: 1px solid transparent;
   border-radius: 2px;
@@ -582,11 +605,11 @@ table.routes tr.dead {
     border-color var(--motion-fast) var(--motion-ease);
 }
 .entity-chip:hover {
-  color: var(--accent-hover);
+  color: var(--resolved-hover);
   border-bottom-color: currentColor;
 }
 .entity-chip:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--resolved);
   outline-offset: 2px;
 }
 .entity-chip.is-plain {
@@ -600,15 +623,18 @@ table.routes tr.dead {
   font-size: var(--text-sm);
   margin-bottom: 4px;
 }
+/* Both kinds share the size: .unique is colored, so it sits at 12px (the
+   colored-small-text floor), and .plain matches rather than pairing at
+   mismatched sizes. */
 .idx-kind.unique {
   color: var(--ok);
   font-weight: 600;
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
 }
 .idx-kind.plain {
   color: var(--text-dim);
   font-weight: 600;
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
 }
 .idx-row .cols {
   font-family: var(--mono);
@@ -662,7 +688,7 @@ table.routes tr.dead {
   width: 20px;
   height: 20px;
   border: 2px solid var(--border);
-  border-top-color: var(--accent);
+  border-top-color: var(--resolved);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   vertical-align: middle;
@@ -727,9 +753,7 @@ table.routes tr.dead {
 }
 .search-result .kind {
   color: var(--text-dim);
-  font-size: var(--text-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: var(--text-xs);
   min-width: 64px;
 }
 .search-result .label {

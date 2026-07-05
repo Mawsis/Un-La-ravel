@@ -100,6 +100,55 @@ func containsHexFold(css, hex string) bool {
 	return strings.Contains(strings.ToLower(css), strings.ToLower(hex))
 }
 
+// TestTokens_ModularTypeScale asserts the type scale is the real ~1.25 modular
+// scale from DESIGN.md §2: body bumps to 15px for legibility, the top steps
+// out-scale body (19/24/30/38), and the display sizes exist as NAMED tokens
+// (--text-2xl / --text-3xl / --text-hero) so headings scale through the system
+// instead of ad-hoc pixel literals.
+func TestTokens_ModularTypeScale(t *testing.T) {
+	css := fetchAsset(t, "/css/tokens.css")
+
+	wantScale := map[string]string{
+		"--text-2xs:":  "11px",
+		"--text-xs:":   "12px",
+		"--text-sm:":   "13px",
+		"--text-base:": "15px",
+		"--text-lg:":   "19px",
+		"--text-xl:":   "24px",
+		"--text-2xl:":  "30px",
+		"--text-3xl:":  "38px",
+	}
+	for name, px := range wantScale {
+		if !strings.Contains(css, name+" "+px) {
+			t.Errorf("tokens.css missing type-scale step %q = %s", name, px)
+		}
+	}
+
+	// The hero step is fluid — assert the token exists and is a clamp(), not a
+	// fixed literal, so the wow moment scales with the viewport.
+	if !regexp.MustCompile(`--text-hero:\s*clamp\(`).MatchString(css) {
+		t.Error("tokens.css missing fluid --text-hero: clamp(...) display token")
+	}
+}
+
+// fontSizeLiteralRe matches a font-size declaration whose value is a raw px
+// literal (including inside clamp()), i.e. one that bypasses the type-scale
+// tokens.
+var fontSizeLiteralRe = regexp.MustCompile(`font-size:\s*[^;]*\d+px`)
+
+// TestConsumers_NoAdHocFontSizeLiterals enforces DESIGN.md §2: display steps
+// are tokens, not literals. Every font-size in a consumer stylesheet must
+// route through a --text-* token; a raw px value means a heading or stat has
+// opted out of the modular scale and would silently miss a future scale change.
+func TestConsumers_NoAdHocFontSizeLiterals(t *testing.T) {
+	for _, sheet := range shellStylesheets {
+		css := fetchAsset(t, sheet)
+		for _, match := range fontSizeLiteralRe.FindAllString(css, -1) {
+			t.Errorf("%s has ad-hoc font-size literal %q — type sizes belong to the --text-* scale in tokens.css", sheet, match)
+		}
+	}
+}
+
 // shellStylesheets are the stylesheets that make up the app shell + component
 // layer, all of which must consume the semantic tokens.
 var shellStylesheets = []string{

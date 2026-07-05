@@ -79,12 +79,18 @@
   --display: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Scale — real ~1.25 modular scale (DESIGN.md §2). Display steps are
+     tokens, not ad-hoc literals, so headings out-scale body through the
+     system. --text-2xs is dense metadata only, never colored small text. */
   --text-2xs: 11px;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-base: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
+  --text-xs: 12px; /* chips, captions */
+  --text-sm: 13px; /* table body, secondary */
+  --text-base: 15px; /* body — up from 14 for legibility */
+  --text-lg: 19px; /* lead paragraph, sub-headings */
+  --text-xl: 24px; /* section headings */
+  --text-2xl: 30px; /* view titles */
+  --text-3xl: 38px; /* Overview hero / wordmark */
+  --text-hero: clamp(38px, 6vw, 60px); /* the un-ravel wow number/mark */
 
   /* Space (4/8/12/16/20/24/32/48) */
   --space-1: 4px;

@@ -26,7 +26,7 @@
 }
 .hero-wordmark {
   font-family: var(--display);
-  font-size: clamp(28px, 4vw, 40px);
+  font-size: var(--text-3xl);
   font-weight: 600;
   letter-spacing: -0.02em;
   margin: 0;
@@ -151,7 +151,7 @@
   min-width: 120px;
 }
 .card .n {
-  font-size: 26px;
+  font-size: var(--text-xl);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -500,7 +500,7 @@ table.routes tr.dead {
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   text-align: center;
-  font-size: 15px;
+  font-size: var(--text-base);
 }
 
 .model-card {

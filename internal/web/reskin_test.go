@@ -48,3 +48,50 @@ func TestReskin_NoSideStripes(t *testing.T) {
 func isHairline(decl string) bool {
 	return strings.Contains(decl, "1px") && !regexp.MustCompile(`\d{2,}px`).MatchString(decl)
 }
+
+// TestReskin_UppercaseOnlyOnTrueHeadings enforces the PRD's uppercase rule:
+// hierarchy comes from scale, weight, and face-contrast — not from the
+// uppercase-micro-label reflex. The only sanctioned text-transform: uppercase
+// is the nav group headings (Structure / Health), which are true section
+// headings (real <h2>s). Stat labels, table headers, subheads, pills, and
+// search-result kinds must not shout.
+func TestReskin_UppercaseOnlyOnTrueHeadings(t *testing.T) {
+	for _, sheet := range shellStylesheets {
+		css := fetchAsset(t, sheet)
+		for _, block := range strings.Split(css, "}") {
+			if !strings.Contains(block, "text-transform: uppercase") {
+				continue
+			}
+			if strings.Contains(block, ".nav-heading") {
+				continue
+			}
+			t.Errorf("%s uses text-transform: uppercase outside .nav-heading in rule %q — uppercase is reserved for true section headings", sheet, strings.TrimSpace(block))
+		}
+	}
+}
+
+// TestReskin_FaceSplitInFindings pins the human/machine face split (DESIGN.md
+// §2) where it was inverted: a finding's SUBJECT (a route URI, a
+// Model::relation) is a project identifier, so it renders in the mono face;
+// the finding's REASON is the tool's own sentence, so it must NOT be mono.
+// A reader tells "the tool talking" from "my code" by typeface alone.
+func TestReskin_FaceSplitInFindings(t *testing.T) {
+	css := fetchAsset(t, "/css/components.css")
+
+	var subjectMono, reasonMono bool
+	for _, block := range strings.Split(css, "}") {
+		sel := block[:strings.LastIndex(block+"{", "{")]
+		if strings.Contains(sel, ".finding .h a") && strings.Contains(block, "var(--mono)") {
+			subjectMono = true
+		}
+		if strings.Contains(sel, ".finding .r") && strings.Contains(block, "var(--mono)") {
+			reasonMono = true
+		}
+	}
+	if !subjectMono {
+		t.Error("components.css: .finding .h a (the identifier subject) is not in the mono face")
+	}
+	if reasonMono {
+		t.Error("components.css: .finding .r (the tool's sentence) is still mono — tool prose belongs to the body face")
+	}
+}

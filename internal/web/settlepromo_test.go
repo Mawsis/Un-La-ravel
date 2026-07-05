@@ -51,3 +51,44 @@ func TestSettlePromotion_PanelInResolvesWithTransform(t *testing.T) {
 		}
 	}
 }
+
+// TestSettlePromotion_SidebarThreadMark: the persistent sidebar thread-mark
+// exists (decorative to AT — the health chip next to it carries the words),
+// its resolve is timed by the settle token and styled with the thread roles
+// (unresolved red easing to resolved cyan — PRODUCT.md ban #6 territory: an
+// analysis completing IS a resolution), and the re-settle choreography module
+// is served and wired into the once-per-analysis render path.
+func TestSettlePromotion_SidebarThreadMark(t *testing.T) {
+	html := fetchAsset(t, "/index.html")
+
+	markRe := regexp.MustCompile(`<svg[^>]*class="thread-mark"[^>]*>`)
+	tag := markRe.FindString(html)
+	if tag == "" {
+		t.Fatal(`index.html has no <svg class="thread-mark"> — the sidebar signature gesture is missing`)
+	}
+	if !strings.Contains(tag, `aria-hidden="true"`) {
+		t.Error("thread-mark is not aria-hidden — it is identity motion, not information; the health chip carries the words")
+	}
+
+	components := fetchAsset(t, "/css/components.css")
+	for _, want := range []string{"--motion-settle", "--unresolved", "--resolved"} {
+		if !strings.Contains(components, "var("+want+")") {
+			t.Errorf("components.css does not reference var(%s) — the thread-mark's settle must be token-timed and use the thread roles", want)
+		}
+	}
+	if !strings.Contains(components, ".thread-mark") {
+		t.Error("components.css has no .thread-mark rules")
+	}
+
+	// The re-settle module is a real served asset, wired from main.js's
+	// once-per-analysis block, and it honors reduced motion in JS (the same
+	// double-guard the ER settle uses — ADR 0009).
+	threadJS := fetchAsset(t, "/js/thread-mark.js")
+	if !strings.Contains(threadJS, "prefersReducedMotion") {
+		t.Error("thread-mark.js does not consult prefersReducedMotion — every settle degrades to the static resolved end-state")
+	}
+	mainJS := fetchAsset(t, "/js/main.js")
+	if !strings.Contains(mainJS, "thread-mark.js") {
+		t.Error("main.js does not import thread-mark.js — the re-settle never fires on a new analysis")
+	}
+}

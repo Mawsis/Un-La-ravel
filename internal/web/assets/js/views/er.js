@@ -15,6 +15,7 @@ import { buildElkGraph } from "./er-graph.js";
 import { renderSvg } from "./er-svg.js";
 import { diagramCenter, settleOffset } from "./er-settle.js";
 import { downloadSvg, downloadPng } from "./er-export.js";
+import { prefersReducedMotion, SETTLE_CLEANUP_MS } from "../motion.js";
 
 // ELK layout options: a layered (Sugiyama) left-to-right graph, which reads as
 // "parents on the left, dependents to the right" — the natural direction for
@@ -221,22 +222,6 @@ function wireExportControls() {
   });
   exportControlsWired = true;
 }
-
-// prefersReducedMotion reflects the OS/browser "reduce motion" setting. Guarded
-// so a non-browser context (or a browser without matchMedia) simply reports
-// false rather than throwing.
-function prefersReducedMotion() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
-
-// SETTLE_CLEANUP_MS is the fallback timer that tears down the settle's inline
-// state if transitionend never fires. Comfortably longer than --motion-settle
-// (620ms) so it only ever acts as a safety net.
-const SETTLE_CLEANUP_MS = 1200;
 
 // teardown destroys the previous pan-zoom instance before its SVG is replaced,
 // so its listeners don't leak across analyses.

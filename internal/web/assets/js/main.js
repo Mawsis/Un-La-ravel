@@ -33,6 +33,7 @@ import { renderModels } from "./views/models.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
 import { renderSidebarHealth } from "./sidebar.js";
+import { resettleThreadMark } from "./thread-mark.js";
 import { renderSwagger } from "./views/swagger.js";
 import { renderRecents } from "./views/recents.js";
 import { samplePathFrom } from "./views/hero.js";
@@ -137,6 +138,7 @@ function renderCurrentView() {
     lastFocusedTable = null;
     renderOverview(model);
     renderSidebarHealth(model);
+    resettleThreadMark(); // signature gesture: once per analysis, never per navigation
     renderER(result.er, table);
     lastFocusedTable = table;
     renderFindings(model.disagreements || [], model.dead_routes || [], params);

@@ -359,6 +359,49 @@
     opacity var(--motion-settle) var(--motion-ease);
 }
 
+/* Sidebar thread-mark (issue #39, ADR 0010): the settle in miniature, the
+   app's signature kept scarce. Steady state is the resolved cyan thread with
+   its end point; thread-mark.js replays the gesture once per new analysis by
+   snapping to the tangled red state (.tm-tangled-start, no transition — an
+   instant start frame) and then arming .tm-resolving so the crossfade back to
+   resolved runs on the settle token. Opacity/transform only; base.css's
+   reduced-motion guard collapses it, and thread-mark.js skips the replay
+   entirely under reduced motion, leaving the static resolved end-state. */
+.thread-mark {
+  width: 72px;
+  height: 14px;
+  display: block;
+  margin-top: var(--space-2);
+}
+.thread-mark path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.thread-mark .tm-thread-tangled {
+  stroke: var(--unresolved);
+  opacity: 0;
+}
+.thread-mark .tm-thread-resolved path {
+  stroke: var(--resolved);
+}
+.thread-mark .tm-thread-resolved circle {
+  fill: var(--resolved);
+}
+.thread-mark.tm-tangled-start .tm-thread-tangled {
+  opacity: 1;
+}
+.thread-mark.tm-tangled-start .tm-thread-resolved {
+  opacity: 0;
+  transform: translateY(2px);
+}
+.thread-mark.tm-resolving .tm-thread-tangled,
+.thread-mark.tm-resolving .tm-thread-resolved {
+  transition:
+    opacity var(--motion-settle) var(--motion-ease),
+    transform var(--motion-settle) var(--motion-ease);
+}
+
 .filter-row {
   margin-bottom: var(--space-3);
 }

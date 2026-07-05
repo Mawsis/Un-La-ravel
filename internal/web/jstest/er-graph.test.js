@@ -133,3 +133,26 @@ test("ports use fixed positions so a column row is addressable for edges", () =>
   assert.equal(idPort.y, HEADER_HEIGHT + 0.5 * ROW_HEIGHT);
   assert.equal(namePort.y, HEADER_HEIGHT + 1.5 * ROW_HEIGHT);
 });
+
+test("an edge whose endpoint is not among the nodes is dropped before layout", () => {
+  // The never-crashes backstop (issue #36): the server now guarantees edge
+  // endpoints are nodes, but a future contract slip must degrade to a missing
+  // edge, not an ELK NullPointerException that blanks the whole diagram.
+  const graph = {
+    nodes: [
+      { table: "users", columns: [{ name: "id", type: "bigInteger", key: "PK" }] },
+      { table: "posts", columns: [{ name: "id", type: "bigInteger", key: "PK" }] },
+    ],
+    edges: [
+      { from: "waiter_callses", to: "users", kind: "many-to-one", label: "user (belongsTo)" },
+      { from: "users", to: "posts", kind: "one-to-many", label: "posts (hasMany)" },
+      { from: "posts", to: "ghosts", kind: "one-to-many", label: "spooks (hasMany)" },
+    ],
+  };
+
+  const elk = buildElkGraph(graph);
+
+  assert.equal(elk.edges.length, 1);
+  assert.deepEqual(elk.edges[0].sources, ["users"]);
+  assert.deepEqual(elk.edges[0].targets, ["posts"]);
+});

@@ -30,6 +30,22 @@ export function portId(table, column) {
   return "port:" + JSON.stringify([String(table), String(column)]);
 }
 
+// drawableEdges is the never-crashes backstop (issue #36): it returns the
+// contract edges whose BOTH endpoints exist as nodes, in contract order. ELK
+// throws on an edge whose endpoint has no node, and one bad edge blanks the
+// whole diagram; the server now guarantees endpoints are nodes, so this filter
+// makes a future contract slip degrade to a missing edge instead of a crash.
+// It is the single point of truth for which edges get drawn: buildElkGraph
+// lays out exactly this list, and the SVG emitter correlates its ELK edge
+// index into this same list.
+export function drawableEdges(graph) {
+  const nodes = (graph && graph.nodes) || [];
+  const known = new Set(nodes.map((n) => n.table));
+  return ((graph && graph.edges) || []).filter(
+    (edge) => known.has(edge.from) && known.has(edge.to)
+  );
+}
+
 // buildElkGraph turns the ER contract into an ELK graph: one child node per
 // table (sized for its columns, one fixed-position port per column row) and one
 // ELK edge per relationship, attached to the exact referencing column's port
@@ -59,7 +75,7 @@ export function buildElkGraph(graph) {
     };
   });
 
-  const elkEdges = edges.map((edge, i) => ({
+  const elkEdges = drawableEdges(graph).map((edge, i) => ({
     // Index-suffixed so multiple edges between the same table pair (e.g. a
     // schema FK and an Eloquent relation over the same pair) stay distinct.
     id: "e" + i,

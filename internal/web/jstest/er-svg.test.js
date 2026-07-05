@@ -158,7 +158,10 @@ test("marks the edge ends with the cardinality's crow's-foot markers", () => {
 
 test("schema-FK and Eloquent edges carry distinguishing classes", () => {
   // A schema FK ("references (...)") and an Eloquent relation over the same
-  // pair must be visually separable, not collapsed into one look.
+  // pair must be visually separable, not collapsed into one look. These edges
+  // carry no origin field, so this also pins the pre-1.7.0 label-sniff
+  // fallback. Both endpoint tables exist as nodes — edges to absent nodes are
+  // not drawn at all (issue #36).
   const two = {
     layout: {
       width: 100,
@@ -170,7 +173,10 @@ test("schema-FK and Eloquent edges carry distinguishing classes", () => {
       ],
     },
     graph: {
-      nodes: [],
+      nodes: [
+        { table: "users", columns: [] },
+        { table: "posts", columns: [] },
+      ],
       edges: [
         { from: "users", to: "posts", kind: "one-to-many", label: "references (author_id)" },
         { from: "users", to: "posts", kind: "one-to-many", label: "posts (hasMany)" },
@@ -180,4 +186,59 @@ test("schema-FK and Eloquent edges carry distinguishing classes", () => {
   const svg = renderSvg(two.layout, two.graph);
   assert.match(svg, /class="er-edge er-edge-schema"/);
   assert.match(svg, /class="er-edge er-edge-eloquent"/);
+});
+
+test("edge classes stay aligned with the drawn edges when an orphan was dropped", () => {
+  // buildElkGraph drops an edge whose endpoint has no node (issue #36), so
+  // ELK's e0 is the SECOND contract edge here. Pairing by raw contract index
+  // would style the drawn Eloquent edge as a schema FK.
+  const layout = {
+    width: 100,
+    height: 100,
+    children: [],
+    edges: [{ id: "e0", sections: [{ startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }] }],
+  };
+  const graph = {
+    nodes: [
+      { table: "users", columns: [] },
+      { table: "posts", columns: [] },
+    ],
+    edges: [
+      { from: "ghosts", to: "users", kind: "one-to-many", label: "references (ghost_id)", origin: "schema" },
+      { from: "users", to: "posts", kind: "one-to-many", label: "posts (hasMany)", origin: "eloquent" },
+    ],
+  };
+
+  const svg = renderSvg(layout, graph);
+  assert.match(svg, /er-edge-eloquent/);
+  assert.doesNotMatch(svg, /er-edge-schema/);
+});
+
+test("edge classes come from the contract's origin field, with unresolved edges marked", () => {
+  // origin is the explicit field the 1.7.0 contract carries (no more label
+  // sniffing), and a reconciled edge advertises itself for distinct styling.
+  const layout = {
+    width: 100,
+    height: 100,
+    children: [],
+    edges: [
+      { id: "e0", sections: [{ startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }] },
+      { id: "e1", sections: [{ startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }] },
+    ],
+  };
+  const graph = {
+    nodes: [
+      { table: "users", columns: [] },
+      { table: "waiter_calls", columns: [] },
+    ],
+    edges: [
+      // Origin says schema even though the label would sniff as Eloquent.
+      { from: "users", to: "waiter_calls", kind: "one-to-many", label: "calls (hasMany)", origin: "schema" },
+      { from: "waiter_calls", to: "users", kind: "many-to-one", label: "user (belongsTo)", origin: "eloquent", unresolved: true },
+    ],
+  };
+
+  const svg = renderSvg(layout, graph);
+  assert.match(svg, /class="er-edge er-edge-schema"/);
+  assert.match(svg, /class="er-edge er-edge-eloquent er-edge-unresolved"/);
 });

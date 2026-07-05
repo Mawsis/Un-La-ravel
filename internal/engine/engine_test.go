@@ -62,25 +62,26 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 	}
 
 	// From fixture-app.golden.json:
-	//   "schemas": 3 tables  (users, posts, categories)
-	//   "models": 3 models   (Category, Post, User)
+	//   "schemas": 4 tables  (users, posts, categories, lenses)
+	//   "models": 4 models   (Category, Lens, Post, User)
 	//   "routes": 11 routes
 	//   "controllers": 4 controllers
 	//   "dead_routes": 1
 	//   "form_requests": 1
-	//   "disagreements": 1
+	//   "disagreements": 2 (Post.editor missing_fk_column; Post.lens
+	//     missing_table with the issue #36 did-you-mean suggestion)
 	tests := []struct {
 		name string
 		got  int
 		want int
 	}{
-		{"schemas (tables)", len(pm.Schemas), 3},
-		{"models", len(pm.Models), 3},
+		{"schemas (tables)", len(pm.Schemas), 4},
+		{"models", len(pm.Models), 4},
 		{"routes", len(pm.Routes), 11},
 		{"controllers", len(pm.Controllers), 4},
 		{"dead_routes", len(pm.DeadRoutes), 1},
 		{"form_requests", len(pm.FormRequests), 1},
-		{"disagreements", len(pm.Disagreements), 1},
+		{"disagreements", len(pm.Disagreements), 2},
 	}
 
 	for _, tc := range tests {
@@ -95,8 +96,9 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 
 // TestAnalyze_FixtureApp_Findings verifies the engine computes the itemized
 // health verdict (internal/findings) into ProjectModel.Findings, in the fixed
-// understand-then-judge order. The fixture app carries exactly one of each
-// category — 1 dead route, 1 disagreement, 1 unguarded model (a Model that wrote
+// understand-then-judge order. The fixture app carries every category — 1 dead
+// route, 2 disagreements (Post.editor's missing FK column and Post.lens's
+// name-mismatched table, issue #36), 1 unguarded model (a Model that wrote
 // `protected $guarded = []`) — so all three findings fire, proving the engine
 // runs Verdict last, over the fully assembled model.
 func TestAnalyze_FixtureApp_Findings(t *testing.T) {
@@ -110,7 +112,7 @@ func TestAnalyze_FixtureApp_Findings(t *testing.T) {
 
 	want := []model.Finding{
 		{Kind: model.FindingDeadRoutes, Count: 1, Label: "1 dead route", View: "findings"},
-		{Kind: model.FindingDisagreements, Count: 1, Label: "1 disagreement", View: "findings"},
+		{Kind: model.FindingDisagreements, Count: 2, Label: "2 disagreements", View: "findings"},
 		{Kind: model.FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"},
 	}
 	if len(pm.Findings) != len(want) {

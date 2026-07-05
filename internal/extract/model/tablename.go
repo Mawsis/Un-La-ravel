@@ -22,6 +22,27 @@ var irregularPlurals = map[string]string{
 	"child":  "children",
 }
 
+// uncountables is a small, best-effort set of lowercase words whose plural is
+// the word itself (issue #36: RestaurantStaff must infer restaurant_staff,
+// not restaurant_staffs). Deliberately bounded, like irregularPlurals.
+var uncountables = map[string]struct{}{
+	"staff":     {},
+	"sheep":     {},
+	"fish":      {},
+	"deer":      {},
+	"series":    {},
+	"species":   {},
+	"feedback":  {},
+	"equipment": {},
+}
+
+// singularSEndings are trailing letter pairs for which a final "s" belongs to
+// a genuinely singular word (status, bus, class, analysis) rather than an
+// existing plural, so the sibilant "-es" rule still applies. Any other word
+// ending in "s" is treated as already plural and kept as-is (issue #36:
+// WaiterCalls must infer waiter_calls, not waiter_callses).
+var singularSEndings = []string{"ss", "us", "is"}
+
 // TableName infers the database table a Laravel Eloquent model maps to from its
 // class name, following Laravel's default convention: the snake_case plural of
 // the class name. It is only consulted when a model declares no explicit
@@ -89,15 +110,21 @@ func splitLastWord(s string) (prefix, word string) {
 }
 
 // pluralizeWord applies the irregular map and suffix rules to a single
-// lowercase English word. Rule order: irregular map first, then
-// "consonant + y" -> "ies", then sibilant endings (s/x/z/ch/sh) -> "es",
-// otherwise append "s".
+// lowercase English word. Rule order: irregular map first, then uncountables
+// and already-plural stems (kept as-is), then "consonant + y" -> "ies", then
+// sibilant endings (s/x/z/ch/sh) -> "es", otherwise append "s".
 func pluralizeWord(word string) string {
 	if word == "" {
 		return word
 	}
 	if plural, ok := irregularPlurals[word]; ok {
 		return plural
+	}
+	if _, ok := uncountables[word]; ok {
+		return word
+	}
+	if isAlreadyPlural(word) {
+		return word
 	}
 	if endsInConsonantY(word) {
 		return word[:len(word)-1] + "ies"
@@ -106,6 +133,24 @@ func pluralizeWord(word string) string {
 		return word + "es"
 	}
 	return word + "s"
+}
+
+// isAlreadyPlural reports whether a word ending in "s" is best read as an
+// existing plural (calls, logs) rather than a singular sibilant. Words whose
+// trailing "s" follows a singularSEndings pair (status, class, analysis) are
+// singular and fall through to the "-es" rule. Best-effort like the rest of
+// the inflector: rare singulars such as "lens" are misread as plural, and the
+// mismatch surfaces downstream as a Disagreement.
+func isAlreadyPlural(word string) bool {
+	if !strings.HasSuffix(word, "s") || len(word) < 2 {
+		return false
+	}
+	for _, ending := range singularSEndings {
+		if strings.HasSuffix(word, ending) {
+			return false
+		}
+	}
+	return true
 }
 
 // endsInConsonantY reports whether word ends in "y" preceded by a consonant

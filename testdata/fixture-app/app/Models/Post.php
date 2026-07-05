@@ -36,4 +36,14 @@ class Post extends Model
     {
         return $this->belongsTo(User::class, 'editor_id');
     }
+
+    // DELIBERATE NAME-MISMATCH TARGET (issue #36): Lens's inferred table is
+    // "lens" but the migration created "lenses". This missing_table
+    // disagreement must carry the did-you-mean suggestion, and the ER edge
+    // must retarget to the "lenses" node marked unresolved instead of
+    // dangling (which used to crash the whole diagram).
+    public function lens()
+    {
+        return $this->belongsTo(Lens::class);
+    }
 }

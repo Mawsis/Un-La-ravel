@@ -54,7 +54,18 @@ import (
 // unlaravel.json contract, and the dashboard all read ONE source of truth
 // rather than each re-deriving it. Another backward-compatible growth: the
 // array is appended last, so existing consumers are unaffected.
-const CurrentSchemaVersion = "1.6.0"
+//
+// Bumped to 1.7.0 when ER edge reconciliation (issue #36) added "origin" and
+// "unresolved" to each edge of the served ER graph. Origin ("schema" or
+// "eloquent") names the pass that produced the edge, replacing the browser's
+// label-sniffing; unresolved marks an edge whose inferred endpoint table did
+// not exist and was retargeted to its unambiguous singular/plural sibling, so
+// the renderer can style the repaired edge distinctly. The same slice
+// guarantees every emitted edge endpoint is a node — a dangling edge is
+// reconciled or dropped, never served. The ProjectModel struct itself is
+// unchanged; like 1.5.0 this bump versions the served renderer output,
+// growing the contract backward-compatibly.
+const CurrentSchemaVersion = "1.7.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

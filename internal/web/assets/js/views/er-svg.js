@@ -5,19 +5,21 @@
 // transform is what lets what-gets-drawn be unit-tested without a browser.
 
 import { escapeHtml } from "../dom.js";
-import { HEADER_HEIGHT, ROW_HEIGHT } from "./er-graph.js";
+import { HEADER_HEIGHT, ROW_HEIGHT, drawableEdges } from "./er-graph.js";
 import { edgeMarkers, ONE, MANY } from "./er-markers.js";
 
 // renderSvg turns ELK's output into SVG. `layout` is the laid-out graph
 // (root width/height, children with x/y/width/height, edges with sections);
 // `graph` is the source contract, read for each table's columns and key markers
 // (ELK's output drops them). Nodes correlate to the contract by id === table;
-// edges correlate by array index (buildElkGraph preserved contract order).
+// edges correlate by array index into drawableEdges(graph) — the exact list
+// buildElkGraph laid out, so a dropped orphan edge (issue #36) cannot shift
+// the pairing.
 export function renderSvg(layout, graph) {
   const width = Math.ceil(layout.width || 0);
   const height = Math.ceil(layout.height || 0);
   const nodesByTable = new Map(((graph && graph.nodes) || []).map((n) => [n.table, n]));
-  const contractEdges = (graph && graph.edges) || [];
+  const contractEdges = drawableEdges(graph);
 
   const boxes = (layout.children || [])
     .map((placed) => entityBox(placed, nodesByTable.get(placed.id)))
@@ -68,25 +70,31 @@ function edgeLine(placed, contract) {
   const { from, to } = edgeMarkers(contract ? contract.kind : "");
   const startAttr = from ? ` marker-start="url(#er-marker-${markerName(from)})"` : "";
   const endAttr = to ? ` marker-end="url(#er-marker-${markerName(to)})"` : "";
-  const kindClass = edgeKindClass(contract ? contract.label : "");
-  // Resolution styling (issue #38): an edge the reconciliation pass (issue
-  // #36) had to repair carries unresolved: true and renders in the
-  // unresolved red; absent the flag — including models that predate it — the
-  // edge is resolved and renders cyan.
-  const unresolvedClass = contract && contract.unresolved ? " er-edge-unresolved" : "";
 
   return (
-    `<polyline class="er-edge ${kindClass}${unresolvedClass}" points="${pts}" fill="none"` +
+    `<polyline class="${edgeClasses(contract)}" points="${pts}" fill="none"` +
     `${startAttr}${endAttr}/>`
   );
 }
 
-// edgeKindClass separates schema foreign-key edges from Eloquent-association
-// edges so they can be styled distinctly (issue #26 requires both shown and
-// distinguishable). A schema FK is labelled "references" / "references (col)";
-// everything else is an Eloquent relation ("method (kind)").
-function edgeKindClass(label) {
-  return /^references(\s|$)/.test(String(label || "")) ? "er-edge-schema" : "er-edge-eloquent";
+// edgeClasses derives an edge's classes from the contract's explicit fields
+// (1.7.0): origin separates schema foreign-key edges from Eloquent-association
+// edges (issue #26 requires both shown and distinguishable), and a reconciled
+// edge additionally carries er-edge-unresolved so the repair is visible at a
+// glance (issue #36). Pre-1.7.0 contracts have no origin field; the old label
+// sniff ("references" / "references (col)" means schema FK) stays as the
+// fallback.
+function edgeClasses(contract) {
+  const edge = contract || {};
+  const origin = edge.origin || sniffOrigin(edge.label);
+  const classes = ["er-edge", origin === "schema" ? "er-edge-schema" : "er-edge-eloquent"];
+  if (edge.unresolved) classes.push("er-edge-unresolved");
+  return classes.join(" ");
+}
+
+// sniffOrigin infers an edge's origin from its label, the pre-1.7.0 heuristic.
+function sniffOrigin(label) {
+  return /^references(\s|$)/.test(String(label || "")) ? "schema" : "eloquent";
 }
 
 // markerName maps a marker end kind to its <marker> id suffix.

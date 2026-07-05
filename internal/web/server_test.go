@@ -293,10 +293,10 @@ func TestHandler_Analyze_FixtureApp(t *testing.T) {
 	if shape.SchemaVersion == "" {
 		t.Error("model.schema_version is empty")
 	}
-	if got, want := len(shape.Schemas), 3; got != want {
+	if got, want := len(shape.Schemas), 4; got != want {
 		t.Errorf("model.schemas count = %d, want %d", got, want)
 	}
-	if got, want := len(shape.Models), 3; got != want {
+	if got, want := len(shape.Models), 4; got != want {
 		t.Errorf("model.models count = %d, want %d", got, want)
 	}
 	if got, want := len(shape.Routes), 11; got != want {
@@ -308,7 +308,7 @@ func TestHandler_Analyze_FixtureApp(t *testing.T) {
 	if got, want := len(shape.DeadRoutes), 1; got != want {
 		t.Errorf("model.dead_routes count = %d, want %d", got, want)
 	}
-	if got, want := len(shape.Disagreements), 1; got != want {
+	if got, want := len(shape.Disagreements), 2; got != want {
 		t.Errorf("model.disagreements count = %d, want %d", got, want)
 	}
 
@@ -353,8 +353,8 @@ func TestHandler_Analyze_ServesERGraph(t *testing.T) {
 		t.Fatalf("response is not valid JSON: %v", err)
 	}
 
-	// One node per schema table (the fixture has 3): the graph must not be empty.
-	if got, want := len(ar.ER.Nodes), 3; got != want {
+	// One node per schema table (the fixture has 4): the graph must not be empty.
+	if got, want := len(ar.ER.Nodes), 4; got != want {
 		t.Errorf("er.nodes count = %d, want %d", got, want)
 	}
 	// Every node names a table and carries at least one column.

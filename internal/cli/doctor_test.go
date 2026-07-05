@@ -101,7 +101,7 @@ func TestDoctorCommand_FixtureApp_ExitsNonZero(t *testing.T) {
 	if err == nil {
 		t.Error("doctor Execute() returned nil error on a project with findings, want non-nil (non-zero exit)")
 	}
-	for _, want := range []string{"1 dead route", "1 disagreement", "1 unguarded model"} {
+	for _, want := range []string{"1 dead route", "2 disagreements", "1 unguarded model"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("doctor output missing %q\n--- output ---\n%s", want, out.String())
 		}

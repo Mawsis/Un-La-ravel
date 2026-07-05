@@ -103,14 +103,16 @@ func buildKnownModel() *ProjectModel {
 		Kind:       DeadRouteMissingAction,
 	})
 
-	// Two Findings — dead routes then disagreements — to lock the new 1.6.0
-	// "findings" array shape (kind/count/label/view) and its fixed
-	// understand-then-judge order. The engine computes these from the assembled
-	// model (internal/findings); here they are added explicitly because the model
-	// package cannot import findings (it would be a cycle), and the golden only
-	// needs to lock the serialized shape, not the computation.
-	pm.AddFinding(Finding{Kind: FindingDeadRoutes, Count: 2, Label: "2 dead routes", View: "findings"})
-	pm.AddFinding(Finding{Kind: FindingDisagreements, Count: 2, Label: "2 disagreements", View: "findings"})
+	// Two Findings — dead routes then disagreements — to lock the "findings"
+	// array shape (kind/severity/count/label/view, severity added in 1.8.0) and
+	// its fixed understand-then-judge order. The engine computes these from the
+	// assembled model (internal/findings); here they are added explicitly because
+	// the model package cannot import findings (it would be a cycle), and the
+	// golden only needs to lock the serialized shape, not the computation.
+	// Severity is stamped through SeverityFor — the same single table the
+	// producer uses — so the golden can never disagree with the mapping.
+	pm.AddFinding(Finding{Kind: FindingDeadRoutes, Severity: SeverityFor(FindingDeadRoutes), Count: 2, Label: "2 dead routes", View: "findings"})
+	pm.AddFinding(Finding{Kind: FindingDisagreements, Severity: SeverityFor(FindingDisagreements), Count: 2, Label: "2 disagreements", View: "findings"})
 	return pm
 }
 
@@ -225,12 +227,13 @@ func TestAddFindingPreservesDetectionOrder(t *testing.T) {
 	}
 }
 
-// TestFindingSerializesFourFieldsInOrder verifies a Finding marshals its four
-// contract fields (kind, count, label, view) in struct order — the shape the
-// dashboard's verdict reader and any JSON consumer depend on.
-func TestFindingSerializesFourFieldsInOrder(t *testing.T) {
+// TestFindingSerializesFieldsInOrder verifies a Finding marshals its five
+// contract fields (kind, severity, count, label, view) in struct order — the
+// shape the dashboard's verdict reader and any JSON consumer depend on. Severity
+// was added in contract 1.8.0 (issue #47) between kind and count.
+func TestFindingSerializesFieldsInOrder(t *testing.T) {
 	pm := New("blog", "11.x").
-		AddFinding(Finding{Kind: FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"})
+		AddFinding(Finding{Kind: FindingUnguarded, Severity: SeverityBlocker, Count: 1, Label: "1 unguarded model", View: "findings"})
 
 	out, err := pm.ToJSON()
 	if err != nil {
@@ -240,6 +243,7 @@ func TestFindingSerializesFourFieldsInOrder(t *testing.T) {
 	want := `"findings": [
     {
       "kind": "unguarded",
+      "severity": "blocker",
       "count": 1,
       "label": "1 unguarded model",
       "view": "findings"

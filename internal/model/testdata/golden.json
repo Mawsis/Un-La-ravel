@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.7.0",
+  "schema_version": "1.8.0",
   "project_name": "blog",
   "laravel_version": "11.x",
   "schemas": [
@@ -136,12 +136,14 @@
   "findings": [
     {
       "kind": "dead_routes",
+      "severity": "warn",
       "count": 2,
       "label": "2 dead routes",
       "view": "findings"
     },
     {
       "kind": "disagreements",
+      "severity": "warn",
       "count": 2,
       "label": "2 disagreements",
       "view": "findings"

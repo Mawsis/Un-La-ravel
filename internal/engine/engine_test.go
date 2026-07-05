@@ -110,10 +110,13 @@ func TestAnalyze_FixtureApp_Findings(t *testing.T) {
 		t.Fatalf("engine.Analyze(%q): %v", fixtureApp, err)
 	}
 
+	// Severity is derived through the single model.SeverityFor table — the same
+	// source the producer uses — so this expectation can't drift from the mapping
+	// (dead routes/disagreements → warn, unguarded → blocker).
 	want := []model.Finding{
-		{Kind: model.FindingDeadRoutes, Count: 1, Label: "1 dead route", View: "findings"},
-		{Kind: model.FindingDisagreements, Count: 2, Label: "2 disagreements", View: "findings"},
-		{Kind: model.FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"},
+		{Kind: model.FindingDeadRoutes, Severity: model.SeverityFor(model.FindingDeadRoutes), Count: 1, Label: "1 dead route", View: "findings"},
+		{Kind: model.FindingDisagreements, Severity: model.SeverityFor(model.FindingDisagreements), Count: 2, Label: "2 disagreements", View: "findings"},
+		{Kind: model.FindingUnguarded, Severity: model.SeverityFor(model.FindingUnguarded), Count: 1, Label: "1 unguarded model", View: "findings"},
 	}
 	if len(pm.Findings) != len(want) {
 		t.Fatalf("Findings = %+v, want %+v", pm.Findings, want)

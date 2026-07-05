@@ -65,7 +65,16 @@ import (
 // reconciled or dropped, never served. The ProjectModel struct itself is
 // unchanged; like 1.5.0 this bump versions the served renderer output,
 // growing the contract backward-compatibly.
-const CurrentSchemaVersion = "1.7.0"
+//
+// Bumped to 1.8.0 when Finding severity (issue #47) added "severity" to each
+// entry of the "findings" array: a machine-readable level ("blocker", "warn",
+// or "info") derived from the finding's kind through the single SeverityFor
+// table in internal/model/findings.go — an unguarded model is a blocker, a dead
+// route or Model↔Schema disagreement is a warning. It lets the dashboard group
+// findings by severity and a CI gate rank them without re-deriving severity from
+// kind. A backward-compatible growth: the key is inserted after "kind", every
+// existing finding gains it, and consumers that ignore it are unaffected.
+const CurrentSchemaVersion = "1.8.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

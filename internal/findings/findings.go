@@ -69,14 +69,17 @@ func countUnguarded(models []model.Model) int {
 
 // newFinding builds a Finding for a category, pluralizing the singular noun on
 // count (so "1 dead route" but "2 dead routes"), matching the browser verdict's
-// labels exactly. View is always the findings view so the itemized entry stays
-// clickable in the dashboard.
+// labels exactly. Severity is derived from the kind through the single
+// model.SeverityFor table — never a literal here, so the mapping lives in one
+// place. View is always the findings view so the itemized entry stays clickable
+// in the dashboard.
 func newFinding(kind string, count int, noun string) model.Finding {
 	return model.Finding{
-		Kind:  kind,
-		Count: count,
-		Label: fmt.Sprintf("%d %s", count, pluralize(noun, count)),
-		View:  "findings",
+		Kind:     kind,
+		Severity: model.SeverityFor(kind),
+		Count:    count,
+		Label:    fmt.Sprintf("%d %s", count, pluralize(noun, count)),
+		View:     "findings",
 	}
 }
 

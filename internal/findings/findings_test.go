@@ -58,7 +58,7 @@ func TestVerdictItemizesEachCategory(t *testing.T) {
 				return model.New("a", "11.x").AddDeadRoute(deadRoute())
 			},
 			want: []model.Finding{
-				{Kind: model.FindingDeadRoutes, Count: 1, Label: "1 dead route", View: "findings"},
+				{Kind: model.FindingDeadRoutes, Severity: model.SeverityWarn, Count: 1, Label: "1 dead route", View: "findings"},
 			},
 		},
 		{
@@ -67,7 +67,7 @@ func TestVerdictItemizesEachCategory(t *testing.T) {
 				return model.New("a", "11.x").AddDeadRoute(deadRoute()).AddDeadRoute(deadRoute())
 			},
 			want: []model.Finding{
-				{Kind: model.FindingDeadRoutes, Count: 2, Label: "2 dead routes", View: "findings"},
+				{Kind: model.FindingDeadRoutes, Severity: model.SeverityWarn, Count: 2, Label: "2 dead routes", View: "findings"},
 			},
 		},
 		{
@@ -76,7 +76,7 @@ func TestVerdictItemizesEachCategory(t *testing.T) {
 				return model.New("a", "11.x").AddDisagreement(disagreement())
 			},
 			want: []model.Finding{
-				{Kind: model.FindingDisagreements, Count: 1, Label: "1 disagreement", View: "findings"},
+				{Kind: model.FindingDisagreements, Severity: model.SeverityWarn, Count: 1, Label: "1 disagreement", View: "findings"},
 			},
 		},
 		{
@@ -88,7 +88,7 @@ func TestVerdictItemizesEachCategory(t *testing.T) {
 					AddDisagreement(disagreement())
 			},
 			want: []model.Finding{
-				{Kind: model.FindingDisagreements, Count: 3, Label: "3 disagreements", View: "findings"},
+				{Kind: model.FindingDisagreements, Severity: model.SeverityWarn, Count: 3, Label: "3 disagreements", View: "findings"},
 			},
 		},
 		{
@@ -97,7 +97,7 @@ func TestVerdictItemizesEachCategory(t *testing.T) {
 				return model.New("a", "11.x").AddModel(unguardedModel("Post"))
 			},
 			want: []model.Finding{
-				{Kind: model.FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"},
+				{Kind: model.FindingUnguarded, Severity: model.SeverityBlocker, Count: 1, Label: "1 unguarded model", View: "findings"},
 			},
 		},
 		{
@@ -108,7 +108,7 @@ func TestVerdictItemizesEachCategory(t *testing.T) {
 					AddModel(unguardedModel("User"))
 			},
 			want: []model.Finding{
-				{Kind: model.FindingUnguarded, Count: 2, Label: "2 unguarded models", View: "findings"},
+				{Kind: model.FindingUnguarded, Severity: model.SeverityBlocker, Count: 2, Label: "2 unguarded models", View: "findings"},
 			},
 		},
 	}
@@ -133,7 +133,7 @@ func TestVerdictUnguardedIgnoresGuardedByOmission(t *testing.T) {
 	got := Verdict(pm)
 
 	want := []model.Finding{
-		{Kind: model.FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"},
+		{Kind: model.FindingUnguarded, Severity: model.SeverityBlocker, Count: 1, Label: "1 unguarded model", View: "findings"},
 	}
 	assertFindings(t, got, want)
 }
@@ -151,9 +151,9 @@ func TestVerdictPreservesFixedCategoryOrder(t *testing.T) {
 	got := Verdict(pm)
 
 	want := []model.Finding{
-		{Kind: model.FindingDeadRoutes, Count: 1, Label: "1 dead route", View: "findings"},
-		{Kind: model.FindingDisagreements, Count: 1, Label: "1 disagreement", View: "findings"},
-		{Kind: model.FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"},
+		{Kind: model.FindingDeadRoutes, Severity: model.SeverityWarn, Count: 1, Label: "1 dead route", View: "findings"},
+		{Kind: model.FindingDisagreements, Severity: model.SeverityWarn, Count: 1, Label: "1 disagreement", View: "findings"},
+		{Kind: model.FindingUnguarded, Severity: model.SeverityBlocker, Count: 1, Label: "1 unguarded model", View: "findings"},
 	}
 	assertFindings(t, got, want)
 }

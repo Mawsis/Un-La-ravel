@@ -70,6 +70,33 @@ func TestReskin_UppercaseOnlyOnTrueHeadings(t *testing.T) {
 	}
 }
 
+// TestReskin_EREdgesCarryThreadRoles pins the diagram's edge styling to the
+// thread-role tokens: resolved edges read in the --resolved cyan, and the
+// er-edge-unresolved class (set from issue #36's EREdge flag) reads in the
+// --unresolved red, so a relationship the tool had to repair is visibly
+// distinct from one it resolved cleanly.
+func TestReskin_EREdgesCarryThreadRoles(t *testing.T) {
+	css := fetchAsset(t, "/css/components.css")
+
+	var resolvedCyan, unresolvedRed bool
+	for _, block := range strings.Split(css, "}") {
+		sel := block[:strings.LastIndex(block+"{", "{")]
+		if strings.Contains(sel, ".er-edge-unresolved") {
+			unresolvedRed = strings.Contains(block, "var(--unresolved)")
+			continue
+		}
+		if strings.Contains(sel, ".er-edge") && !strings.Contains(sel, "-eloquent") && !strings.Contains(sel, "-schema") {
+			resolvedCyan = strings.Contains(block, "stroke: var(--resolved)")
+		}
+	}
+	if !resolvedCyan {
+		t.Error("components.css: .er-edge does not stroke in var(--resolved) — resolved edges must carry the cyan thread role")
+	}
+	if !unresolvedRed {
+		t.Error("components.css: missing .er-edge-unresolved stroking in var(--unresolved) — repaired edges must be visibly distinct")
+	}
+}
+
 // TestReskin_HeroCopyNoEmDash pins the copy fix: the hero value prop is the
 // tool's most-read sentence, and an em dash there reads as machine-generated
 // (PRD anti-reference checklist). Plain punctuation only.

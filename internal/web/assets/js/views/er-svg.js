@@ -69,9 +69,14 @@ function edgeLine(placed, contract) {
   const startAttr = from ? ` marker-start="url(#er-marker-${markerName(from)})"` : "";
   const endAttr = to ? ` marker-end="url(#er-marker-${markerName(to)})"` : "";
   const kindClass = edgeKindClass(contract ? contract.label : "");
+  // Resolution styling (issue #38): an edge the reconciliation pass (issue
+  // #36) had to repair carries unresolved: true and renders in the
+  // unresolved red; absent the flag — including models that predate it — the
+  // edge is resolved and renders cyan.
+  const unresolvedClass = contract && contract.unresolved ? " er-edge-unresolved" : "";
 
   return (
-    `<polyline class="er-edge ${kindClass}" points="${pts}" fill="none"` +
+    `<polyline class="er-edge ${kindClass}${unresolvedClass}" points="${pts}" fill="none"` +
     `${startAttr}${endAttr}/>`
   );
 }

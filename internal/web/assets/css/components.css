@@ -303,15 +303,20 @@
 .er-badge-uk {
   fill: var(--warn);
 }
-/* Relationship edges. Schema foreign keys read solid; Eloquent associations
-   read dashed, so both are shown and stay distinguishable. */
+/* Relationship edges carry the thread roles (issue #38): a resolved edge is
+   the --resolved cyan (schema FK solid, Eloquent relation dashed, both kept
+   and distinguishable by dash); an edge the reconciliation pass had to
+   repair (issue #36's unresolved flag) is the --unresolved red — the one
+   place in the working views a repaired relationship is visibly distinct. */
 .er-edge {
-  stroke: var(--text-dim);
+  stroke: var(--resolved);
   stroke-width: 1.5;
 }
 .er-edge-eloquent {
-  stroke: var(--resolved);
   stroke-dasharray: 5 4;
+}
+.er-edge-unresolved {
+  stroke: var(--unresolved);
 }
 /* Crow's-foot markers inherit the edge color via currentColor-style fill so
    they match the line they terminate. */

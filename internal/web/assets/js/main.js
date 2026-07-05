@@ -34,6 +34,7 @@ import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
 import { renderSidebarHealth } from "./sidebar.js";
 import { resettleThreadMark } from "./thread-mark.js";
+import { prepareOverviewWow, maybePlayOverviewWow } from "./views/overview-wow.js";
 import { renderSwagger } from "./views/swagger.js";
 import { renderRecents } from "./views/recents.js";
 import { samplePathFrom } from "./views/hero.js";
@@ -139,6 +140,9 @@ function renderCurrentView() {
     renderOverview(model);
     renderSidebarHealth(model);
     resettleThreadMark(); // signature gesture: once per analysis, never per navigation
+    // The wow moment is also once per analysis; if Overview isn't the active
+    // view right now it holds until the first visit (see overview-wow.js).
+    prepareOverviewWow(model);
     renderER(result.er, table);
     lastFocusedTable = table;
     renderFindings(model.disagreements || [], model.dead_routes || [], params);
@@ -191,6 +195,8 @@ function activateView(name) {
     if (active) a.setAttribute("aria-current", "page");
   });
   $$(".panel").forEach((p) => p.classList.toggle("active", p.dataset.panel === name));
+
+  if (name === "overview") maybePlayOverviewWow(); // release a held take
 
   const heading = document.querySelector(".panel.active h2");
   if (heading) {

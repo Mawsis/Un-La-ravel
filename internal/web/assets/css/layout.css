@@ -27,7 +27,18 @@
   gap: 2px;
   padding: 0 var(--space-2);
 }
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.brand-mark {
+  width: 36px;
+  height: auto;
+  flex: none;
+}
 .brand h1 {
+  font-family: var(--display);
   font-size: var(--text-lg);
   margin: 0;
   letter-spacing: -0.02em;
@@ -101,28 +112,20 @@
     color var(--motion-fast) var(--motion-ease),
     background-color var(--motion-fast) var(--motion-ease);
 }
-/* Every link reserves the marker slot (transparent at rest) so the label
-   doesn't shift when a link becomes active. */
-.nav-views a::before {
-  content: "";
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: transparent;
-}
 .nav-views a:hover {
   color: var(--text);
   background: var(--surface-raised);
 }
-/* Active nav is a leading filled marker in the resolved cyan (issue #38) —
-   an interactive-state moment, never a colored left border. */
+/* Active nav is a tinted fill plus full-strength label, nothing else (issue
+   #44). The previous leading-marker pseudo-element rendered as a cyan sliver
+   pinned to the item's left edge — perceptually the banned side-stripe
+   (anti-ref #2) — so the marker device is gone, not patched. Selection reads
+   by contrast and weight, which also keeps the thread colors out of nav
+   state (anti-ref #6). */
 .nav-views a[aria-current="page"] {
   color: var(--text);
   background: var(--surface-raised);
-}
-.nav-views a[aria-current="page"]::before {
-  background: var(--resolved);
+  font-weight: 600;
 }
 .nav-views .badge {
   margin-left: auto;
@@ -131,10 +134,17 @@
   border-radius: 20px;
   padding: 1px 8px;
   font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
 }
 .nav-views a[aria-current="page"] .badge {
-  background: var(--resolved);
-  color: var(--on-accent);
+  background: var(--border);
+  color: var(--text);
+}
+/* Before the first analysis every count is zero — a column of zeros is
+   noise, not information. The badges appear when there is something to
+   count (main.js removes .first-run on the first successful analysis). */
+.shell:has(.first-run) .nav-views .badge {
+  display: none;
 }
 .nav-views .badge.danger {
   background: var(--danger);
@@ -156,23 +166,43 @@
   margin-bottom: var(--space-2);
 }
 
-/* First-run (issue #29): there is exactly one path form, and until the first
-   successful analysis it is the hero's primary action — centered under the
-   wordmark/value prop, with the intro extras (sample button, recents)
-   centered beneath it. main.js removes .first-run on success and the same
-   form settles into the compact header bar above. */
-.first-run .content-header {
-  justify-content: center;
+/* First-run (issue #29, recomposed in #44): an asymmetric workbench, not a
+   centered stack. The tool's voice, the path form (the primary action), and
+   the intro extras hold a left column capped at a comfortable measure; the
+   mark anchors the right column at hero scale. main.js removes .first-run on
+   success and the same form settles into the compact header bar above. */
+.first-run {
+  padding-top: var(--space-10);
+}
+.first-run .hero {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(240px, 5fr);
+  column-gap: var(--space-8);
+  align-items: center;
+  margin-bottom: var(--space-6);
+}
+.first-run .hero-logo {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+.first-run .hero-copy {
+  grid-column: 1;
+  grid-row: 1;
+}
+.first-run .content-header,
+.first-run #intro {
+  max-width: 620px;
 }
 .first-run .content-header .path-form {
-  max-width: 640px;
+  max-width: none;
 }
 .first-run #intro {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-5);
-  margin-top: var(--space-4);
+  margin-top: var(--space-5);
 }
 .content-header .path-form {
   display: flex;
@@ -259,5 +289,21 @@
   }
   .content {
     padding: var(--space-4);
+  }
+  /* Narrow screens stack the workbench: mark first at a modest size, copy
+     and form flowing beneath, all left-aligned. */
+  .first-run .hero {
+    grid-template-columns: 1fr;
+    row-gap: var(--space-4);
+  }
+  .first-run .hero-logo {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+    width: min(200px, 55%);
+  }
+  .first-run .hero-copy {
+    grid-column: 1;
+    grid-row: 2;
   }
 }

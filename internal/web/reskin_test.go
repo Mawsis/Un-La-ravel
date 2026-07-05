@@ -70,6 +70,23 @@ func TestReskin_UppercaseOnlyOnTrueHeadings(t *testing.T) {
 	}
 }
 
+// TestReskin_StatStripQuietByDesign removes the dimmed-numbers CSS apology:
+// the Overview verdict must win over the inventory strip by the stat numbers'
+// SIZE (a step below the old --text-xl), not by a `.cards .card .n` override
+// dimming them after the fact.
+func TestReskin_StatStripQuietByDesign(t *testing.T) {
+	css := fetchAsset(t, "/css/components.css")
+	if strings.Contains(css, ".cards .card .n") {
+		t.Error("components.css still carries the .cards .card .n dimmed-numbers override — the stat strip must be quiet by size and placement, not a CSS apology")
+	}
+	for _, block := range strings.Split(css, "}") {
+		sel := block[:strings.LastIndex(block+"{", "{")]
+		if strings.TrimSpace(sel) == ".card .n" && strings.Contains(block, "var(--text-xl)") {
+			t.Error("components.css .card .n still sits at --text-xl — the stat number must step down so the verdict out-scales it by design")
+		}
+	}
+}
+
 // TestReskin_FaceSplitInFindings pins the human/machine face split (DESIGN.md
 // §2) where it was inverted: a finding's SUBJECT (a route URI, a
 // Model::relation) is a project identifier, so it renders in the mono face;

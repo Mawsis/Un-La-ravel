@@ -150,8 +150,11 @@
   padding: var(--space-3) var(--space-4);
   min-width: 120px;
 }
+/* Stat numbers sit one step below the section-heading size on purpose
+   (issue #38): the Overview verdict out-scales the inventory strip by
+   design, so no downstream rule needs to dim these numbers to demote them. */
 .card .n {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -197,12 +200,6 @@
 .entity-chip.verdict-link:hover {
   color: var(--danger);
   border-bottom-color: currentColor;
-}
-
-/* The inventory grid is demoted below the verdict: quieter than the verdict,
-   still scannable. */
-.cards .card .n {
-  color: var(--text-dim);
 }
 
 .er-hint {

@@ -79,9 +79,15 @@ func TestER_SettleModuleServed(t *testing.T) {
 // alone is a partial guarantee; the acceptance criterion wants the animation to
 // not play under reduced motion at all.
 func TestER_SettleRespectsReducedMotion(t *testing.T) {
+	// The media-query read moved to the shared motion.js when issue #39
+	// promoted the settle app-wide — er.js consults it through that module.
 	erjs := fetchAsset(t, "/js/views/er.js")
-	if !strings.Contains(erjs, "prefers-reduced-motion") {
-		t.Error("er.js never checks prefers-reduced-motion — the settle would play regardless of the user's motion preference")
+	if !strings.Contains(erjs, "prefersReducedMotion") {
+		t.Error("er.js never checks prefersReducedMotion — the settle would play regardless of the user's motion preference")
+	}
+	motionjs := fetchAsset(t, "/js/motion.js")
+	if !strings.Contains(motionjs, "prefers-reduced-motion") {
+		t.Error("motion.js does not read the prefers-reduced-motion media query — every JS settle guard is broken")
 	}
 
 	// The settle is timed by the --motion-settle token (single source of truth),

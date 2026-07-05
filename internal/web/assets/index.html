@@ -24,6 +24,17 @@
         <!-- Persistent health chip (issue #23): empty until the first analysis,
              then "✓ clean" or "⚠ N issues" — filled by renderSidebarHealth. -->
         <span class="health-chip" id="health-chip" hidden></span>
+        <!-- Persistent thread-mark (issue #39): the settle's signature in
+             miniature. Steady state is the resolved cyan thread; thread-mark.js
+             replays tangled-red → resolved-cyan once per new analysis. Purely
+             identity motion — the health chip above carries the words. -->
+        <svg class="thread-mark" id="thread-mark" viewBox="0 0 72 14" aria-hidden="true">
+          <path class="tm-thread-tangled" d="M2 7 C 9 1, 13 13, 20 7 S 31 1, 38 8 S 52 13, 58 7" />
+          <g class="tm-thread-resolved">
+            <path d="M2 7 C 20 7, 40 7, 58 7" />
+            <circle cx="65" cy="7" r="3" />
+          </g>
+        </svg>
       </div>
 
       <div class="nav-views">

@@ -13,6 +13,8 @@
 import { $ } from "../dom.js";
 import { buildElkGraph } from "./er-graph.js";
 import { renderSvg } from "./er-svg.js";
+import { diagramCenter, settleOffset } from "./er-settle.js";
+import { downloadSvg, downloadPng } from "./er-export.js";
 
 // ELK layout options: a layered (Sugiyama) left-to-right graph, which reads as
 // "parents on the left, dependents to the right" — the natural direction for
@@ -32,6 +34,12 @@ const elk = window.ELK ? new window.ELK() : null;
 let panZoom = null;
 let currentSvg = null; // the mounted <svg>, so focusTable can run after renderER
 
+// The settle animation is the signature moment of an analysis resolving, so it
+// plays once per page session — on the FIRST diagram to mount — not on every
+// re-render, focus deep-link, or view switch (issue #30: "plays once, on
+// analysis completion"). This module-level gate survives across renderER calls.
+let settlePlayed = false;
+
 // renderGeneration guards two overlapping renderER calls: ELK layout is async,
 // so if a second render starts before the first resolves, the first must be
 // discarded rather than mounted (which would leak the winner's pan-zoom
@@ -49,6 +57,7 @@ export async function renderER(graph, focusName) {
   const container = $("#er-diagram");
   if (!container) return;
 
+  wireExportControls();
   teardown();
 
   const nodes = (graph && graph.nodes) || [];
@@ -69,7 +78,7 @@ export async function renderER(graph, focusName) {
     if (myGeneration !== renderGeneration) return;
 
     container.innerHTML = renderSvg(laidOut, graph);
-    mount(container, focusName);
+    mount(container, focusName, laidOut);
   } catch (e) {
     if (myGeneration !== renderGeneration) return;
     // Surface the failure for diagnosis (a malformed graph or an ELK
@@ -81,8 +90,9 @@ export async function renderER(graph, focusName) {
 }
 
 // mount wires svg-pan-zoom onto the freshly-drawn SVG and applies the initial
-// focus, if any. Kept separate so renderER reads as layout → mount.
-function mount(container, focusName) {
+// focus, if any. Kept separate so renderER reads as layout → mount. `laidOut`
+// is ELK's output, needed for the settle's center-of-diagram.
+function mount(container, focusName, laidOut) {
   const svgEl = container.querySelector("svg");
   if (!svgEl) return;
 
@@ -107,8 +117,126 @@ function mount(container, focusName) {
     });
   }
 
+  // Play the settle AFTER pan-zoom has fit/centered the viewport. pan-zoom's
+  // initial fit reads the SVG's bounding box; run it first, while every node
+  // still sits at its resolved transform="translate(x,y)", so it fits the
+  // RESOLVED diagram. Only then does the settle set inline transforms (the
+  // rough start) and flip them — the boxes animate within the correct viewport,
+  // rather than pan-zoom fitting to the scattered start and leaving the diagram
+  // mis-framed. pan-zoom leaves each node's own transform untouched, so the
+  // settle's inline transform composes cleanly under the viewport wrapper.
+  maybePlaySettle(svgEl, laidOut);
+
   if (focusName) focusTable(focusName);
 }
+
+// maybePlaySettle runs the one-shot settle: entity boxes ease from a rough,
+// outward-displaced start into their laid-out positions (issue #30). It plays
+// at most once per PAGE SESSION (settlePlayed) — the first mounted diagram gets
+// the signature moment; a later re-analysis in the same session deliberately
+// does NOT replay it (issue #30: "plays once"). It also only runs when the user
+// hasn't asked for reduced motion — the CSS reduced-motion guard would collapse
+// the transition anyway, but skipping the whole dance avoids a pointless reflow
+// and keeps behavior obvious. `laidOut` supplies the diagram center the boxes
+// converge on; each node's resolved translate comes from its ELK child.
+//
+// The staged nodes are captured by the rAF/cleanup closures below, NOT re-read
+// off currentSvg — so if an overlapping renderER replaces the SVG mid-settle,
+// the pending cleanup runs harmlessly against the now-detached old nodes (which
+// are then GC'd) and never touches the new SVG. The new SVG simply doesn't
+// settle, which is the intended once-per-session behavior.
+function maybePlaySettle(svgEl, laidOut) {
+  if (settlePlayed) return;
+  settlePlayed = true; // gate immediately — even if we bail below, it's "used up"
+
+  if (prefersReducedMotion()) return;
+
+  const center = diagramCenter(laidOut || {});
+  const placedById = new Map(((laidOut && laidOut.children) || []).map((c) => [c.id, c]));
+
+  const nodes = Array.from(svgEl.querySelectorAll("g.er-node"));
+  const staged = [];
+  for (const g of nodes) {
+    const placed = placedById.get(g.getAttribute("data-table"));
+    if (!placed) continue;
+    const { dx, dy } = settleOffset(placed, center);
+    // Start displaced outward and faded; arm the transition so the flip eases.
+    g.style.transform = `translate(${placed.x + dx}px, ${placed.y + dy}px)`;
+    g.style.opacity = "0";
+    g.classList.add("er-settling");
+    staged.push({ g, placed });
+  }
+  if (staged.length === 0) return;
+
+  // Next frame: flip to resolved positions so the armed transition animates the
+  // change. rAF (not a synchronous write) is what gives the browser a start
+  // frame to interpolate from.
+  requestAnimationFrame(() => {
+    for (const { g, placed } of staged) {
+      g.style.transform = `translate(${placed.x}px, ${placed.y}px)`;
+      g.style.opacity = "1";
+    }
+    // After the settle, drop the inline overrides so nothing lingers to fight
+    // pan-zoom or a later focus. Listening for the transform transition's end
+    // is exact; a duration-matched fallback covers a browser that drops the
+    // event (e.g. tab backgrounded mid-transition).
+    const cleanup = () => {
+      for (const { g } of staged) {
+        g.classList.remove("er-settling");
+        g.style.transform = "";
+        g.style.opacity = "";
+      }
+    };
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+    };
+    staged[0].g.addEventListener("transitionend", once, { once: true });
+    setTimeout(once, SETTLE_CLEANUP_MS);
+  });
+}
+
+// exportControlsWired ensures the SVG/PNG export buttons are bound exactly once
+// — renderER can run many times per session, but the buttons live in the static
+// shell, so re-binding on every render would stack duplicate handlers.
+let exportControlsWired = false;
+
+// wireExportControls binds the SVG/PNG export buttons to the current diagram.
+// The handlers read `currentSvg` live, so they always export whatever is mounted
+// now — no stale reference across re-analyses. A no-op if the buttons aren't in
+// the DOM (e.g. a trimmed shell) or after the first successful wiring.
+function wireExportControls() {
+  if (exportControlsWired) return;
+  const svgBtn = $("#er-export-svg");
+  const pngBtn = $("#er-export-png");
+  if (!svgBtn || !pngBtn) return;
+
+  svgBtn.addEventListener("click", () => {
+    if (currentSvg) downloadSvg(currentSvg);
+  });
+  pngBtn.addEventListener("click", () => {
+    if (currentSvg) downloadPng(currentSvg);
+  });
+  exportControlsWired = true;
+}
+
+// prefersReducedMotion reflects the OS/browser "reduce motion" setting. Guarded
+// so a non-browser context (or a browser without matchMedia) simply reports
+// false rather than throwing.
+function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+// SETTLE_CLEANUP_MS is the fallback timer that tears down the settle's inline
+// state if transitionend never fires. Comfortably longer than --motion-settle
+// (620ms) so it only ever acts as a safety net.
+const SETTLE_CLEANUP_MS = 1200;
 
 // teardown destroys the previous pan-zoom instance before its SVG is replaced,
 // so its listeners don't leak across analyses.

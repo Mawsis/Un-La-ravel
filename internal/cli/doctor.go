@@ -3,12 +3,15 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/Mawsis/Un-La-ravel/internal/baseline"
 	"github.com/Mawsis/Un-La-ravel/internal/engine"
+	"github.com/Mawsis/Un-La-ravel/internal/findings"
 	"github.com/Mawsis/Un-La-ravel/internal/model"
 )
 
@@ -48,7 +51,13 @@ prints a single line and exits zero.
 
 Use --fail-on <severity> to gate on severity: only findings at or above the given
 level (blocker > warn > info) fail the gate; less-severe findings still print but
-do not fail. Omitting --fail-on preserves the default: any finding fails.`,
+do not fail. Omitting --fail-on preserves the default: any finding fails.
+
+Use --baseline <file> to suppress already-known findings recorded in a committed
+baseline file: baselined findings are excluded from the exit-code decision but
+still reported, so a legacy project can adopt the gate without fixing its history
+first. Baseline entries that no longer match any current finding are reported as
+stale (they do not fail the gate) so the baseline can be pruned.`,
 		Args: cobra.MaximumNArgs(1),
 		// Silence Cobra's own error/usage echo: the printed verdict is the user
 		// message, and the sentinel errFindings exists only to set the exit code.
@@ -60,6 +69,10 @@ do not fail. Omitting --fail-on preserves the default: any finding fails.`,
 	// fails. A non-empty value is validated in runDoctor against the model's
 	// severities so a typo fails loudly rather than silently passing the gate.
 	cmd.Flags().String("fail-on", "", "fail only on findings at or above this severity (blocker|warn|info); default fails on any finding")
+	// --baseline suppresses findings recorded in a committed baseline file from
+	// the exit-code decision (still reporting them), so a legacy project can adopt
+	// the gate without fixing history first. Empty (unset) means no suppression.
+	cmd.Flags().String("baseline", "", "suppress findings recorded in this baseline file from the exit-code decision")
 	return cmd
 }
 
@@ -98,6 +111,21 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Load the baseline before analysis so a bad path fails fast, before the
+	// expensive analyze. A missing or unparseable baseline is a hard error: left
+	// to silently disable suppression, it would fail CI on findings the user
+	// believed were suppressed — the opposite of what --baseline asks for.
+	baselinePath, _ := cmd.Flags().GetString("baseline")
+	var base *baseline.Baseline
+	var err error
+	if baselinePath != "" {
+		base, err = loadBaseline(baselinePath)
+		if err != nil {
+			color.New(color.FgRed).Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
+			return err
+		}
+	}
+
 	color.New(color.FgCyan).Fprintf(cmd.OutOrStdout(), "🩺 Diagnosing Laravel project: %s\n\n", projectPath)
 
 	pm, err := engine.Analyze(projectPath)
@@ -110,7 +138,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	out, clean := doctorReport(pm, failOn)
+	out, clean := doctorReport(pm, failOn, base)
 	fmt.Fprint(cmd.OutOrStdout(), out)
 
 	if !clean {
@@ -119,11 +147,28 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// loadBaseline reads and parses a committed baseline file, wrapping both the read
+// error and the parse error with "baseline" context so the failure names the
+// feature the user invoked. A read failure (missing/unreadable file) and a parse
+// failure (bad JSON or unsupported version) are both surfaced — never swallowed
+// into a silent no-op suppression.
+func loadBaseline(path string) (*baseline.Baseline, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read baseline %q: %w", path, err)
+	}
+	base, err := baseline.Parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("load baseline %q: %w", path, err)
+	}
+	return base, nil
+}
+
 // doctorReport renders the itemized health verdict for pm and reports whether the
-// gate passes. It is a pure function of the model's Findings and the failOn
-// threshold — no I/O, no color state — so it is unit-testable and can't drift from
-// what the command prints. It returns the human-readable report and clean == true
-// iff the gate passes.
+// gate passes. It is a pure function of the model's Findings, the failOn
+// threshold, and an optional baseline — no I/O, no color state — so it is
+// unit-testable and can't drift from what the command prints. It returns the
+// human-readable report and clean == true iff the gate passes.
 //
 // failOn is the --fail-on threshold (issue #48), one of the model.Severity*
 // values, or "" for the default. With "" the gate fails on ANY finding, exactly
@@ -132,20 +177,42 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 // but the gate passes, with a line naming the threshold so a green CI log explains
 // itself.
 //
+// base is the --baseline suppression set (issue #49), or nil for none. When set,
+// findings whose per-item fingerprint is in the baseline are excluded from the
+// gate decision and listed under a "suppressed" heading (the debt stays visible);
+// baseline entries matching no current finding are listed as "stale" so the file
+// can be pruned. Suppression composes with failOn: the gate fails only on a
+// SURVIVING finding at or above the threshold.
+//
 // The report mirrors the reassuring/warning split of reportDisagreements and
-// reportDeadRoutes: a single "no issues" line when there are no findings,
+// reportDeadRoutes: a single "no issues" line when there are no gating findings,
 // otherwise a header and one line per finding using the finding's own pluralized
 // Label, in the fixed emit order the model carries.
-func doctorReport(pm *model.ProjectModel, failOn string) (string, bool) {
-	if len(pm.Findings) == 0 {
+func doctorReport(pm *model.ProjectModel, failOn string, base *baseline.Baseline) (string, bool) {
+	// Split the per-item findings against the baseline. With no baseline, every
+	// item survives and nothing is suppressed or stale, so the branch below
+	// reduces to the original rollup-based report.
+	var suppressed []findings.Item
+	var stale []string
+	survivorFindings := pm.Findings
+	if base != nil {
+		var survivors []findings.Item
+		survivors, suppressed, stale = baseline.Subtract(findings.Items(pm), base)
+		// Rebuild the category rollups from only the survivors, so the gate AND the
+		// itemized counts reflect what the baseline did NOT suppress — a category
+		// with one of two items suppressed reports "1", not the pre-suppression "2".
+		survivorFindings = findings.Rollup(survivors)
+	}
+
+	// Nothing gates and nothing to report about the baseline → the healthy line.
+	if len(survivorFindings) == 0 && len(suppressed) == 0 && len(stale) == 0 {
 		return color.New(color.FgGreen).Sprintln("✅ No issues found. This project is healthy."), true
 	}
 
-	// A finding fails the gate when no threshold is set (default: any finding) or
-	// when its severity is at or above the threshold. Below-threshold findings
-	// still print — the gate passing does not hide them.
+	// A surviving finding fails the gate when no threshold is set (default: any
+	// finding) or when its severity is at or above the threshold.
 	gateFailed := false
-	for _, f := range pm.Findings {
+	for _, f := range survivorFindings {
 		if failOn == "" || model.SeverityAtLeast(f.Severity, failOn) {
 			gateFailed = true
 			break
@@ -153,19 +220,68 @@ func doctorReport(pm *model.ProjectModel, failOn string) (string, bool) {
 	}
 
 	var b strings.Builder
-	warn := color.New(color.FgRed)
-	warn.Fprintf(&b, "⚠️  Found %s:\n", countLabel(len(pm.Findings)))
-	for _, f := range pm.Findings {
-		warn.Fprintf(&b, "  • %s\n", f.Label)
+	if len(survivorFindings) > 0 {
+		warn := color.New(color.FgRed)
+		warn.Fprintf(&b, "⚠️  Found %s:\n", countLabel(len(survivorFindings)))
+		for _, f := range survivorFindings {
+			warn.Fprintf(&b, "  • %s\n", f.Label)
+		}
+	} else if base != nil {
+		color.New(color.FgGreen).Fprintf(&b, "✅ No un-baselined findings.\n")
 	}
 
-	if !gateFailed {
-		// Findings exist but all fall below the threshold — say so, so a passing
-		// CI run explains why it did not fail despite the itemized findings above.
+	writeSuppressed(&b, suppressed)
+	writeStale(&b, stale)
+
+	if !gateFailed && len(survivorFindings) > 0 {
+		// Surviving findings exist but all fall below the threshold — say so, so a
+		// passing CI run explains why it did not fail despite the itemized findings.
 		color.New(color.FgGreen).Fprintf(&b, "✅ No findings at or above %q — gate passes.\n", failOn)
 	}
 
 	return b.String(), !gateFailed
+}
+
+// writeSuppressed lists the findings the baseline suppressed, so the debt stays
+// visible even though it does not gate. No-op when nothing was suppressed.
+func writeSuppressed(b *strings.Builder, suppressed []findings.Item) {
+	if len(suppressed) == 0 {
+		return
+	}
+	dim := color.New(color.FgHiBlack)
+	dim.Fprintf(b, "🔕 Suppressed by baseline (%d):\n", len(suppressed))
+	for _, it := range suppressed {
+		dim.Fprintf(b, "  • %s\n", itemLabel(it))
+	}
+}
+
+// writeStale lists baseline entries that matched no current finding, prompting a
+// prune. Stale entries do not gate. No-op when there are none.
+func writeStale(b *strings.Builder, stale []string) {
+	if len(stale) == 0 {
+		return
+	}
+	note := color.New(color.FgYellow)
+	note.Fprintf(b, "🧹 Stale baseline entries (%d) — no longer match any finding, consider pruning:\n", len(stale))
+	for _, fp := range stale {
+		note.Fprintf(b, "  • %s\n", fp)
+	}
+}
+
+// itemLabel renders a per-item finding as a short human-readable identifier for
+// the suppressed list, keyed by kind so each reads naturally (a dead route by its
+// method+URI, an unguarded model by its class, a disagreement by model+relation).
+func itemLabel(it findings.Item) string {
+	switch it.Kind {
+	case model.FindingDeadRoutes:
+		return fmt.Sprintf("dead route %s %s → %s", it.Method, it.URI, it.Controller)
+	case model.FindingUnguarded:
+		return fmt.Sprintf("unguarded model %s", it.Class)
+	case model.FindingDisagreements:
+		return fmt.Sprintf("disagreement %s.%s", it.Model, it.Relationship)
+	default:
+		return it.Kind
+	}
 }
 
 // countLabel pluralizes the finding-category count for the verdict header, so it

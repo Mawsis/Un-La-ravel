@@ -72,6 +72,24 @@ _Avoid_: filter, interceptor
 A validation class in `app/Http/Requests` whose `rules()` array defines the accepted request body for a **Route**. Source of OpenAPI request-body schemas.
 _Avoid_: validator, request (too generic)
 
+### The health gate (doctor)
+
+**Finding**:
+A single itemized problem in the **Project Model** — a **Dead Route**, a **Disagreement**, or an unguarded **Model**. The *category rollup* (`model.Finding`: kind + count + label) is what the dashboard verdict and `doctor` print; the *per-item* form (`findings.Item`, in-memory only, never serialized to `unlaravel.json`) is what the **Baseline** fingerprints.
+_Avoid_: error, warning (a Finding is reported, never failed-on except via the gate); issue (too generic).
+
+**Fingerprint**:
+A stable, content-derived string identifying one per-item **Finding**, positional-independent: a **Dead Route** by method + URI + controller, an unguarded **Model** by class name, a **Disagreement** by model + relationship. It reads a finding's *identity*, never its slice position or source line, so a refactor that reorders or moves code does not change it.
+_Avoid_: hash (implies opacity/collision concern), id (implies assigned, not derived).
+
+**Baseline**:
+A committed set of **Fingerprints** a project has chosen not to gate CI on — the findings it already knows about. Stored as versioned JSON with sorted entries (byte-deterministic). Lets a legacy project adopt the `doctor` gate without fixing history first: the gate then fires only on *new* findings. See [[ADR 0008 - Findings model and doctor]].
+_Avoid_: allowlist, ignore-file (a Baseline suppresses from the *gate*, not from the *report* — the debt stays visible).
+
+**Suppressed** / **Stale**:
+A **Finding** is **Suppressed** when its **Fingerprint** is in the **Baseline**: excluded from the exit-code decision but still reported. A **Baseline** entry is **Stale** when it matches no current **Finding** (the finding was fixed): reported so the **Baseline** can be pruned, never silently dropped.
+_Avoid_: ignored, hidden (Suppressed findings are still printed); obsolete (Stale is the term for a no-longer-matching entry).
+
 ### Things we deliberately do NOT model (yet)
 
 **Resource** _(deferred — roadmap)_:
@@ -90,6 +108,7 @@ A suspected performance problem (N+1, missing eager-load). Deferred — static d
 - A **Model** relates to other **Models** via **Relationships** (`hasMany`, `hasOne`, `belongsTo`, `belongsToMany`)
 - A **Relationship** that references a table or foreign-key column the **Schema** lacks produces a **Disagreement** finding
 - A **Route** whose **Controller**/**Action** edge cannot be resolved against the declared **Controller** classes produces a **Dead Route** finding
+- A **Finding** reduces to a **Fingerprint**; a **Baseline** is a set of **Fingerprints** that **Suppresses** matching **Findings** from the `doctor` gate while still reporting them
 
 ## Example dialogue
 

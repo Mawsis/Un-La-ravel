@@ -15,7 +15,7 @@ import (
 func TestDoctorReportCleanProject(t *testing.T) {
 	pm := model.New("blog", "11.x") // no findings added
 
-	out, clean := doctorReport(pm, "")
+	out, clean := doctorReport(pm, "", nil)
 
 	if !clean {
 		t.Errorf("doctorReport() clean = false on a project with no findings, want true")
@@ -33,7 +33,7 @@ func TestDoctorReportItemizesFindings(t *testing.T) {
 		AddFinding(model.Finding{Kind: model.FindingDeadRoutes, Count: 2, Label: "2 dead routes", View: "findings"}).
 		AddFinding(model.Finding{Kind: model.FindingUnguarded, Count: 1, Label: "1 unguarded model", View: "findings"})
 
-	out, clean := doctorReport(pm, "")
+	out, clean := doctorReport(pm, "", nil)
 
 	if clean {
 		t.Errorf("doctorReport() clean = true with findings present, want false")
@@ -57,7 +57,7 @@ func TestDoctorReportBelowThresholdPasses(t *testing.T) {
 	pm := model.New("blog", "11.x").
 		AddFinding(model.Finding{Kind: model.FindingDeadRoutes, Severity: model.SeverityWarn, Count: 2, Label: "2 dead routes", View: "findings"})
 
-	out, clean := doctorReport(pm, model.SeverityBlocker)
+	out, clean := doctorReport(pm, model.SeverityBlocker, nil)
 
 	if !clean {
 		t.Errorf("doctorReport(threshold=blocker) clean = false with only warn findings, want true (gate passes)")
@@ -79,7 +79,7 @@ func TestDoctorReportWarnThresholdPassesOnInfoOnly(t *testing.T) {
 	pm := model.New("blog", "11.x").
 		AddFinding(model.Finding{Kind: "some_info_kind", Severity: model.SeverityInfo, Count: 1, Label: "1 note", View: "findings"})
 
-	out, clean := doctorReport(pm, model.SeverityWarn)
+	out, clean := doctorReport(pm, model.SeverityWarn, nil)
 
 	if !clean {
 		t.Errorf("doctorReport(threshold=warn) clean = false with only an info finding, want true (gate passes on info-only)")
@@ -95,7 +95,7 @@ func TestDoctorReportWarnThresholdFailsOnWarn(t *testing.T) {
 	pm := model.New("blog", "11.x").
 		AddFinding(model.Finding{Kind: model.FindingDeadRoutes, Severity: model.SeverityWarn, Count: 1, Label: "1 dead route", View: "findings"})
 
-	_, clean := doctorReport(pm, model.SeverityWarn)
+	_, clean := doctorReport(pm, model.SeverityWarn, nil)
 
 	if clean {
 		t.Errorf("doctorReport(threshold=warn) clean = true with a warn finding, want false (gate fails at threshold)")
@@ -109,7 +109,7 @@ func TestDoctorReportAtThresholdFails(t *testing.T) {
 		AddFinding(model.Finding{Kind: model.FindingDeadRoutes, Severity: model.SeverityWarn, Count: 2, Label: "2 dead routes", View: "findings"}).
 		AddFinding(model.Finding{Kind: model.FindingUnguarded, Severity: model.SeverityBlocker, Count: 1, Label: "1 unguarded model", View: "findings"})
 
-	_, clean := doctorReport(pm, model.SeverityBlocker)
+	_, clean := doctorReport(pm, model.SeverityBlocker, nil)
 
 	if clean {
 		t.Errorf("doctorReport(threshold=blocker) clean = true with a blocker finding present, want false (gate fails)")
@@ -122,7 +122,7 @@ func TestDoctorReportDefaultThresholdFailsOnAny(t *testing.T) {
 	pm := model.New("blog", "11.x").
 		AddFinding(model.Finding{Kind: model.FindingDeadRoutes, Severity: model.SeverityWarn, Count: 1, Label: "1 dead route", View: "findings"})
 
-	_, clean := doctorReport(pm, "")
+	_, clean := doctorReport(pm, "", nil)
 
 	if clean {
 		t.Errorf("doctorReport(threshold=\"\") clean = true with a finding present, want false (default: any finding fails)")

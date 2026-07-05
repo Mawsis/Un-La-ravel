@@ -42,38 +42,61 @@ func Verdict(pm *model.ProjectModel) []model.Finding {
 	findings := make([]model.Finding, 0, 3)
 
 	if n := len(pm.DeadRoutes); n > 0 {
-		findings = append(findings, newFinding(model.FindingDeadRoutes, n, "dead route"))
+		findings = append(findings, newFinding(model.FindingDeadRoutes, n))
 	}
 	if n := len(pm.Disagreements); n > 0 {
-		findings = append(findings, newFinding(model.FindingDisagreements, n, "disagreement"))
+		findings = append(findings, newFinding(model.FindingDisagreements, n))
 	}
 	if n := countUnguarded(pm.Models); n > 0 {
-		findings = append(findings, newFinding(model.FindingUnguarded, n, "unguarded model"))
+		findings = append(findings, newFinding(model.FindingUnguarded, n))
 	}
 
 	return findings
 }
 
-// countUnguarded returns the number of models that explicitly opted into
-// mass-assignment via `protected $guarded = []` — a non-nil, empty Guarded. A
-// nil Guarded is guarded-by-omission and is not counted.
+// nounByKind maps a finding kind to the singular noun its Label pluralizes ("2
+// dead routes", "1 disagreement"). It lives beside Verdict as the single source
+// of a category's human noun, so Verdict and Rollup (which rebuilds rollups from
+// survivor items) always label a category identically.
+var nounByKind = map[string]string{
+	model.FindingDeadRoutes:    "dead route",
+	model.FindingDisagreements: "disagreement",
+	model.FindingUnguarded:     "unguarded model",
+}
+
+// isUnguarded reports whether m explicitly opted into mass-assignment via
+// `protected $guarded = []` — a NON-NIL, EMPTY Guarded. A nil Guarded is
+// guarded-by-omission (the property was never written) and is NOT unguarded.
+// This load-bearing nil-vs-empty distinction is documented on model.Model; it
+// lives here as the ONE predicate so Verdict's count and Items' flattening can
+// never disagree about which models are unguarded.
+func isUnguarded(m model.Model) bool {
+	return m.Guarded != nil && len(m.Guarded) == 0
+}
+
+// countUnguarded returns the number of models that are unguarded per isUnguarded.
 func countUnguarded(models []model.Model) int {
 	count := 0
 	for _, m := range models {
-		if m.Guarded != nil && len(m.Guarded) == 0 {
+		if isUnguarded(m) {
 			count++
 		}
 	}
 	return count
 }
 
-// newFinding builds a Finding for a category, pluralizing the singular noun on
-// count (so "1 dead route" but "2 dead routes"), matching the browser verdict's
-// labels exactly. Severity is derived from the kind through the single
-// model.SeverityFor table — never a literal here, so the mapping lives in one
-// place. View is always the findings view so the itemized entry stays clickable
-// in the dashboard.
-func newFinding(kind string, count int, noun string) model.Finding {
+// newFinding builds a Finding for a category, pluralizing the category's noun
+// (from nounByKind) on count (so "1 dead route" but "2 dead routes"), matching
+// the browser verdict's labels exactly. Severity is derived from the kind through
+// the single model.SeverityFor table — never a literal here, so the mapping lives
+// in one place. View is always the findings view so the itemized entry stays
+// clickable in the dashboard. A kind with no registered noun falls back to the
+// kind string itself, so an unlabeled category still renders something.
+func newFinding(kind string, count int) model.Finding {
+	noun, ok := nounByKind[kind]
+	if !ok {
+		noun = kind
+	}
 	return model.Finding{
 		Kind:     kind,
 		Severity: model.SeverityFor(kind),

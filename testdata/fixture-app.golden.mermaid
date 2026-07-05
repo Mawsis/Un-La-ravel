@@ -1,8 +1,10 @@
 erDiagram
 	CATEGORIES ||--o{ POSTS : "posts (hasMany)"
+	LENS ||--o{ POSTS : "posts (hasMany)"
 	POSTS }o--|| USERS : "author (belongsTo)"
 	POSTS }o--|| CATEGORIES : "category (belongsTo)"
 	POSTS }o--|| USERS : "editor (belongsTo)"
+	POSTS }o--|| LENS : "lens (belongsTo)"
 	USERS ||--o{ POSTS : "posts (hasMany)"
 	USERS {
 		bigInteger id PK
@@ -26,6 +28,13 @@ erDiagram
 		bigInteger id PK
 		string name
 		string slug UK
+		timestamp created_at
+		timestamp updated_at
+	}
+	LENSES {
+		bigInteger id PK
+		string name
+		integer focal_length
 		timestamp created_at
 		timestamp updated_at
 	}

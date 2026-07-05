@@ -11,6 +11,9 @@ import { massAssignmentHtml } from "../assets/js/views/models.js";
 test("an unguarded model is flagged and cross-links to the unguarded finding", () => {
   // $guarded = [] — Laravel's "everything is mass-assignable" escape hatch.
   const html = massAssignmentHtml({ name: "Post", guarded: [] });
+  // Severity leads with the status dot (issue #38) — the same dot+tint
+  // language as finding rows, never a side-stripe. Decorative, so aria-hidden.
+  assert.match(html, /class="status-dot danger" aria-hidden="true"/);
   assert.match(html, /class="entity-chip danger-flag"/);
   assert.match(html, /data-view="findings"/);
   assert.match(html, /data-entity-id="unguarded"/);

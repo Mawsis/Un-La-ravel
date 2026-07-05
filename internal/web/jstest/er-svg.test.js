@@ -181,3 +181,33 @@ test("schema-FK and Eloquent edges carry distinguishing classes", () => {
   assert.match(svg, /class="er-edge er-edge-schema"/);
   assert.match(svg, /class="er-edge er-edge-eloquent"/);
 });
+
+test("an unresolved edge carries er-edge-unresolved; resolved edges never do", () => {
+  // The edge-reconciliation contract (issue #36) flags edges the tool had to
+  // repair with unresolved: true; the reskin (issue #38) styles that flag red
+  // vs the resolved cyan. Edges without the flag — including older models
+  // that predate it — must render as resolved.
+  const g = {
+    layout: {
+      width: 100,
+      height: 100,
+      children: [],
+      edges: [
+        { id: "e0", sections: [{ startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }] },
+        { id: "e1", sections: [{ startPoint: { x: 0, y: 0 }, endPoint: { x: 1, y: 1 } }] },
+      ],
+    },
+    graph: {
+      nodes: [],
+      edges: [
+        { from: "users", to: "posts", kind: "one-to-many", label: "references (author_id)" },
+        { from: "users", to: "commentz", kind: "one-to-many", label: "comments (hasMany)", unresolved: true },
+      ],
+    },
+  };
+  const svg = renderSvg(g.layout, g.graph);
+  assert.match(svg, /class="er-edge er-edge-eloquent er-edge-unresolved"/);
+  // The resolved schema edge carries no unresolved marker.
+  assert.match(svg, /class="er-edge er-edge-schema"/);
+  assert.equal((svg.match(/er-edge-unresolved/g) || []).length, 1);
+});

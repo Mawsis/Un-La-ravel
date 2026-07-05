@@ -40,6 +40,28 @@ const (
 	SeverityInfo = "info"
 )
 
+// severityRank orders the severities blocker > warn > info as a comparable
+// integer, higher meaning more severe. It is the single place the ordering is
+// encoded so a CI gate (doctor --fail-on, issue #48) can compare severities
+// without its own table. An unknown severity ranks below info, so it never
+// spuriously trips a threshold gate.
+var severityRank = map[string]int{
+	SeverityBlocker: 3,
+	SeverityWarn:    2,
+	SeverityInfo:    1,
+}
+
+// SeverityAtLeast reports whether sev is at or above threshold in the fixed
+// blocker > warn > info order, so a CI gate can ask "does this finding meet my
+// --fail-on level?" without re-deriving the ranking. An unrecognized severity
+// or threshold ranks below info and therefore never satisfies a threshold.
+func SeverityAtLeast(sev, threshold string) bool {
+	// Require both to be recognized: an unknown threshold (rank 0) would
+	// otherwise be met by every finding, silently turning a typo'd gate into
+	// "fail on anything". Callers validate the threshold, but defend here too.
+	return severityRank[threshold] > 0 && severityRank[sev] >= severityRank[threshold]
+}
+
 // severityByKind is the ONE table mapping a Finding.Kind to its severity
 // (issue #47). Per the roadmap: an unguarded model is a blocker (it silences
 // Laravel's mass-assignment guard); a dead route or a Model↔Schema disagreement

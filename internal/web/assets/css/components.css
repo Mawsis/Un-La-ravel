@@ -459,7 +459,8 @@ table.routes tr.dead {
 .entity-chip.danger-flag {
   color: var(--danger);
   font-weight: 700;
-  font-size: var(--text-2xs);
+  /* Colored text never sits at --text-2xs (DESIGN.md §2 legibility rule). */
+  font-size: var(--text-xs);
 }
 .entity-chip.danger-flag:hover {
   color: var(--danger);
@@ -530,7 +531,9 @@ table.routes tr.dead {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 20px;
-  font-size: var(--text-2xs);
+  /* 12px, not 11: the ok/warn variants color this text, and colored text
+     never sits at --text-2xs (the prior amber-at-11px legibility failure). */
+  font-size: var(--text-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -600,15 +603,18 @@ table.routes tr.dead {
   font-size: var(--text-sm);
   margin-bottom: 4px;
 }
+/* Both kinds share the size: .unique is colored, so it sits at 12px (the
+   colored-small-text floor), and .plain matches rather than pairing at
+   mismatched sizes. */
 .idx-kind.unique {
   color: var(--ok);
   font-weight: 600;
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
 }
 .idx-kind.plain {
   color: var(--text-dim);
   font-weight: 600;
-  font-size: var(--text-2xs);
+  font-size: var(--text-xs);
 }
 .idx-row .cols {
   font-family: var(--mono);

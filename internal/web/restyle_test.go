@@ -149,6 +149,39 @@ func TestConsumers_NoAdHocFontSizeLiterals(t *testing.T) {
 	}
 }
 
+// coloredTextRe matches a color declaration that sets one of the status/role
+// hues (as opposed to the neutral --text/--text-dim pair).
+var coloredTextRe = regexp.MustCompile(`color:\s*var\(--(warn|danger|ok|resolved|unresolved|brand)\b`)
+
+// TestConsumers_NoColoredTextAt2xs enforces the small-text legibility rule
+// from DESIGN.md §1–2: --text-2xs (11px) is dense metadata only — never
+// colored. The prior amber-at-11px failure came from exactly this pairing, so
+// any rule block that sets both var(--text-2xs) and a status/role text color
+// is a regression. Colored labels live at --text-xs (12px) or above.
+func TestConsumers_NoColoredTextAt2xs(t *testing.T) {
+	for _, sheet := range shellStylesheets {
+		css := fetchAsset(t, sheet)
+		for _, block := range strings.Split(css, "}") {
+			if strings.Contains(block, "var(--text-2xs)") && coloredTextRe.MatchString(block) {
+				t.Errorf("%s pairs --text-2xs with a colored text role in rule %q — colored small text must be >=12px", sheet, strings.TrimSpace(block))
+			}
+		}
+	}
+}
+
+// TestTokens_WarnLegibleOnDark pins the other half of the amber fix: --warn is
+// the lighter amber shade (DESIGN.md §1, "small colored text ... uses a
+// lighter shade on dark"), not the darker default that failed AA in context.
+func TestTokens_WarnLegibleOnDark(t *testing.T) {
+	css := fetchAsset(t, "/css/tokens.css")
+	if !containsHexFold(css, "#fbbf24") {
+		t.Error("tokens.css --warn is not the lighter on-dark amber #fbbf24")
+	}
+	if regexp.MustCompile(`--warn:\s*#f59e0b`).MatchString(strings.ToLower(css)) {
+		t.Error("tokens.css --warn still the darker #f59e0b amber")
+	}
+}
+
 // shellStylesheets are the stylesheets that make up the app shell + component
 // layer, all of which must consume the semantic tokens.
 var shellStylesheets = []string{

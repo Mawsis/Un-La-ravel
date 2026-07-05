@@ -11,7 +11,19 @@
 // renderer; here they surface as struct fields rather than string tokens.
 package er
 
-import "github.com/Mawsis/Un-La-ravel/internal/model"
+import (
+	"github.com/Mawsis/Un-La-ravel/internal/model"
+	"github.com/Mawsis/Un-La-ravel/internal/tablematch"
+)
+
+// Edge origins — which pass produced an edge. A schema edge comes from a
+// migration foreign key; an eloquent edge from a Model relationship. Carried
+// as an explicit EREdge field so the browser styles edges without sniffing
+// label text.
+const (
+	originSchema   = "schema"
+	originEloquent = "eloquent"
+)
 
 // Cardinality kinds for graph edges — the structured counterparts of the
 // Mermaid cardinality tokens. A schema foreign key is one-to-many (parent has
@@ -46,12 +58,20 @@ type ERColumn struct {
 }
 
 // EREdge is one relationship between two tables, with its cardinality kind and
-// a human-readable label. From/To are table names present among the nodes.
+// a human-readable label. From/To are table names GUARANTEED present among the
+// nodes (issue #36): an endpoint the builder could not resolve to a node is
+// reconciled or the edge is dropped, never emitted dangling. Origin says which
+// pass produced the edge ("schema" or "eloquent"). Unresolved is true when an
+// endpoint's inferred table did not exist and the edge was retargeted to its
+// unambiguous singular/plural sibling, so the renderer can style the repaired
+// edge distinctly.
 type EREdge struct {
-	From  string `json:"from"`
-	To    string `json:"to"`
-	Kind  string `json:"kind"`
-	Label string `json:"label"`
+	From       string `json:"from"`
+	To         string `json:"to"`
+	Kind       string `json:"kind"`
+	Label      string `json:"label"`
+	Origin     string `json:"origin"`
+	Unresolved bool   `json:"unresolved"`
 }
 
 // RenderGraph turns a whole Project Model into an ERGraph. A nil model renders
@@ -66,25 +86,37 @@ func RenderGraph(m *model.ProjectModel) ERGraph {
 		graph.Nodes = append(graph.Nodes, tableNode(t))
 	}
 	graph.Edges = append(graph.Edges, schemaEdges(m.Schemas)...)
-	graph.Edges = append(graph.Edges, eloquentEdges(m.Models)...)
+	graph.Edges = append(graph.Edges, eloquentEdges(m.Models, m.Schemas)...)
 
 	return graph
 }
 
-// eloquentEdges emits one edge per Eloquent association whose target Model
-// resolves to a table: From is the declaring Model's table, To the target's,
-// Kind the association's cardinality, Label "<method> (<kind>)". Associations of
-// an unrecognized kind, or whose target Model was not extracted (unknown table),
-// are dropped — mirroring how schemaEdges drops foreign keys to absent tables.
-// Edges follow Model-discovery then declaration order, de-duplicated on the full
-// edge value.
-func eloquentEdges(models []model.Model) []EREdge {
+// eloquentEdges emits one edge per Eloquent association whose endpoints both
+// resolve to schema table nodes: From is the declaring Model's table, To the
+// target's, Kind the association's cardinality, Label "<method> (<kind>)".
+// Associations of an unrecognized kind, or whose target Model was not
+// extracted (unknown table), are dropped — mirroring how schemaEdges drops
+// foreign keys to absent tables.
+//
+// An endpoint table absent from the schema is reconciled through
+// tablematch.Reconcile (issue #36): retargeted to its unambiguous
+// singular/plural sibling node and the edge marked Unresolved, or, when no
+// single sibling exists, the edge is dropped. The builder therefore never
+// emits an edge to a non-existent node — the invariant the layout engine
+// relies on. Edges follow Model-discovery then declaration order,
+// de-duplicated on the full edge value.
+func eloquentEdges(models []model.Model, tables []model.Table) []EREdge {
 	tableByModel := modelTableSet(models)
+	schemaNames := tableNames(tables)
 	seen := make(map[EREdge]struct{})
 	edges := []EREdge{}
 
 	for _, mdl := range models {
 		if mdl.Table == "" {
+			continue
+		}
+		from, fromOK := tablematch.Reconcile(mdl.Table, schemaNames)
+		if !fromOK {
 			continue
 		}
 		for _, rel := range mdl.Relationships {
@@ -96,12 +128,18 @@ func eloquentEdges(models []model.Model) []EREdge {
 			if !known || targetTable == "" {
 				continue
 			}
+			to, toOK := tablematch.Reconcile(targetTable, schemaNames)
+			if !toOK {
+				continue
+			}
 
 			edge := EREdge{
-				From:  mdl.Table,
-				To:    targetTable,
-				Kind:  kind,
-				Label: rel.Method + " (" + rel.Kind + ")",
+				From:       from,
+				To:         to,
+				Kind:       kind,
+				Label:      rel.Method + " (" + rel.Kind + ")",
+				Origin:     originEloquent,
+				Unresolved: from != mdl.Table || to != targetTable,
 			}
 			if _, dup := seen[edge]; dup {
 				continue
@@ -111,6 +149,16 @@ func eloquentEdges(models []model.Model) []EREdge {
 		}
 	}
 	return edges
+}
+
+// tableNames lists the schema tables' names in discovery order, the form
+// tablematch.Reconcile consumes.
+func tableNames(tables []model.Table) []string {
+	names := make([]string, 0, len(tables))
+	for _, t := range tables {
+		names = append(names, t.Name)
+	}
+	return names
 }
 
 // edgeCardinality maps an Eloquent relationship kind to its graph cardinality,
@@ -155,10 +203,11 @@ func schemaEdges(tables []model.Table) []EREdge {
 			}
 
 			edge := EREdge{
-				From:  parent,
-				To:    child.Name,
-				Kind:  cardOneToMany,
-				Label: fkLabel(col.Name),
+				From:   parent,
+				To:     child.Name,
+				Kind:   cardOneToMany,
+				Label:  fkLabel(col.Name),
+				Origin: originSchema,
 			}
 			if _, dup := seen[edge]; dup {
 				continue

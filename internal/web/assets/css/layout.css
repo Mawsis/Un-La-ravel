@@ -206,8 +206,11 @@
   display: none;
 }
 /* Panels toggle via display, which can't transition — the entering panel gets
-   a one-shot fade instead. Opacity only: a translate would read as decorative
-   "settle", which issue #25 excludes. */
+   a one-shot resolve-in instead. Issue #25's opacity-only restriction was
+   reversed by ADR 0010: the settle is now the app's signature gesture, so the
+   entering view resolves in from a slightly-tangled state — a small offset
+   easing to rest. Transform/opacity only, still --motion-view fast so daily
+   view switches stay calm (the loud register is Overview's alone). */
 .panel.active {
   display: block;
   animation: panel-in var(--motion-view) var(--motion-ease) 1;
@@ -215,9 +218,11 @@
 @keyframes panel-in {
   from {
     opacity: 0;
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 

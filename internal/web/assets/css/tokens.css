@@ -9,13 +9,15 @@
    Color carries the product's thread metaphor as SEMANTIC STATE ROLES, not
    decorative accents:
 
-     - --resolved   = cyan, "the tool resolved this". Owns interactive chrome
+     - --resolved   = green, "the tool resolved this". Owns interactive chrome
        (buttons, links, focus, active nav), resolved ER edges, entity-chips.
      - --unresolved = brand-adjacent red, "still tangled / mismatched".
        Unresolved ER edges, disagreements, name-mismatch flags. Never used as
        decoration — the metaphor stays meaningful because it stays scarce.
      - --brand      = Laravel's brand red (#F53003), identity only: wordmark,
        logo, the un-ravel moment.
+     - --logo-accent = the retired resolved-cyan, kept ONLY as the logo's
+       endpoint dot (identity accent). Never used in the working UI.
 
    Neutrals are authored in OKLCH with a small chroma (0.004–0.010) warmed
    toward the brand hue (~25°) — present enough to feel like *this* tool, low
@@ -25,8 +27,10 @@
 
    Danger and warning are a cooler red and amber, deliberately distinct from
    --unresolved/--brand so a real *problem* is never mistaken for the
-   metaphor's "unresolved". Surfaces stay flat and matte — no glow, no ambient
-   effects. */
+   metaphor's "unresolved". --resolved and --ok deliberately share one green
+   hue family: "resolved" and "healthy" overlapping is a harmless confusion,
+   and fewer hues keep the shell calm. Surfaces stay flat and matte — no glow,
+   no ambient effects. */
 :root {
   /* Surface — warmed-neutral ramp (OKLCH, hue 25°), darkest first. */
   --surface: oklch(0.145 0.008 25); /* app background (~#0c0a0a) */
@@ -41,14 +45,17 @@
   --text: oklch(0.97 0.004 25); /* ~#faf8f7 */
   --text-dim: oklch(0.72 0.008 25); /* ~#a8a09d */
 
-  /* Thread roles — the metaphor as color. --resolved is the old cyan accent
-     renamed to say what it *means*; --on-accent is the readable text/icon
-     color ON a resolved fill (name kept: it describes the fill relationship,
-     not the hue). */
-  --resolved: oklch(0.78 0.13 210);
-  --resolved-hover: oklch(0.85 0.1 210);
+  /* Thread roles — the metaphor as color. --resolved went cyan → green in the
+     palette pivot (the owner's call: red/green like Laravel, cyan retired to
+     the logo); --on-accent is the readable text/icon color ON a resolved fill
+     (name kept: it describes the fill relationship, not the hue). */
+  --resolved: oklch(0.75 0.17 152);
+  --resolved-hover: oklch(0.82 0.14 152);
   --on-accent: oklch(0.145 0.008 25);
   --unresolved: oklch(0.62 0.2 27);
+  /* Logo identity accent — the retired cyan, allowed ONLY on the logo SVG's
+     endpoint dot (index.html hero + sidebar marks). Working UI never uses it. */
+  --logo-accent: oklch(0.78 0.13 210);
 
   /* Brand (Laravel red) — identity moments only. */
   --brand: #f53003;

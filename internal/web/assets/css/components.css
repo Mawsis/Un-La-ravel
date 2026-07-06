@@ -50,7 +50,7 @@
   font-size: var(--text-sm);
 }
 
-/* The evaluator's shortcut under the hero: quieter than the cyan Analyze
+/* The evaluator's shortcut under the hero: quieter than the resolved-green Analyze
    button (the primary action), but clearly interactive. */
 .sample-btn {
   align-self: flex-start;
@@ -295,7 +295,7 @@
 /* A verdict problem borrows .entity-chip for the dynamic in-app-link behavior
    (the delegated navigation handler in main.js keys on .entity-chip[data-view])
    and its mono/hover/focus styling, but a problem is not a neutral reference —
-   it must read as danger, not the resolved cyan. The compound .entity-chip.verdict-link
+   it must read as danger, not the resolved green. The compound .entity-chip.verdict-link
    selector (specificity 0,2,0) deliberately beats the later, single-class
    .entity-chip color rule (0,1,0) so danger wins in both rest and hover. */
 .entity-chip.verdict-link {
@@ -409,7 +409,7 @@
   fill: var(--warn);
 }
 /* Relationship edges carry the thread roles (issue #38): a resolved edge is
-   the --resolved cyan (schema FK solid, Eloquent relation dashed, both kept
+   the --resolved green (schema FK solid, Eloquent relation dashed, both kept
    and distinguishable by dash); an edge the reconciliation pass had to
    repair (issue #36's unresolved flag) is the --unresolved red — the one
    place in the working views a repaired relationship is visibly distinct. */
@@ -431,7 +431,7 @@
   stroke-width: 1.5;
 }
 /* Temporary highlight applied to a focused entity's box (ER cross-navigation,
-   PR 5). Flat and matte per the design system — a fading cyan outline, NOT a
+   PR 5). Flat and matte per the design system — a fading resolved-green outline, NOT a
    glow/drop-shadow. Defined here so the highlight lives with the rest of the
    component layer even though the class is first used later in the rollout. */
 .er-focus-highlight {
@@ -465,7 +465,7 @@
 }
 
 /* Sidebar thread-mark (issue #39, ADR 0010): the settle in miniature, the
-   app's signature kept scarce. Steady state is the resolved cyan thread with
+   app's signature kept scarce. Steady state is the resolved green thread with
    its end point; thread-mark.js replays the gesture once per new analysis by
    snapping to the tangled red state (.tm-tangled-start, no transition — an
    instant start frame) and then arming .tm-resolving so the crossfade back to
@@ -574,7 +574,7 @@ table.routes td.method {
   font-weight: 700;
   white-space: nowrap;
 }
-/* HTTP method color coding — cyan owns the "safe/interactive" methods (GET
+/* HTTP method color coding — resolved-green owns the "safe/interactive" methods (GET
    reads, POST creates), warn/amber the mutating PUT/PATCH, danger the DELETE.
    --ok stays green for GET so the read verb still reads as calm/safe. */
 .m-GET {
@@ -601,7 +601,7 @@ table.routes tr.dead {
    model card. Borrows .entity-chip for the delegated chip navigation (it
    cross-links to its finding category) but must read as danger in rest AND
    hover — same compound-selector precedent as .entity-chip.verdict-link
-   above, so the danger token wins over the resolved cyan in both states. */
+   above, so the danger token wins over the resolved green in both states. */
 .entity-chip.danger-flag {
   color: var(--danger);
   font-weight: 700;

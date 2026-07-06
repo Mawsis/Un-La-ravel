@@ -1,12 +1,12 @@
 // The shared entity-chip / cross-link helper (issue #24): one place that turns
-// any reference to a model, table, route, or controller into a consistent cyan
+// any reference to a model, table, route, or controller into a consistent resolved-green
 // chip carrying the correct in-app navigation target. This is the learned
 // visual language for "this is a thing you can jump to," used identically in
 // every view.
 
 import { escapeHtml } from "./dom.js";
 
-// entityChip renders a reference as the cyan cross-link chip: a real <a> whose
+// entityChip renders a reference as the resolved-green cross-link chip: a real <a> whose
 // href/data-view/data-entity-id carry the in-app target, so a plain left-click
 // navigates (via the delegated handler in main.js) while middle/cmd/shift-click
 // keep the browser's native open-in-new-tab. A reference whose kind has no
@@ -38,7 +38,7 @@ export function entityChip(ref, label) {
 // row, Unguarded on a model card) as a cross-link chip to its finding category
 // in the Findings view. It is the entity-chip visual language with the
 // compound danger-flag class, so the delegated handler in main.js navigates it
-// like any chip while CSS paints it with the danger token (never the cyan
+// like any chip while CSS paints it with the danger token (never the resolved-green
 // accent — a problem must not read as ordinary interactive chrome).
 // findingKind is the machine-readable Finding.Kind from the contract
 // (internal/model/findings.go); label is the visible marker text.

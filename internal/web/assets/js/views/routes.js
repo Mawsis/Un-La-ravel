@@ -10,7 +10,7 @@
 // file router-agnostic and testable in isolation.
 //
 // The controller cell renders as a shared entity-chip cross-link (issue #24):
-// the controller is a jump-to-able entity, so it carries the consistent cyan
+// the controller is a jump-to-able entity, so it carries the consistent resolved-green
 // chip visual language via entityChip rather than being an in-view filter
 // button. The delegated chip listener in main.js routes the click.
 

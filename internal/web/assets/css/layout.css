@@ -224,7 +224,7 @@
 .content-header input:focus-visible {
   border-color: var(--resolved);
 }
-/* Primary action — the everyday button, so cyan (not brand red). */
+/* Primary action — the everyday button, so resolved-green (not brand red). */
 .content-header button {
   background: var(--resolved);
   color: var(--on-accent);

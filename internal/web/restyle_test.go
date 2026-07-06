@@ -50,7 +50,7 @@ func TestTokens_ThreadRolesAndWarmedNeutrals(t *testing.T) {
 		"--surface-elevated:",
 		"--border:",
 		"--text:",
-		"--resolved:",   // cyan — "the tool resolved this"
+		"--resolved:",   // green — "the tool resolved this"
 		"--unresolved:", // brand-adjacent red — "still tangled"
 		"--brand:",      // Laravel red — identity
 		"--danger:",

@@ -1,7 +1,7 @@
 // Overview wow moment (issue #39 variant A, committed via issue #44): the
 // Laravel mark holds in brand red, its strokes loosen into unresolved-red
 // points, the points fly to the project's constellation (overview-
-// constellation.js), threads draw red and resolve cyan as their endpoints
+// constellation.js), threads draw red and resolve green as their endpoints
 // land, the stat cards tally in sync with the settled fraction, and the
 // verdict closes the moment. The one brand-register surface: loud here,
 // nowhere else.

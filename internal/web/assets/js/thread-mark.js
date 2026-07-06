@@ -1,7 +1,7 @@
 // Sidebar thread-mark (issue #39): the settle's app-wide signature, kept
 // scarce — a small thread in the brand block that re-settles exactly once per
 // new analysis (called from main.js's once-per-analysis render block, the same
-// cadence as the health chip). Steady state is the resolved cyan thread; the
+// cadence as the health chip). Steady state is the resolved green thread; the
 // replay flashes the tangled red state and lets a token-timed transition
 // (components.css, --motion-settle) crossfade it back to resolved. Same
 // FLIP-style arm-then-flip idiom as the ER settle (ADR 0009): snap the start

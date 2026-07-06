@@ -40,14 +40,18 @@ legacy and half-broken projects precisely because it never runs them.
 > Un(la)ravel is a workbench for Laravel developers that takes a tangled, often
 > half-broken legacy project and visibly un-ravels it into resolved, readable
 > structure. Its identity is the thread: **red where the source is still tangled
-> or unresolved, cyan where the tool has resolved it.** It speaks with the calm
+> or unresolved, green where the tool has resolved it** (the palette Laravel's
+> own ecosystem speaks; the retired cyan survives only as the logo's endpoint
+> accent). It speaks with the calm
 > confidence of a senior engineer narrating over raw code — impressive at first
 > contact, quietly efficient in daily use.
 
 Everything downstream derives from this sentence:
 
-- Red and cyan are **semantic states, not decoration.** The palette has an
-  `unresolved` role and a `resolved` role.
+- Red and green are **semantic states, not decoration.** The palette has an
+  `unresolved` role and a `resolved` role. Because red/green is the common
+  color-vision collision, the distinction never rides on hue alone (DESIGN.md
+  §1 colorblind redundancy rule).
 - Type is a **human-voice / machine-voice split**: the tool's sentences in the
   display face, every project identifier in mono.
 - Motion means **resolution** — one gesture (the settle), used as identity, not
@@ -57,12 +61,12 @@ Everything downstream derives from this sentence:
 
 ## The thread metaphor (scarcity rule)
 
-The thread / red→cyan / un-ravel gesture is the product's one ownable idea. It
+The thread / red→green / un-ravel gesture is the product's one ownable idea. It
 is powerful **because it is scarce**. It appears only where there is a genuine
 *resolution* or *connection*:
 
 - The Overview constellation (the mark un-raveling into the project's structure).
-- ER edges: resolved relationships in cyan, unresolved (name-mismatched, dangling)
+- ER edges: resolved relationships in green, unresolved (name-mismatched, dangling)
   in red.
 - Entity-chips that jump to a linked thing.
 

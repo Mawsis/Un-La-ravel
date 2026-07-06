@@ -12,9 +12,10 @@
 
 **Restrained-plus-semantic.** Warmed-neutral surfaces carry the interface; two
 named color roles (`resolved`, `unresolved`) carry the thread metaphor as
-*meaning*, not accent. The loud red↔cyan drama is concentrated in the Overview
+*meaning*, not accent. The loud red↔green drama is concentrated in the Overview
 wow moment and in genuine resolution states (ER edges, disagreements). The
-working shell stays quiet.
+working shell stays quiet. The retired resolved-cyan survives only as
+`--logo-accent`, the logo's endpoint dot; it never appears in the working UI.
 
 ### Neutrals — OKLCH, faintly red-warmed (kills anti-ref #1)
 
@@ -39,21 +40,33 @@ light frame (`color-scheme: light`), which stays as-is with its use-site comment
 
 | Token | OKLCH | Meaning | Where |
 |---|---|---|---|
-| `--resolved` | `oklch(0.78 0.13 210)` (cyan) | the tool resolved this | interactive chrome, resolved ER edges, entity-chips, links, focus |
+| `--resolved` | `oklch(0.75 0.17 152)` (green) | the tool resolved this | interactive chrome, resolved ER edges, entity-chips, links, focus |
 | `--unresolved` | `oklch(0.62 0.20 27)` (brand-adjacent red) | still tangled / mismatched | unresolved ER edges, disagreements, name-mismatch flags |
 | `--brand` | `oklch(0.58 0.22 27)` (Laravel #F53003) | identity | wordmark, logo, the un-ravel moment |
+| `--logo-accent` | `oklch(0.78 0.13 210)` (cyan) | identity accent only | the logo SVG's endpoint dot, nowhere else |
 
-`--resolved` = the old `--accent` cyan, renamed to say what it *means*.
-`--brand` red is **unbanned** from the working UI but used only for genuine
-unresolved-state semantics and identity — never as a decorative accent.
-`--on-accent` (readable text on a resolved fill) stays.
+`--resolved` went cyan → green in the palette pivot (owner decision, 2026-07):
+red/green like Laravel's own ecosystem, with the old cyan retired to
+`--logo-accent`. `--brand` red is **unbanned** from the working UI but used
+only for genuine unresolved-state semantics and identity — never as a
+decorative accent. `--on-accent` (readable text on a resolved fill) stays.
+
+**Colorblind redundancy (HARD RULE with the red/green palette):** red vs.
+green is the most common color-vision collision, so the resolved/unresolved
+distinction must never be carried by hue alone. Unresolved ER edges always
+carry a non-color marker (midpoint break glyph) in addition to red; severity
+keeps its leading dot + label; diff states carry +/− glyphs. Any new
+red-vs-green surface must name its non-color channel in the PR.
 
 ### Status (kept distinct from the thread roles)
 
 `--danger` (cooler red), `--warn` (amber), `--ok` (green) remain for
-severity/health, deliberately distinct from `--unresolved`/`--brand` so a
-"problem" is never confused with the metaphor's "unresolved." Low-alpha tints
-(`--danger-tint`, `--warn-tint`, `--ok-tint`) drive dot+tint severity (see §5).
+severity/health. `--danger` stays deliberately distinct from
+`--unresolved`/`--brand` so a "problem" is never confused with the metaphor's
+"unresolved." `--ok` and `--resolved` now deliberately share one green hue
+family: "resolved" and "healthy" overlapping is a harmless confusion, and
+fewer hues keep the shell calm. Low-alpha tints (`--danger-tint`,
+`--warn-tint`, `--ok-tint`) drive dot+tint severity (see §5).
 
 **Contrast:** every text-on-surface pairing meets WCAG AA. The prior amber-at-11px
 failure is fixed — small colored text is ≥12px and uses a lighter shade on dark.
@@ -133,15 +146,16 @@ stat strip is quiet *by size and placement*, not by apologizing in CSS.
 
 ### ER edges (the metaphor, structural)
 
-- Resolved relationship → `--resolved` (cyan). Schema FK solid, Eloquent relation
+- Resolved relationship → `--resolved` (green). Schema FK solid, Eloquent relation
   dashed (distinguishable, kept).
-- Unresolved / name-mismatched → `--unresolved` (red), dashed, with the
-  disagreement surfaced. This is the [[er-edge-origin-followup]] `Origin` flag
-  made visible.
+- Unresolved / name-mismatched → `--unresolved` (red), dashed, **plus a
+  midpoint break glyph** so the state survives red/green color blindness
+  (a red dashed edge and a green dashed Eloquent edge must not differ by hue
+  alone). This is the [[er-edge-origin-followup]] `Origin` flag made visible.
 
 ### Entity-chip
 
-The shared "jump-to-a-linked-thing" affordance. `--resolved` cyan, mono, subtle
+The shared "jump-to-a-linked-thing" affordance. `--resolved` green, mono, subtle
 underline on hover. The `is-plain` degraded form is dimmed, non-interactive.
 
 ### Nav (kills the 2px active stripe)
@@ -172,9 +186,9 @@ left border > 1px.
 
 The one brand-register surface. The Laravel mark un-ravels into an **abstract
 constellation** of the project's entities (points, not the literal 54-table ER),
-threads resolving red→cyan, stats **tallying the un-ravel** in sync. Ends on the
+threads resolving red→green, stats **tallying the un-ravel** in sync. Ends on the
 verdict. **Build only after a `/prototype` throwaway proves it lands**; fallback
-is the logo resolving red→cyan with a synced stat count-up. Must degrade to a
+is the logo resolving red→green with a synced stat count-up. Must degrade to a
 static resolved end-state under reduced motion and never jank on a slow machine.
 
 ## 8. Conformance checklist (grep-able)
@@ -186,6 +200,8 @@ Before any visual PR merges:
 - [ ] No `text-transform: uppercase` outside true section headings (anti-ref #5)
 - [ ] Every project identifier in `--mono`; tool sentences in display/sans (§2 rule)
 - [ ] No stat enlarged/animated outside the Overview tally (anti-ref #4)
-- [ ] Thread/red→cyan used only for resolution/connection, never severity/nav/decor (anti-ref #6)
+- [ ] Thread/red→green used only for resolution/connection, never nav/decor (anti-ref #6)
+- [ ] Cyan appears only as `--logo-accent` on the logo's endpoint dot (§1)
+- [ ] Every red-vs-green distinction carries a non-color channel (dot, label, glyph, dash+marker) (§1)
 - [ ] Neutrals authored in OKLCH, warmed (§1)
 - [ ] Every text-on-surface pairing meets WCAG AA (§1)

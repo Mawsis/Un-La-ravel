@@ -156,8 +156,16 @@
 
         <div class="panel" data-panel="models">
           <h2 class="sr-only">Models</h2>
-          <div class="filter-row"><input id="model-filter" type="text" placeholder="Filter by model or table name..." aria-label="Filter models" /></div>
-          <div id="models-body"></div>
+          <!-- The flat model list. Hidden while a model detail page
+               (#/models/{name}, issue #51) is open; shown otherwise. -->
+          <div id="models-list">
+            <div class="filter-row"><input id="model-filter" type="text" placeholder="Filter by model or table name..." aria-label="Filter models" /></div>
+            <div id="models-body"></div>
+          </div>
+          <!-- The model detail page: composed client-side over the loaded model
+               (issue #51). Populated by renderModelDetail; empty and hidden
+               until a #/models/{name} deep link or a model chip opens it. -->
+          <div id="model-detail-body" hidden></div>
         </div>
 
         <div class="panel" data-panel="routes">

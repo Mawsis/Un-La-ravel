@@ -18,8 +18,15 @@ export function entityChip(ref, label) {
   if (!target) {
     return '<span class="entity-chip is-plain">' + text + "</span>";
   }
+  // The native href must land on the SAME place a plain left-click navigates to
+  // (main.js's delegated handler), so middle/cmd/shift-click open the right page
+  // in a new tab. A target with a `detail` addresses one entity via a sub-route
+  // (#/models/{name}, issue #51); without one, the href is the bare view hash.
+  const href = target.detail
+    ? "#/" + escapeHtml(target.view) + "/" + escapeHtml(encodeURIComponent(target.detail))
+    : "#/" + escapeHtml(target.view);
   return (
-    '<a class="entity-chip" href="#/' + escapeHtml(target.view) + '"' +
+    '<a class="entity-chip" href="' + href + '"' +
     ' data-view="' + escapeHtml(target.view) + '"' +
     ' data-entity-id="' + escapeHtml(target.id) + '">' +
     text +
@@ -63,7 +70,10 @@ export function chipTarget(ref) {
   if (!ref) return null;
   const name = nonEmpty(ref.name);
   if (ref.kind === "model" && name) {
-    return { view: "models", id: name };
+    // A model resolves to its own detail page (#/models/{name}, issue #51): the
+    // detail carries the name into the sub-route so the native href, not just
+    // the JS-intercepted click, lands on the right page.
+    return { view: "models", id: name, detail: name };
   }
   if (ref.kind === "table" && name) {
     return { view: "er", id: name };

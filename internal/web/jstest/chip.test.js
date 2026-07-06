@@ -20,10 +20,13 @@ import assert from "node:assert/strict";
 
 import { chipTarget, entityChip, dangerFlag } from "../assets/js/chip.js";
 
-test("a model reference targets the Models view, keyed by model name", () => {
+test("a model reference targets its detail page, keyed and sub-routed by name", () => {
+  // The detail carries the name into the #/models/{name} sub-route (issue #51),
+  // so the chip's native href lands on the model's own page, not the flat list.
   assert.deepEqual(chipTarget({ kind: "model", name: "User" }), {
     view: "models",
     id: "User",
+    detail: "User",
   });
 });
 
@@ -92,10 +95,25 @@ test("entityChip renders an anchor carrying the target view and entity id", () =
   const html = entityChip({ kind: "model", name: "User" });
   assert.match(html, /<a\b/);
   assert.match(html, /class="entity-chip"/);
-  assert.match(html, /href="#\/models"/);
+  // A model chip's native href is the model's own detail page (#/models/{name},
+  // issue #51), NOT the bare flat-list view — so middle/cmd/shift-click open the
+  // right page in a new tab, matching where a plain left-click navigates.
+  assert.match(html, /href="#\/models\/User"/);
   assert.match(html, /data-view="models"/);
   assert.match(html, /data-entity-id="User"/);
   assert.match(html, />User<\/a>/);
+});
+
+test("a model chip's href points at its detail sub-route and encodes the name", () => {
+  const html = entityChip({ kind: "model", name: "My Model" });
+  assert.match(html, /href="#\/models\/My%20Model"/);
+});
+
+test("a non-detail chip's href stays the bare view hash", () => {
+  // Table/controller chips still resolve to a whole view (focusing the specific
+  // entity within it lands later), so their native href is the view hash.
+  const table = entityChip({ kind: "table", name: "users" });
+  assert.match(table, /href="#\/er"/);
 });
 
 test("entityChip escapes its label and id (names come from parsed source)", () => {

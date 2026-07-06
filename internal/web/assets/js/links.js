@@ -41,8 +41,11 @@ export function hrefFor(kind, value, currentParams) {
       return hash("routes", params);
     }
     case "model": {
-      params.set("filter", value);
-      return hash("models", params);
+      // A model links to its own detail page (#/models/{name}, issue #51), a
+      // deep-linkable sub-route of the models view — not a filter on the flat
+      // list. The name is a path segment, encoded so a reserved char survives.
+      const qs = params.toString();
+      return "#/models/" + encodeURIComponent(value) + (qs ? "?" + qs : "");
     }
     case "table": {
       // The raw table name: the ER renderer owns the SVG and tags each entity

@@ -30,6 +30,7 @@ import * as router from "./router.js";
 import { renderOverview } from "./views/overview.js";
 import { renderER, focusTable } from "./views/er.js";
 import { renderModels } from "./views/models.js";
+import { renderModelDetail } from "./views/model-detail.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
 import { renderAuth } from "./views/auth.js";
@@ -126,7 +127,7 @@ let lastFocusedTable = null;
 function renderCurrentView() {
   const result = getResult();
   if (!result) return;
-  const { view, params } = router.getCurrent();
+  const { view, detail, params } = router.getCurrent();
   const model = result.model || {};
   const table = params.get("table");
 
@@ -168,6 +169,12 @@ function renderCurrentView() {
     router.navigate(view, paramsFromRoutesState(params, newState), { replace: true });
   }, params);
 
+  // Model detail page (issue #51): #/models/{name} shows the detail composed
+  // over the loaded model; a bare #/models (detail null) restores the flat
+  // list. Only the models view has a detail sub-route today, so any detail on
+  // another view is ignored — renderModelDetail(null) closes any open page.
+  renderModelDetail(view === "models" ? detail : null, model);
+
   activateView(view);
 }
 
@@ -200,7 +207,15 @@ function activateView(name) {
 
   if (name === "overview") maybePlayOverviewWow(); // release a held take
 
-  const heading = document.querySelector(".panel.active h2");
+  // Focus the heading of the view the user landed on. When a model detail
+  // sub-view is open (#/models/{name}, issue #51), its own heading is the one
+  // to announce — NOT the panel's earlier sr-only heading, which document-order
+  // querySelector would otherwise match first and steal focus back to, making a
+  // screen reader announce "Models" instead of the model just opened. Prefer the
+  // visible detail heading; fall back to the panel's own when no detail is open.
+  const detailBody = document.querySelector("#model-detail-body");
+  const detailHeading = detailBody && !detailBody.hidden ? detailBody.querySelector("h2") : null;
+  const heading = detailHeading || document.querySelector(".panel.active h2");
   if (heading) {
     heading.setAttribute("tabindex", "-1");
     heading.focus();
@@ -276,7 +291,11 @@ document.addEventListener("click", (e) => {
   const { params } = router.getCurrent();
   const next = new URLSearchParams();
   if (params.get("path")) next.set("path", params.get("path"));
-  router.navigate(chip.dataset.view, next);
+  // A model chip carries the model name in data-entity-id and lands on that
+  // model's detail page (#/models/{name}, issue #51). Every other chip kind
+  // switches to its owning view (focusing the specific entity lands later).
+  const detail = chip.dataset.view === "models" ? chip.dataset.entityId || null : null;
+  router.navigate(chip.dataset.view, next, { detail });
 });
 
 // ---- wire up ----------------------------------------------------------------

@@ -59,6 +59,7 @@ func init() {
 	// We'll create these commands in separate files for better organization
 	addAnalyzeCommand()
 	addDoctorCommand()
+	addDiffCommand()
 	addServeCommand()
 }
 

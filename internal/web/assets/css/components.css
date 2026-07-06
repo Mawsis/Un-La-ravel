@@ -222,12 +222,35 @@
    Under reduced motion overview-wow.js draws the static end-state and never
    adds these classes. */
 .overview-wow {
+  position: relative; /* anchors the hover-name tip (issue #52) */
   margin: var(--space-4) 0 var(--space-2);
 }
 #overview-canvas {
   display: block;
   width: 100%;
   height: min(46vh, 440px);
+}
+/* Hover-name label for the constellation dots (issue #52): a small mono chip —
+   entity names are project identifiers, the machine voice — floating just above
+   the dot under the pointer. The entity name IS the payload, so it reads in the
+   same mono register as every other identifier in the app. */
+.constellation-tip {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, calc(-100% - 10px));
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  pointer-events: none; /* the label must never eat the pointer it describes */
+}
+/* Near the right edge, anchor from the right so the label never spills off. */
+.constellation-tip.flip {
+  transform: translate(-100%, calc(-100% - 10px));
 }
 .card.tallying .n {
   color: var(--unresolved);

@@ -137,6 +137,18 @@
           <div class="proj-meta" id="proj-meta"></div>
           <div class="overview-wow">
             <canvas id="overview-canvas" role="img" aria-label="The Laravel mark un-raveling into a constellation of this project's entities"></canvas>
+            <!-- Hover-name label for the constellation dots (issue #52). A
+                 mouse-only affordance: decorative to assistive tech, whose
+                 equivalent path is the focusable entity list below — so it is
+                 aria-hidden rather than an aria-live region that would double-
+                 announce every dot the pointer grazes. Empty and hidden until
+                 the settle completes and the pointer is over a dot;
+                 overview-wow.js positions and fills it. -->
+            <div class="constellation-tip" id="constellation-tip" aria-hidden="true" hidden></div>
+            <!-- Visually-hidden, focusable, linked list of the same entities
+                 (issue #52): the keyboard/assistive-technology path so the map
+                 is not mouse-only. Populated by overview-wow.js. -->
+            <div class="sr-only" id="constellation-entities"></div>
           </div>
           <div class="cards" id="cards"></div>
           <div class="verdict" id="verdict"></div>

@@ -20,6 +20,8 @@
 import { $ } from "../dom.js";
 import { prefersReducedMotion } from "../motion.js";
 import { buildConstellation, mulberry32, KIND_KEYS } from "./overview-constellation.js";
+import { assignEntities, hitTest, entityListHtml } from "./overview-hit.js";
+import * as router from "../router.js";
 
 // Timeline (ms). The whole take is ~4s: cinematic for first contact, short
 // enough that a replay per analysis never feels like a loading screen.
@@ -41,19 +43,40 @@ const MARK_PATHS = [
 const MARK_W = 640;
 const MARK_H = 470;
 
-let pending = null; // counts awaiting a visible Overview, or null
+let pending = null; // { counts, entities } awaiting a visible Overview, or null
 let raf = 0;
+
+// entityNames pulls each kind's display names from the model in source order,
+// keyed by KIND_KEYS so overview-hit.js can bind them to the drawn dots. Routes
+// have no single name field, so a route reads as "METHOD /uri" — the same shape
+// the search index and route rows use — so hovering a route dot names it
+// legibly. counts derive from these lists, keeping the tally and the hit-test
+// binding reading from one source.
+function entityNames(model) {
+  const m = model || {};
+  return {
+    tables: (m.schemas || []).map((t) => t.name || ""),
+    models: (m.models || []).map((x) => x.name || ""),
+    controllers: (m.controllers || []).map((c) => c.name || ""),
+    routes: (m.routes || []).map((r) => ((r.method || "") + " " + (r.uri || "")).trim()),
+    requests: (m.form_requests || []).map((f) => f.name || ""),
+  };
+}
 
 // prepareOverviewWow is called once per analysis (main.js's once-per-analysis
 // block). If Overview is visible it plays now; otherwise the take is held for
 // the first visit.
 export function prepareOverviewWow(model) {
+  const entities = entityNames(model);
   pending = {
-    tables: ((model || {}).schemas || []).length,
-    models: ((model || {}).models || []).length,
-    controllers: ((model || {}).controllers || []).length,
-    routes: ((model || {}).routes || []).length,
-    requests: ((model || {}).form_requests || []).length,
+    entities,
+    counts: {
+      tables: entities.tables.length,
+      models: entities.models.length,
+      controllers: entities.controllers.length,
+      routes: entities.routes.length,
+      requests: entities.requests.length,
+    },
   };
   maybePlayOverviewWow();
 }
@@ -68,7 +91,7 @@ export function maybePlayOverviewWow() {
   const rect = canvas.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return; // not visible yet — hold
 
-  const counts = pending;
+  const { counts, entities } = pending;
   pending = null;
   cancelAnimationFrame(raf);
 
@@ -81,11 +104,17 @@ export function maybePlayOverviewWow() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const colors = threadColors(canvas);
-  const scene = buildScene(counts, w, h);
+  const scene = buildScene(counts, entities, w, h);
   const verdict = $("#verdict");
+
+  // Publish the equivalent keyboard/AT path up front (issue #52). The dot→entity
+  // binding is already on the scene (buildScene), so hit-testing holds whether
+  // the take animates or is skipped under reduced motion.
+  renderEntityList(entities);
 
   if (prefersReducedMotion()) {
     drawFrame(ctx, scene, T_END + 1000, w, h, colors);
+    bindConstellationInteraction(canvas, scene, w, h); // static end-state is fully interactive
     return; // cards already hold final values; verdict is simply present
   }
 
@@ -102,6 +131,13 @@ export function maybePlayOverviewWow() {
       verdict.classList.add("wow-shown");
       verdict.classList.remove("wow-pending");
     }
+    // The wow moment stays a look-don't-touch take until it lands; after the
+    // settle, the same dots become navigable (issue #52 — the choreography is
+    // unchanged, interaction begins once it completes).
+    if (t >= T_END && !scene.interactive) {
+      scene.interactive = true;
+      bindConstellationInteraction(canvas, scene, w, h);
+    }
     if (t < T_END + 120) raf = requestAnimationFrame(tick);
   };
   raf = requestAnimationFrame(tick);
@@ -111,9 +147,14 @@ export function maybePlayOverviewWow() {
 
 // buildScene marries the constellation end-state with the mark's sampled
 // start points: node i starts life as a point on the mark's strokes, drifts
-// loose during the unravel, then flies to its constellation seat.
-function buildScene(counts, w, h) {
-  const { nodes, edges } = buildConstellation(counts, w, h);
+// loose during the unravel, then flies to its constellation seat. It also binds
+// each dot to its real entity (assignEntities, issue #52) so the SAME node
+// objects the strokes and edges reference carry the identity hit-testing reads —
+// one array, no aliasing between the drawn scene and the interactive scene.
+function buildScene(counts, entities, w, h) {
+  const built = buildConstellation(counts, w, h);
+  const nodes = assignEntities(built.nodes, entities);
+  const edges = built.edges;
   const markPts = sampleMarkPoints(Math.max(nodes.length, 1));
   const s = Math.min(w / MARK_W, h / MARK_H) * 0.72;
   const ox = w / 2 - (MARK_W / 2) * s;
@@ -246,6 +287,111 @@ function setTally(targets, fraction) {
     if (n) n.textContent = Math.round(t.count * f);
     t.card.classList.toggle("tallying", f > 0 && f < 1);
   }
+}
+
+// ---- interaction (issue #52) ------------------------------------------------
+
+// renderEntityList publishes the visually-hidden, focusable, linked entity list
+// beside the canvas — the equivalent keyboard/AT path so the map is never
+// mouse-only. The markup is built by the pure entityListHtml (overview-hit.js),
+// which the jstests cover; this is only the DOM write.
+function renderEntityList(entities) {
+  const host = $("#constellation-entities");
+  if (host) host.innerHTML = entityListHtml(entities);
+}
+
+// bindConstellationInteraction gives the settled dots their two behaviors: hover
+// names the entity under the pointer, a plain left-click on a MODEL dot opens
+// its detail page (#/models/{name}, issue #51). Only models navigate — other
+// kinds hover-name but have no detail page, matching chipTarget and the rest of
+// the app. Re-binding replaces prior handlers (a re-analysis rebuilds the scene),
+// so listeners never stack up across analyses.
+let detachInteraction = null;
+function bindConstellationInteraction(canvas, scene, w, h) {
+  if (detachInteraction) detachInteraction();
+  const tip = $("#constellation-tip");
+
+  // The canvas backing store is DPR-scaled and CSS-stretched to w×h; map a
+  // client pointer position into the same w×h space the scene's tx/ty live in.
+  const toScene = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / r.width) * w,
+      y: ((e.clientY - r.top) / r.height) * h,
+    };
+  };
+
+  const onMove = (e) => {
+    const { x, y } = toScene(e);
+    const hit = hitTest(scene.nodes, x, y);
+    if (hit && hit.entityName) {
+      showTip(tip, hit.entityName, x, y, w);
+      canvas.style.cursor = hit.entityKind === "models" ? "pointer" : "default";
+    } else {
+      hideTip(tip);
+      canvas.style.cursor = "default";
+    }
+  };
+
+  const onLeave = () => {
+    hideTip(tip);
+    canvas.style.cursor = "default";
+  };
+
+  const onClick = (e) => {
+    if (!isPlainLeftClick(e)) return; // let cmd/ctrl/shift/middle keep native behavior
+    const { x, y } = toScene(e);
+    const hit = hitTest(scene.nodes, x, y);
+    // Only a model dot navigates (it has a detail page); other kinds hover-name
+    // but click is inert, the confirmed contract mirroring chipTarget.
+    if (hit && hit.entityName && hit.entityKind === "models") {
+      e.preventDefault();
+      navigateToModel(hit.entityName);
+    }
+  };
+
+  canvas.addEventListener("mousemove", onMove);
+  canvas.addEventListener("mouseleave", onLeave);
+  canvas.addEventListener("click", onClick);
+  detachInteraction = () => {
+    canvas.removeEventListener("mousemove", onMove);
+    canvas.removeEventListener("mouseleave", onLeave);
+    canvas.removeEventListener("click", onClick);
+    detachInteraction = null;
+  };
+}
+
+// isPlainLeftClick mirrors main.js: only a bare left-click is intercepted, so
+// middle/cmd/ctrl/shift-click keep the browser's open-in-new-tab gestures — the
+// AT list's real <a> chips are what make those gestures land somewhere.
+function isPlainLeftClick(e) {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+
+// navigateToModel routes to a model's detail page the same way the delegated
+// entity-chip handler does (main.js): carry the current ?path= forward, drop
+// the view-specific params, and set the detail segment — one shareable URL
+// change, consistent with every other in-app jump.
+function navigateToModel(name) {
+  const { params } = router.getCurrent();
+  const next = new URLSearchParams();
+  if (params.get("path")) next.set("path", params.get("path"));
+  router.navigate("models", next, { detail: name });
+}
+
+function showTip(tip, text, x, y, w) {
+  if (!tip) return;
+  tip.textContent = text;
+  tip.hidden = false;
+  // Anchor above the dot; flip horizontal alignment near the right edge so the
+  // label never spills off-canvas.
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+  tip.classList.toggle("flip", x > w * 0.75);
+}
+
+function hideTip(tip) {
+  if (tip) tip.hidden = true;
 }
 
 // ---- color/math helpers -------------------------------------------------------

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\UserController;
@@ -63,4 +64,25 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('admin')->group(func
     // ONE intentional dangling edge in the fixture.
     //   DELETE /admin/users/{id} -> UserController@destroy   ⚠ DEAD (missing_action)
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
+});
+
+// SUB-NAMESPACED CONTROLLER routes (issue #63). AdminDashboardController lives in
+// app/Http/Controllers/Admin, so its FQN carries the Admin\ segment. Before the
+// fix the route extractor collapsed the reference to the bare short name and
+// phase-two resolution rebuilt a wrong FQN under App\Http\Controllers, reporting
+// these live routes as dead. The extractor now records the reference verbatim, so
+// both shapes below resolve to the real controller and neither is a dead route.
+//
+// Both routes carry `auth` middleware so this group exercises ONLY #63's
+// resolution — the fixture's auth-findings curation (issue #50) is left untouched;
+// these are not new unauthenticated reads.
+Route::middleware('auth')->prefix('admin')->group(function () {
+    // Inline FULLY-QUALIFIED reference (no import needed): resolves as-is.
+    //   GET /admin/dashboard -> App\Http\Controllers\Admin\AdminDashboardController@index
+    Route::get('/dashboard', [App\Http\Controllers\Admin\AdminDashboardController::class, 'index']);
+
+    // IMPORTED short reference (via the `use` at the top of this file): resolves
+    // through the import to the same sub-namespaced FQN.
+    //   GET /admin/dashboard/stats -> App\Http\Controllers\Admin\AdminDashboardController@stats
+    Route::get('/dashboard/stats', [AdminDashboardController::class, 'stats']);
 });

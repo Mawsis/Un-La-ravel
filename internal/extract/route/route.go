@@ -12,8 +12,10 @@
 // prefixes already applied to its URI and inherited middleware already flattened
 // in (the group-flattening algorithm, ROUTE_FACTS.md), and with resource macros
 // (apiResource/resource) expanded to their concrete verb routes. Controllers are
-// recorded by their SHORT name exactly as written at the route site; resolving
-// them to an FQN happens later, in phase two.
+// recorded VERBATIM exactly as written at the route site — fully-qualified,
+// imported-short, or partially-qualified — so phase-two resolution can qualify
+// the reference against the route file's `use` imports; resolving to an FQN
+// happens later, in phase two (ADR 0006, issue #63).
 package route
 
 import (
@@ -62,9 +64,10 @@ var httpVerbs = map[string]bool{
 // resource macros are expanded to their concrete verb routes; a per-route
 // ->middleware(...) or ->name(...) modifier is attached to the route it wraps.
 //
-// Controllers are recorded by their SHORT name exactly as written at the route
-// site (for example "PostController"); the Route.FQN field is left empty here
-// and filled in later by phase-two symbol-table resolution (ADR 0006). Routes
+// Controllers are recorded VERBATIM exactly as written at the route site (for
+// example "PostController", or "App\Http\Controllers\Admin\FooController" when
+// the route writes the fully-qualified name); the Route.FQN field is left empty
+// here and filled in later by phase-two symbol-table resolution (ADR 0006). Routes
 // whose action could not be read (an unrecognised action shape) are still
 // emitted with empty Controller/Action so the caller can surface them rather
 // than silently dropping an entry point.
@@ -244,12 +247,14 @@ func verbRoute(verb string, args []phpast.Vertex, ctx groupCtx) model.Route {
 
 // expandResource turns a Route::apiResource/resource(name, C::class) call into
 // its concrete verb routes under the inherited context. The base name and the
-// controller short name are read once; each entry in the macro's route set
-// becomes a route whose URI is base+suffix joined under the context prefix and
-// whose middleware is a fresh copy of the inherited middleware.
+// controller reference are read once; the reference is recorded VERBATIM (issue
+// #63), so a sub-namespaced resource controller keeps its namespace for phase-two
+// resolution (ADR 0006) rather than collapsing to a short name. Each entry in the
+// macro's route set becomes a route whose URI is base+suffix joined under the
+// context prefix and whose middleware is a fresh copy of the inherited middleware.
 func expandResource(expansion []resourceRoute, args []phpast.Vertex, ctx groupCtx) []model.Route {
 	base := phpast.FirstStringArg(args)
-	controller := lastSegment(phpast.NthArgClassConst(args, resourceControllerArgIndex))
+	controller := phpast.NthArgClassConst(args, resourceControllerArgIndex)
 
 	routes := make([]model.Route, 0, len(expansion))
 	for _, r := range expansion {

@@ -299,7 +299,9 @@ func TestHandler_Analyze_FixtureApp(t *testing.T) {
 	if got, want := len(shape.Models), 4; got != want {
 		t.Errorf("model.models count = %d, want %d", got, want)
 	}
-	if got, want := len(shape.Routes), 12; got != want {
+	// 14: 12 prior + the two sub-namespaced admin/dashboard routes added for
+	// issue #63 (they resolve cleanly, so dead_routes below stays 1).
+	if got, want := len(shape.Routes), 14; got != want {
 		t.Errorf("model.routes count = %d, want %d", got, want)
 	}
 	if got, want := len(shape.FormRequests), 1; got != want {

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.9.0",
+  "schema_version": "1.10.0",
   "project_name": "acme/blog",
   "laravel_version": "^11.0",
   "schemas": [
@@ -448,9 +448,39 @@
         "throttle:api"
       ],
       "auth": "authenticated"
+    },
+    {
+      "method": "GET",
+      "uri": "/admin/dashboard",
+      "controller": "App\\Http\\Controllers\\Admin\\AdminDashboardController",
+      "action": "index",
+      "middleware": [
+        "auth"
+      ],
+      "auth": "authenticated",
+      "fqn": "App\\Http\\Controllers\\Admin\\AdminDashboardController"
+    },
+    {
+      "method": "GET",
+      "uri": "/admin/dashboard/stats",
+      "controller": "AdminDashboardController",
+      "action": "stats",
+      "middleware": [
+        "auth"
+      ],
+      "auth": "authenticated",
+      "fqn": "App\\Http\\Controllers\\Admin\\AdminDashboardController"
     }
   ],
   "controllers": [
+    {
+      "name": "AdminDashboardController",
+      "fqn": "App\\Http\\Controllers\\Admin\\AdminDashboardController",
+      "actions": [
+        "index",
+        "stats"
+      ]
+    },
     {
       "name": "CommentController",
       "fqn": "App\\Http\\Controllers\\CommentController",

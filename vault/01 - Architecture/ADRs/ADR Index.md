@@ -20,6 +20,7 @@ Architecture Decision Records — *why* the project is shaped the way it is. Eac
 | [[ADR 0009 - ER settle animation and diagram export\|0009]] | ER settle animation + SVG/PNG export | ✅ accepted | A once-per-session settle is the un-ravel metaphor, not decoration; a narrow recorded exception to #25's no-settle rule, done as a token-timed transition so the motion tests don't loosen |
 | [[ADR 0010 - Design system and the thread metaphor\|0010]] | Design system: thread roles, warmed OKLCH, modular scale | ✅ accepted | PRODUCT.md/DESIGN.md become the committed intention; red/cyan turn into `unresolved`/`resolved` state roles, neutrals warm off the Tailwind ramp, and six grep-able anti-references gate every visual PR |
 | [[ADR 0011 - Palette pivot: resolved goes green, cyan retires to the logo\|0011]] | Palette pivot: `--resolved` green, cyan = logo accent only | ✅ accepted | Owner call: red/green like Laravel's ecosystem; one-token re-skin thanks to ADR 0010's token layer; colorblind redundancy (no red-vs-green by hue alone) becomes a hard rule |
+| [[ADR 0012 - Middleware as a first-class node\|0012]] | Middleware node; derived reverse index; group-transitive is a labeled edge | ✅ accepted | Model the Kernel mapping (≤10 + 11+) as a node; join routes at read-time (no redundancy, no map); keep direct vs. via-group distinct so the tool never overstates |
 
 ## How these connect
 

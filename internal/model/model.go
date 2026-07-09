@@ -87,7 +87,22 @@ import (
 // backward-compatible growth: the new route key is appended after "middleware",
 // the new finding kinds append after the existing categories, and consumers that
 // ignore them are unaffected.
-const CurrentSchemaVersion = "1.9.0"
+//
+// Bumped to 1.10.0 when the controller-FQN fix (issue #63) changed the DOCUMENTED
+// MEANING of each Route's "controller" field: it now carries the controller
+// reference VERBATIM as written at the route site — fully-qualified
+// (App\Http\Controllers\Admin\FooController), imported-short (FooController), or
+// partially-qualified — rather than the bare last segment the extractor used to
+// collapse it to. Two-phase resolution (ADR 0006) qualifies that verbatim
+// reference against the route file's `use` imports, so sub-namespaced controllers
+// resolve to their true FQN and are no longer falsely reported as dead routes.
+// The field's key and type are unchanged (still a string named "controller"), but
+// its value shape changes for any route that names a namespaced controller, so
+// the golden files change and the version is bumped to signal it. A route that
+// wrote a bare short name is byte-for-byte identical to before; a route that wrote
+// a namespaced reference now serializes the full reference instead of the short
+// name.
+const CurrentSchemaVersion = "1.10.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

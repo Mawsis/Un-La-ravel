@@ -8,13 +8,15 @@ package analyze
 // routes whose Controller/Action edge dangles.
 //
 // The two-phase design of ADR 0006 lives across three collaborators: the route
-// extractor (Phase 1, produces Routes with SHORT controller names), the symbol
-// table (Phase 1, records every declared class by FQN), and this resolver
-// (Phase 2, turns a short name into an FQN and tests whether that FQN names a
-// declared Controller). Resolution ALWAYS happens in the context of the route
-// files' `use` imports, never by short name alone — the anti-wrong-edge
-// invariant — with Laravel's default controller namespace applied only as a
-// fallback for a short name no route file imports.
+// extractor (Phase 1, produces Routes with the controller reference recorded
+// VERBATIM — short, fully-qualified, or imported-short as written at the route
+// site), the symbol table (Phase 1, records every declared class by FQN), and
+// this resolver (Phase 2, qualifies that reference to an FQN and tests whether
+// that FQN names a declared Controller). Resolution of a short name ALWAYS
+// happens in the context of the route files' `use` imports, never by short name
+// alone — the anti-wrong-edge invariant — with Laravel's default controller
+// namespace applied only as a fallback for a short name no route file imports;
+// an already-qualified reference is taken as-is.
 //
 // Merged import context (a deliberate, documented simplification for this
 // slice): the route extractor emits a flat []model.Route without recording which
@@ -45,8 +47,9 @@ import (
 const DefaultControllerNamespace = `App\Http\Controllers`
 
 // ResolveRoutes performs Phase-2 Route→Controller resolution (ADR 0006). For
-// each route it resolves the SHORT controller name written at the route site to
-// a fully-qualified name, using the `use` imports merged from the given
+// each route it qualifies the controller reference recorded verbatim at the
+// route site (a short name, an imported-short name, or an already-qualified
+// name) to a fully-qualified name, using the `use` imports merged from the given
 // routeFiles (with Laravel's DefaultControllerNamespace as a fallback), then
 // checks that FQN against the extracted controllers and their action lists. It
 // returns a fresh slice of routes with each resolvable route's FQN filled in,

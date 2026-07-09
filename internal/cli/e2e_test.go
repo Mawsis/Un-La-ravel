@@ -184,19 +184,23 @@ func TestE2E_FixtureApp_EloquentShape(t *testing.T) {
 }
 
 // TestE2E_FixtureApp_RouteShape asserts the route/controller half of the
-// contract the goldens encode (ADR 0006): the four extracted Controllers with
-// their Actions, the eleven Routes with group prefixes applied and the
+// contract the goldens encode (ADR 0006): the five extracted Controllers with
+// their Actions, the fourteen Routes with group prefixes applied and the
 // apiResource macro expanded, and the single deliberate Dead Route
 // (DELETE /admin/users/{id} → UserController@destroy, a missing_action because
-// UserController resolves but declares no destroy method). A careless -update
-// that corrupts route extraction, symbol resolution, or dead-route detection
-// still fails here.
+// UserController resolves but declares no destroy method). It also pins issue
+// #63: the two sub-namespaced admin/dashboard routes resolve to
+// App\Http\Controllers\Admin\AdminDashboardController (inline-FQN and
+// imported-short) and are NOT reported dead. A careless -update that corrupts
+// route extraction, symbol resolution, or dead-route detection still fails here.
 func TestE2E_FixtureApp_RouteShape(t *testing.T) {
 	root := repoRoot(t)
 	pm := analyzeFixture(t, filepath.Join(root, fixtureAppRel))
 
-	// Four controllers, in recursive-discovery order.
+	// Five controllers, in recursive-discovery order — the Admin subdirectory
+	// sorts first, so its sub-namespaced controller leads (issue #63).
 	wantControllers := []string{
+		"App\\Http\\Controllers\\Admin\\AdminDashboardController",
 		"App\\Http\\Controllers\\CommentController",
 		"App\\Http\\Controllers\\Controller",
 		"App\\Http\\Controllers\\PostController",
@@ -214,10 +218,30 @@ func TestE2E_FixtureApp_RouteShape(t *testing.T) {
 	}
 
 	// The apiResource on comments must have expanded to the five REST routes.
-	// 12 total: 11 original + the deliberate public write POST /webhooks (issue
-	// #50's unauthenticated_write blocker fixture).
-	if got, want := len(pm.Routes), 12; got != want {
+	// 14 total: 12 prior (incl. the deliberate public write POST /webhooks, issue
+	// #50's unauthenticated_write blocker fixture) + the two sub-namespaced
+	// admin/dashboard routes added for issue #63.
+	if got, want := len(pm.Routes), 14; got != want {
 		t.Fatalf("routes count = %d, want %d", got, want)
+	}
+
+	// issue #63: the sub-namespaced admin routes resolve to the true FQN — one
+	// written inline fully-qualified, one imported-short — and neither is dead.
+	// Before the fix the reference collapsed to the short name and resolution
+	// rebuilt a wrong App\Http\Controllers\AdminDashboardController.
+	const adminDashboardFQN = "App\\Http\\Controllers\\Admin\\AdminDashboardController"
+	for _, tc := range []struct{ uri, action string }{
+		{"/admin/dashboard", "index"},
+		{"/admin/dashboard/stats", "stats"},
+	} {
+		r := findRoute(t, pm, "GET", tc.uri)
+		if r.FQN != adminDashboardFQN {
+			t.Errorf("GET %s FQN = %q, want %q (issue #63 sub-namespaced resolution)",
+				tc.uri, r.FQN, adminDashboardFQN)
+		}
+		if r.Action != tc.action {
+			t.Errorf("GET %s action = %q, want %q", tc.uri, r.Action, tc.action)
+		}
 	}
 
 	// A grouped route carries its inherited prefix and middleware, and resolves.

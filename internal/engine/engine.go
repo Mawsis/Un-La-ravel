@@ -143,12 +143,18 @@ func Analyze(projectPath string) (*model.ProjectModel, error) {
 	}
 	routes := analyze.LinkFormRequests(rp.routes, formRequests, rp.actionParams, rp.symbols, rp.controllerFiles)
 
-	// 7. Assemble the Middleware node set (ADR 0012): the built-in alias backstop
-	//    unioned with every middleware name the resolved routes apply, so the
-	//    reverse index a consumer derives never dangles. This is the tracer-bullet
-	//    slice (issue #64) — it reads no Kernel yet, only the routes — so it runs
-	//    after route resolution, when Route.Middleware is final.
-	middlewares := middlewareextract.Extract(routes)
+	// 7. Assemble the Middleware node set (ADR 0012): the HTTP Kernel's declared
+	//    aliases (Laravel ≤10 app/Http/Kernel.php, issue #66) unioned with the
+	//    built-in alias backstop and every middleware name the resolved routes
+	//    apply, so the reverse index a consumer derives never dangles. The Kernel
+	//    read is graceful — a project with no ≤10 Kernel yields a nil Kernel and
+	//    the union collapses to backstop ∪ applied (the issue #64 tracer bullet).
+	//    It runs after route resolution, when Route.Middleware is final.
+	kernel, err := middlewareextract.ReadKernel(projectPath)
+	if err != nil {
+		return nil, err
+	}
+	middlewares := middlewareextract.Extract(routes, kernel)
 
 	// 8. Assemble the Project Model.
 	return buildProjectModel(project, tables, models, disagreements, routes, rp.controllers, rp.deadRoutes, formRequests, middlewares), nil

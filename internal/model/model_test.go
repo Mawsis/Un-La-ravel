@@ -122,12 +122,22 @@ func buildKnownModel() *ProjectModel {
 	pm.AddFinding(Finding{Kind: FindingDeadRoutes, Severity: SeverityFor(FindingDeadRoutes), Count: 2, Label: "2 dead routes", View: "findings"})
 	pm.AddFinding(Finding{Kind: FindingDisagreements, Severity: SeverityFor(FindingDisagreements), Count: 2, Label: "2 disagreements", View: "findings"})
 
-	// Two Middlewares — a framework built-in then an applied-but-undeclared name —
-	// to lock the new 1.10.0 "middlewares" array shape (issue #64, ADR 0012). The
-	// first (auth) exercises the framework-origin tier and the non-nil empty
-	// "groups": []; the second (tenant) exercises the unknown-origin tier and the
-	// omitempty behavior of the absent "class" field (there is no class to guess).
-	// Together they pin the serialized node shape and the tiered emit order.
+	// Three Middlewares — one per origin tier, in the tiered emit order (app →
+	// framework → unknown) — to lock the "middlewares" array shape. The first
+	// (session) is a Kernel-declared app node (issue #66, contract 1.11.0): it
+	// pins the POPULATED fields — a resolved "class", a non-empty "groups", a true
+	// "global", and a non-zero "priority" — that earlier contracts always left at
+	// their zero values. The second (auth) exercises the framework-origin tier and
+	// the non-nil empty "groups": [] with an omitted "class". The third (tenant)
+	// exercises the unknown-origin tier: origin "unknown", no guessed class,
+	// "global": false, "priority": 0. Together they pin every field of the node
+	// and the tiered emit order.
+	session := NewMiddleware("session", OriginApp)
+	session.Class = `Illuminate\Session\Middleware\StartSession`
+	session.Groups = []string{"web"}
+	session.Global = true
+	session.Priority = 1
+	pm.AddMiddleware(session)
 	pm.AddMiddleware(NewMiddleware("auth", OriginFramework))
 	pm.AddMiddleware(NewMiddleware("tenant", OriginUnknown))
 	return pm

@@ -104,7 +104,24 @@ import (
 // slices; until then class/groups/global/priority carry their zero values. A
 // backward-compatible growth: the array is appended last, so existing consumers
 // are unaffected.
-const CurrentSchemaVersion = "1.10.0"
+//
+// Bumped to 1.11.0 when the Laravel ≤10 Kernel reader (issue #66) began
+// populating the middleware node fields that 1.10.0 introduced but always left
+// at their zero values. On a project with an app/Http/Kernel.php, each declared
+// alias now resolves: "class" carries the FQN the alias maps to, "groups"
+// reflects the alias's class membership in $middlewareGroups, "global" is true
+// when that class is in the global $middleware stack, and "priority" is its
+// 1-based position in $middlewarePriority. A new "app"-origin tier (the origin
+// vocabulary 1.10.0 already reserved) is emitted FIRST in the tiered order —
+// Kernel-declared, then the built-in backstop for aliases the Kernel did not
+// declare, then applied-but-undeclared names — so a declared built-in such as
+// "auth" appears once, carrying its resolved class, rather than as a bare
+// framework node. No struct field is added or removed and the emit order stays
+// map-free and deterministic: this is a backward-compatible enrichment of
+// existing fields, so consumers reading the 1.10.0 shape are unaffected. A
+// project without a ≤10 Kernel (Laravel 11+, whose bootstrap/app.php reader is a
+// later slice) is unchanged — the fields stay at their zero values.
+const CurrentSchemaVersion = "1.11.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.10.0",
+  "schema_version": "1.11.0",
   "project_name": "acme/blog",
   "laravel_version": "^11.0",
   "schemas": [
@@ -611,15 +611,51 @@
   "middlewares": [
     {
       "alias": "auth",
+      "class": "App\\Http\\Middleware\\Authenticate",
       "groups": [],
-      "origin": "framework",
+      "origin": "app",
+      "global": false,
+      "priority": 3
+    },
+    {
+      "alias": "auth.basic",
+      "class": "Illuminate\\Auth\\Middleware\\AuthenticateWithBasicAuth",
+      "groups": [],
+      "origin": "app",
       "global": false,
       "priority": 0
     },
     {
-      "alias": "auth.basic",
+      "alias": "guest",
+      "class": "App\\Http\\Middleware\\RedirectIfAuthenticated",
       "groups": [],
-      "origin": "framework",
+      "origin": "app",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "throttle",
+      "class": "Illuminate\\Routing\\Middleware\\ThrottleRequests",
+      "groups": [
+        "api"
+      ],
+      "origin": "app",
+      "global": false,
+      "priority": 4
+    },
+    {
+      "alias": "verified",
+      "class": "Illuminate\\Auth\\Middleware\\EnsureEmailIsVerified",
+      "groups": [],
+      "origin": "app",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "tenant",
+      "class": "App\\Http\\Middleware\\EnsureTenant",
+      "groups": [],
+      "origin": "app",
       "global": false,
       "priority": 0
     },
@@ -639,13 +675,6 @@
     },
     {
       "alias": "can",
-      "groups": [],
-      "origin": "framework",
-      "global": false,
-      "priority": 0
-    },
-    {
-      "alias": "guest",
       "groups": [],
       "origin": "framework",
       "global": false,
@@ -676,27 +705,6 @@
       "alias": "subscribed",
       "groups": [],
       "origin": "framework",
-      "global": false,
-      "priority": 0
-    },
-    {
-      "alias": "throttle",
-      "groups": [],
-      "origin": "framework",
-      "global": false,
-      "priority": 0
-    },
-    {
-      "alias": "verified",
-      "groups": [],
-      "origin": "framework",
-      "global": false,
-      "priority": 0
-    },
-    {
-      "alias": "tenant",
-      "groups": [],
-      "origin": "unknown",
       "global": false,
       "priority": 0
     }

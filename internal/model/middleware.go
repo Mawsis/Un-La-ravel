@@ -18,13 +18,15 @@ package model
 // ("which routes apply this middleware") is DERIVED at read-time by consumers
 // joining Routes against these nodes, never serialized onto the node (ADR 0012).
 //
-// Scope note (issue #64, the tracer bullet): this slice emits a node for every
-// Laravel built-in alias (the backstop table below) and for every middleware
-// name actually applied on a Route, so the reverse index never dangles. Reading
-// the Kernel's own alias→class→group→global→priority mapping — from
-// app/Http/Kernel.php (Laravel ≤10) or bootstrap/app.php (Laravel 11+) — layers
-// on in later slices (issues #66/#67); until then Class, Groups, Global, and
-// Priority carry their zero values for every node.
+// Scope note: the node set unions three tiers (ADR 0012) — the HTTP Kernel's
+// declared aliases (origin "app", fully resolved), the built-in alias backstop
+// for framework aliases the Kernel did not declare (origin "framework"), and
+// every middleware name actually applied on a Route that nothing declares
+// (origin "unknown") — so the reverse index never dangles. The Kernel's own
+// alias→class→group→global→priority mapping is read from app/Http/Kernel.php
+// (Laravel ≤10, issue #66); the Laravel 11+ bootstrap/app.php closure reader is
+// a later slice (issue #67). On a project with no readable Kernel, Class,
+// Groups, Global, and Priority carry their zero values.
 
 // Middleware origins. These are the stable machine-readable values written to
 // Middleware.Origin so consumers can tell "your code" from "Laravel's" without
@@ -37,9 +39,10 @@ const (
 	// in its own Kernel.
 	OriginFramework = "framework"
 	// OriginApp marks a middleware the application itself declares — read from
-	// the Kernel's alias map or a group definition. No node carries this origin
-	// yet: Kernel reading is a later slice (issues #66/#67). Defined now so the
-	// contract's origin vocabulary is complete and consumers can branch on it.
+	// the Kernel's alias map. Populated by the Laravel ≤10 Kernel reader (issue
+	// #66) from app/Http/Kernel.php; the Laravel 11+ bootstrap/app.php reader
+	// (issue #67) adds to it. A node with this origin carries a resolved Class and
+	// any Groups / Global / Priority the Kernel declared for it.
 	OriginApp = "app"
 	// OriginUnknown marks a middleware NAME applied on a Route that is neither a
 	// framework built-in nor (once Kernel reading lands) an app-declared alias —
@@ -87,14 +90,16 @@ type Middleware struct {
 	Alias string `json:"alias,omitempty"`
 	// Class is the fully qualified class name the alias resolves to (for example
 	// "Illuminate\\Auth\\Middleware\\Authenticate"). Omitted from JSON when
-	// empty — a built-in alias whose class we have not read yet (Kernel reading
-	// is a later slice) or an Origin=="unknown" name we decline to guess (ADR
-	// 0002).
+	// empty — a built-in alias the Kernel did not declare (origin "framework",
+	// class unread) or an Origin=="unknown" name we decline to guess (ADR 0002).
+	// Populated for an origin=="app" node from the Kernel's alias→class map
+	// (issue #66).
 	Class string `json:"class,omitempty"`
 	// Groups are the middleware groups this middleware belongs to (for example
-	// "web", "api"), in declaration order. Non-nil: an ungrouped middleware
-	// serializes "groups": [] rather than null. Populated once the Kernel's group
-	// definitions are read (a later slice); empty for every node in this slice.
+	// "web", "api"), in Kernel declaration order. Non-nil: an ungrouped
+	// middleware serializes "groups": [] rather than null. Populated for an
+	// origin=="app" node from the Kernel's $middlewareGroups, matched by the
+	// alias's resolved class (issue #66); empty for framework and unknown nodes.
 	Groups []string `json:"groups"`
 	// Origin is where the middleware comes from — one of OriginFramework,
 	// OriginApp, or OriginUnknown — so a consumer can distinguish Laravel's own
@@ -103,21 +108,24 @@ type Middleware struct {
 	Origin string `json:"origin"`
 	// Global reports whether the middleware runs on EVERY request (a member of
 	// the Kernel's global $middleware stack) rather than being applied per-route
-	// by alias. False for every node in this slice; populated once the global
-	// stack is read (a later slice).
+	// by alias. Populated for an origin=="app" node from the Kernel's global
+	// $middleware stack, matched by the alias's resolved class (issue #66); false
+	// for framework and unknown nodes.
 	Global bool `json:"global"`
-	// Priority is the middleware's position in the Kernel's $middlewarePriority
-	// ordering, which decides execution order when it matters. Zero for every
-	// node in this slice; populated once the priority list is read (a later
-	// slice).
+	// Priority is the middleware's 1-based position in the Kernel's
+	// $middlewarePriority ordering, which decides execution order when it matters
+	// (0 means unlisted). Populated for an origin=="app" node whose resolved
+	// class appears in $middlewarePriority (issue #66); zero for framework and
+	// unknown nodes.
 	Priority int `json:"priority"`
 }
 
 // NewMiddleware returns a Middleware with the given alias and origin and a
 // non-nil empty Groups slice, so a group-less middleware serializes
 // "groups": [] rather than null, matching the project's non-nil-empty-slice
-// convention. Class, Global, and Priority are left at their zero values for the
-// caller to set when the Kernel provides them (a later slice).
+// convention. Class, Global, and Priority are left at their zero values; the
+// extractor sets them on an origin=="app" node from the Kernel's resolution
+// (issue #66), and leaves them zero for framework and unknown nodes.
 func NewMiddleware(alias, origin string) Middleware {
 	return Middleware{
 		Alias:  alias,

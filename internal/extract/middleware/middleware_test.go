@@ -31,7 +31,7 @@ func byAlias(mws []domain.Middleware) map[string]domain.Middleware {
 // every node framework-origin. This is the promise that framework middleware a
 // project applies but never declares always has a node (ADR 0012).
 func TestExtract_BuiltinBackstopOnly(t *testing.T) {
-	got := middleware.Extract(nil)
+	got := middleware.Extract(nil, nil)
 
 	if want := domain.BuiltinMiddlewareAliases; len(got) != len(want) {
 		t.Fatalf("Extract(nil) produced %d nodes, want %d (the backstop table)", len(got), len(want))
@@ -58,7 +58,7 @@ func TestExtract_AppliedBuiltinDoesNotDuplicate(t *testing.T) {
 		{Method: "GET", URI: "/admin", Middleware: []string{"auth:sanctum", "throttle:api"}},
 	}
 
-	got := middleware.Extract(routes)
+	got := middleware.Extract(routes, nil)
 
 	if len(got) != len(domain.BuiltinMiddlewareAliases) {
 		t.Fatalf("Extract produced %d nodes, want %d — an applied built-in must not add a node",
@@ -82,7 +82,7 @@ func TestExtract_AppliedUndeclaredBecomesUnknown(t *testing.T) {
 		{Method: "GET", URI: "/admin", Middleware: []string{"tenant"}},
 	}
 
-	got := middleware.Extract(routes)
+	got := middleware.Extract(routes, nil)
 
 	if len(got) != len(domain.BuiltinMiddlewareAliases)+1 {
 		t.Fatalf("Extract produced %d nodes, want %d (backstop + 1 unknown)",
@@ -112,7 +112,7 @@ func TestExtract_ParameterStrippedToBaseAlias(t *testing.T) {
 		{Method: "GET", URI: "/b", Middleware: []string{"tenant:beta"}},
 	}
 
-	got := middleware.Extract(routes)
+	got := middleware.Extract(routes, nil)
 
 	unknowns := 0
 	for _, m := range got {
@@ -138,7 +138,7 @@ func TestExtract_AppliedFirstAppearanceOrder(t *testing.T) {
 		{Method: "GET", URI: "/3", Middleware: []string{"zebra:x", "mango"}},
 	}
 
-	got := middleware.Extract(routes)
+	got := middleware.Extract(routes, nil)
 
 	// The unknown tier, in order, must be zebra, alpha, mango (first appearance;
 	// auth is a built-in and does not enter the unknown tier).
@@ -167,8 +167,8 @@ func TestExtract_IsDeterministic(t *testing.T) {
 		{Method: "GET", URI: "/2", Middleware: []string{"audit", "billing"}},
 	}
 
-	first := aliases(middleware.Extract(routes))
-	second := aliases(middleware.Extract(routes))
+	first := aliases(middleware.Extract(routes, nil))
+	second := aliases(middleware.Extract(routes, nil))
 
 	if len(first) != len(second) {
 		t.Fatalf("non-deterministic length: %d vs %d", len(first), len(second))
@@ -189,7 +189,7 @@ func TestExtract_BlankAndDuplicateNamesIgnored(t *testing.T) {
 		{Method: "GET", URI: "/2", Middleware: []string{"tenant"}},
 	}
 
-	got := middleware.Extract(routes)
+	got := middleware.Extract(routes, nil)
 
 	count := 0
 	for _, m := range got {

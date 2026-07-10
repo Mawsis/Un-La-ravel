@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.10.0",
+  "schema_version": "1.11.0",
   "project_name": "blog",
   "laravel_version": "11.x",
   "schemas": [
@@ -151,6 +151,16 @@
     }
   ],
   "middlewares": [
+    {
+      "alias": "session",
+      "class": "Illuminate\\Session\\Middleware\\StartSession",
+      "groups": [
+        "web"
+      ],
+      "origin": "app",
+      "global": true,
+      "priority": 1
+    },
     {
       "alias": "auth",
       "groups": [],

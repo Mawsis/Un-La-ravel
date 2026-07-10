@@ -213,14 +213,16 @@ func TestAnalyze_FixtureApp_FormRequestLinked(t *testing.T) {
 }
 
 // TestAnalyze_FixtureApp_Middlewares verifies the engine assembles the
-// Middleware node set (issue #64, ADR 0012): the built-in alias backstop (origin
-// "framework"), in canonical order, unioned with every applied-but-undeclared
-// route middleware (origin "unknown"), appended after the backstop. The fixture
-// applies only built-ins (auth, throttle) PLUS one deliberate undeclared name
-// (`tenant` on the admin group), so the expected set is the full backstop table
-// followed by exactly one unknown node — proving the union, the tiered emit
-// order, and the base-alias join (auth:sanctum/throttle:api do NOT add nodes)
-// all run end-to-end through Analyze.
+// Middleware node set from the fixture's Laravel-10 app/Http/Kernel.php (issues
+// #64/#66, ADR 0012): the three-tier union in tiered emit order. The fixture
+// Kernel declares six aliases (auth, auth.basic, guest, throttle, verified,
+// tenant), so those emit FIRST as origin "app" in declaration order, each with a
+// resolved class; then the built-in backstop for the aliases the Kernel did NOT
+// declare, origin "framework"; then no applied-unknown tier at all, because the
+// only applied name that used to dangle — `tenant` — is now Kernel-declared. This
+// proves the app tier sorts first, absorbs declared built-ins (auth, throttle
+// appear once, in the app tier), resolves class/groups/global/priority, and that
+// a name the Kernel declares no longer falls through to the unknown tier.
 func TestAnalyze_FixtureApp_Middlewares(t *testing.T) {
 	root := repoRoot(t)
 	fixtureApp := filepath.Join(root, "testdata", "fixture-app")
@@ -230,10 +232,22 @@ func TestAnalyze_FixtureApp_Middlewares(t *testing.T) {
 		t.Fatalf("engine.Analyze(%q): %v", fixtureApp, err)
 	}
 
-	// Expected emit order: the whole backstop table (framework), then `tenant`
-	// (unknown). auth:sanctum and throttle:api strip to auth/throttle, which are
-	// already built-ins, so they add nothing.
-	wantAliases := append(append([]string{}, model.BuiltinMiddlewareAliases...), "tenant")
+	// Tier 1: the Kernel-declared aliases, in the Kernel's declaration order.
+	kernelTier := []string{"auth", "auth.basic", "guest", "throttle", "verified", "tenant"}
+	// Tier 2: the built-in backstop MINUS the aliases the Kernel already declared.
+	kernelSet := map[string]bool{}
+	for _, a := range kernelTier {
+		kernelSet[a] = true
+	}
+	var frameworkTier []string
+	for _, a := range model.BuiltinMiddlewareAliases {
+		if !kernelSet[a] {
+			frameworkTier = append(frameworkTier, a)
+		}
+	}
+	// Tier 3 is empty: `tenant` is now Kernel-declared, so nothing dangles.
+	wantAliases := append(append([]string{}, kernelTier...), frameworkTier...)
+
 	if len(pm.Middlewares) != len(wantAliases) {
 		t.Fatalf("Middlewares = %d nodes, want %d\ngot: %+v", len(pm.Middlewares), len(wantAliases), pm.Middlewares)
 	}
@@ -243,20 +257,53 @@ func TestAnalyze_FixtureApp_Middlewares(t *testing.T) {
 		}
 	}
 
-	// Facet spot-checks: the backstop is framework-origin; the applied-undeclared
-	// name is unknown-origin with no guessed class; both carry a non-nil groups.
-	last := pm.Middlewares[len(pm.Middlewares)-1]
-	if last.Alias != "tenant" || last.Origin != model.OriginUnknown {
-		t.Errorf("last node = {alias:%q origin:%q}, want {alias:tenant origin:unknown}", last.Alias, last.Origin)
+	idx := map[string]model.Middleware{}
+	for _, m := range pm.Middlewares {
+		idx[m.Alias] = m
 	}
-	if last.Class != "" {
-		t.Errorf("tenant class = %q, want empty (precision over coverage)", last.Class)
+
+	// Kernel-declared `auth` resolves to its class, origin "app", and — because
+	// its class is in $middlewarePriority — carries a non-zero priority.
+	auth := idx["auth"]
+	if auth.Origin != model.OriginApp {
+		t.Errorf("auth origin = %q, want %q (Kernel-declared)", auth.Origin, model.OriginApp)
 	}
-	if pm.Middlewares[0].Origin != model.OriginFramework {
-		t.Errorf("first node origin = %q, want %q", pm.Middlewares[0].Origin, model.OriginFramework)
+	if auth.Class != `App\Http\Middleware\Authenticate` {
+		t.Errorf("auth class = %q, want the resolved FQN", auth.Class)
 	}
-	if pm.Middlewares[0].Groups == nil {
-		t.Error("first node Groups is nil, want non-nil empty slice")
+	if auth.Priority == 0 {
+		t.Errorf("auth priority = 0, want its position in $middlewarePriority")
+	}
+
+	// `throttle`'s resolved class is in the "api" group.
+	throttle := idx["throttle"]
+	if g := throttle.Groups; len(g) != 1 || g[0] != "api" {
+		t.Errorf("throttle Groups = %v, want [api] (from $middlewareGroups)", g)
+	}
+
+	// `tenant` is now Kernel-declared (origin "app") with its resolved class —
+	// no longer an unknown-origin node.
+	tenant := idx["tenant"]
+	if tenant.Origin != model.OriginApp || tenant.Class != `App\Http\Middleware\EnsureTenant` {
+		t.Errorf("tenant = {origin:%q class:%q}, want {app, ...EnsureTenant}", tenant.Origin, tenant.Class)
+	}
+
+	// A built-in the Kernel did NOT declare stays framework-origin with no class.
+	signed := idx["signed"]
+	if signed.Origin != model.OriginFramework || signed.Class != "" {
+		t.Errorf("signed = {origin:%q class:%q}, want {framework, \"\"}", signed.Origin, signed.Class)
+	}
+
+	// No origin-"unknown" node survives: every applied name resolves.
+	for _, m := range pm.Middlewares {
+		if m.Origin == model.OriginUnknown {
+			t.Errorf("unexpected unknown-origin node %q — the Kernel declares tenant", m.Alias)
+		}
+	}
+
+	// The tiered order holds: the last app node precedes the first framework node.
+	if pm.Middlewares[0].Origin != model.OriginApp {
+		t.Errorf("first node origin = %q, want %q (app tier first)", pm.Middlewares[0].Origin, model.OriginApp)
 	}
 }
 

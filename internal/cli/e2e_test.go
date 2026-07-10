@@ -434,11 +434,16 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 	for _, fr := range formRequests {
 		pm.AddFormRequest(fr)
 	}
-	// Assemble the Middleware node set from the resolved routes (issue #64, ADR
-	// 0012) exactly as the engine's buildProjectModel does, so the golden pins the
-	// same "middlewares" array the real `unlaravel analyze` emits — the built-in
-	// backstop unioned with the routes' applied-but-undeclared names.
-	for _, mw := range middlewareextract.Extract(routes) {
+	// Assemble the Middleware node set from the fixture's Laravel-10 Kernel and the
+	// resolved routes (issues #64/#66, ADR 0012) exactly as the engine's
+	// buildProjectModel does, so the golden pins the same "middlewares" array the
+	// real `unlaravel analyze` emits — the Kernel-declared aliases (origin "app",
+	// resolved) unioned with the built-in backstop and the routes' applied names.
+	kernel, err := middlewareextract.ReadKernel(fixtureApp)
+	if err != nil {
+		t.Fatalf("read HTTP Kernel: %v", err)
+	}
+	for _, mw := range middlewareextract.Extract(routes, kernel) {
 		pm.AddMiddleware(mw)
 	}
 	// Compute the itemized health verdict last, over the fully assembled model,

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.9.0",
+  "schema_version": "1.10.0",
   "project_name": "acme/blog",
   "laravel_version": "^11.0",
   "schemas": [
@@ -373,7 +373,8 @@
       "action": "index",
       "middleware": [
         "auth:sanctum",
-        "throttle:api"
+        "throttle:api",
+        "tenant"
       ],
       "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\UserController"
@@ -385,7 +386,8 @@
       "action": "index",
       "middleware": [
         "auth:sanctum",
-        "throttle:api"
+        "throttle:api",
+        "tenant"
       ],
       "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
@@ -397,7 +399,8 @@
       "action": "store",
       "middleware": [
         "auth:sanctum",
-        "throttle:api"
+        "throttle:api",
+        "tenant"
       ],
       "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
@@ -409,7 +412,8 @@
       "action": "show",
       "middleware": [
         "auth:sanctum",
-        "throttle:api"
+        "throttle:api",
+        "tenant"
       ],
       "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
@@ -421,7 +425,8 @@
       "action": "update",
       "middleware": [
         "auth:sanctum",
-        "throttle:api"
+        "throttle:api",
+        "tenant"
       ],
       "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
@@ -433,7 +438,8 @@
       "action": "destroy",
       "middleware": [
         "auth:sanctum",
-        "throttle:api"
+        "throttle:api",
+        "tenant"
       ],
       "auth": "authenticated",
       "fqn": "App\\Http\\Controllers\\CommentController"
@@ -445,7 +451,8 @@
       "action": "destroy",
       "middleware": [
         "auth:sanctum",
-        "throttle:api"
+        "throttle:api",
+        "tenant"
       ],
       "auth": "authenticated"
     }
@@ -599,6 +606,99 @@
       "count": 3,
       "label": "3 unauthenticated read routes",
       "view": "auth"
+    }
+  ],
+  "middlewares": [
+    {
+      "alias": "auth",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "auth.basic",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "auth.session",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "cache.headers",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "can",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "guest",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "password.confirm",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "precognitive",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "signed",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "subscribed",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "throttle",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "verified",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "tenant",
+      "groups": [],
+      "origin": "unknown",
+      "global": false,
+      "priority": 0
     }
   ]
 }

@@ -39,10 +39,17 @@ Route::get('/legacy', 'PostController@show');
 //   POST /webhooks     -> PostController@store   ⚠ PUBLIC WRITE (unauthenticated_write)
 Route::post('/webhooks', [PostController::class, 'store']);
 
-// A route GROUP: prefix('admin') + middleware(['auth:sanctum','throttle:api'])
+// A route GROUP: prefix('admin') + middleware(['auth:sanctum','throttle:api','tenant'])
 // wrap the inner routes. The prefix flattens into each inner URI and the group
 // middleware is inherited by each inner route (the group-flattening algorithm).
-Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('admin')->group(function () {
+//
+// `tenant` is a DELIBERATE applied-but-undeclared middleware (issue #64): it is
+// neither a Laravel built-in alias nor declared in any Kernel this fixture
+// carries, so the middleware slice must emit an `unknown`-origin node for it —
+// the reverse index never dangles. It is added ALONGSIDE `auth:sanctum`, so
+// every inner route stays authenticated and no auth finding changes; this
+// exercises only #64's unknown-origin path end-to-end through engine.Analyze.
+Route::middleware(['auth:sanctum', 'throttle:api', 'tenant'])->prefix('admin')->group(function () {
     // Inner verb route. Inherits the /admin prefix and the group middleware:
     //   GET /admin/users -> UserController@index  [auth:sanctum, throttle:api]
     Route::get('/users', [UserController::class, 'index']);

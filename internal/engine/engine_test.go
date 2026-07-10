@@ -212,6 +212,54 @@ func TestAnalyze_FixtureApp_FormRequestLinked(t *testing.T) {
 	}
 }
 
+// TestAnalyze_FixtureApp_Middlewares verifies the engine assembles the
+// Middleware node set (issue #64, ADR 0012): the built-in alias backstop (origin
+// "framework"), in canonical order, unioned with every applied-but-undeclared
+// route middleware (origin "unknown"), appended after the backstop. The fixture
+// applies only built-ins (auth, throttle) PLUS one deliberate undeclared name
+// (`tenant` on the admin group), so the expected set is the full backstop table
+// followed by exactly one unknown node — proving the union, the tiered emit
+// order, and the base-alias join (auth:sanctum/throttle:api do NOT add nodes)
+// all run end-to-end through Analyze.
+func TestAnalyze_FixtureApp_Middlewares(t *testing.T) {
+	root := repoRoot(t)
+	fixtureApp := filepath.Join(root, "testdata", "fixture-app")
+
+	pm, err := engine.Analyze(fixtureApp)
+	if err != nil {
+		t.Fatalf("engine.Analyze(%q): %v", fixtureApp, err)
+	}
+
+	// Expected emit order: the whole backstop table (framework), then `tenant`
+	// (unknown). auth:sanctum and throttle:api strip to auth/throttle, which are
+	// already built-ins, so they add nothing.
+	wantAliases := append(append([]string{}, model.BuiltinMiddlewareAliases...), "tenant")
+	if len(pm.Middlewares) != len(wantAliases) {
+		t.Fatalf("Middlewares = %d nodes, want %d\ngot: %+v", len(pm.Middlewares), len(wantAliases), pm.Middlewares)
+	}
+	for i, wantAlias := range wantAliases {
+		if pm.Middlewares[i].Alias != wantAlias {
+			t.Errorf("Middlewares[%d].Alias = %q, want %q (tiered emit order)", i, pm.Middlewares[i].Alias, wantAlias)
+		}
+	}
+
+	// Facet spot-checks: the backstop is framework-origin; the applied-undeclared
+	// name is unknown-origin with no guessed class; both carry a non-nil groups.
+	last := pm.Middlewares[len(pm.Middlewares)-1]
+	if last.Alias != "tenant" || last.Origin != model.OriginUnknown {
+		t.Errorf("last node = {alias:%q origin:%q}, want {alias:tenant origin:unknown}", last.Alias, last.Origin)
+	}
+	if last.Class != "" {
+		t.Errorf("tenant class = %q, want empty (precision over coverage)", last.Class)
+	}
+	if pm.Middlewares[0].Origin != model.OriginFramework {
+		t.Errorf("first node origin = %q, want %q", pm.Middlewares[0].Origin, model.OriginFramework)
+	}
+	if pm.Middlewares[0].Groups == nil {
+		t.Error("first node Groups is nil, want non-nil empty slice")
+	}
+}
+
 // TestAnalyze_NonLaravelDir verifies that Analyze returns a non-nil error (and
 // no panic) when the target directory exists but is not a Laravel project.
 func TestAnalyze_NonLaravelDir(t *testing.T) {

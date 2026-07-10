@@ -87,7 +87,24 @@ import (
 // backward-compatible growth: the new route key is appended after "middleware",
 // the new finding kinds append after the existing categories, and consumers that
 // ignore them are unaffected.
-const CurrentSchemaVersion = "1.9.0"
+//
+// Bumped to 1.10.0 when middleware became a first-class node (issue #64, ADR
+// 0012): the contract gains a top-level "middlewares" array, appended last.
+// Each entry carries the middleware's "alias" (omitted when applied by class
+// with no alias), resolved "class" FQN (omitted when unread/unknown), the
+// "groups" it belongs to (non-nil), its "origin" ("framework" / "app" /
+// "unknown"), a "global" flag, and its "priority" ordering. The node set is the
+// union of Laravel's built-in alias backstop (origin "framework") and every
+// middleware name actually applied on a Route that is otherwise undeclared
+// (origin "unknown", base alias with the parameter stripped), so the derived
+// reverse index ("which routes apply this middleware") never dangles. Emit order
+// is tiered and map-free — built-in canonical order, then applied-first-
+// appearance — so the array is deterministic for golden-file tests. Reading the
+// Kernel's own alias→class→group→global→priority mapping layers on in later
+// slices; until then class/groups/global/priority carry their zero values. A
+// backward-compatible growth: the array is appended last, so existing consumers
+// are unaffected.
+const CurrentSchemaVersion = "1.10.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.
@@ -112,13 +129,15 @@ type ProjectModel struct {
 	DeadRoutes     []DeadRoute    `json:"dead_routes"`
 	FormRequests   []FormRequest  `json:"form_requests"`
 	Findings       []Finding      `json:"findings"`
+	Middlewares    []Middleware   `json:"middlewares"`
 }
 
 // New constructs a ProjectModel for the named project, stamping it with the
 // CurrentSchemaVersion. Every slice is initialized to a non-nil empty slice so
 // an analysis that finds none of a given kind serializes "schemas": [],
 // "models": [], "disagreements": [], "routes": [], "controllers": [],
-// "dead_routes": [], "form_requests": [], and "findings": [] rather than null.
+// "dead_routes": [], "form_requests": [], "findings": [], and
+// "middlewares": [] rather than null.
 func New(projectName, laravelVersion string) *ProjectModel {
 	return &ProjectModel{
 		SchemaVersion:  CurrentSchemaVersion,
@@ -132,6 +151,7 @@ func New(projectName, laravelVersion string) *ProjectModel {
 		DeadRoutes:     []DeadRoute{},
 		FormRequests:   []FormRequest{},
 		Findings:       []Finding{},
+		Middlewares:    []Middleware{},
 	}
 }
 
@@ -197,6 +217,15 @@ func (p *ProjectModel) AddFormRequest(f FormRequest) *ProjectModel {
 // unguarded) and is preserved in the serialized output.
 func (p *ProjectModel) AddFinding(f Finding) *ProjectModel {
 	p.Findings = append(p.Findings, f)
+	return p
+}
+
+// AddMiddleware appends a Middleware node in the extractor's tiered emit order
+// (built-in canonical order, then applied-first-appearance) and returns the
+// receiver so calls can be chained. Insertion order is meaningful and is
+// preserved in the serialized output (ADR 0012's determinism requirement).
+func (p *ProjectModel) AddMiddleware(m Middleware) *ProjectModel {
+	p.Middlewares = append(p.Middlewares, m)
 	return p
 }
 

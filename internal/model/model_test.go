@@ -3,10 +3,17 @@ package model
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+// updateGolden, set by `-update`, rewrites internal/model/testdata/golden.json
+// from the known model instead of asserting against it. Regenerate deliberately
+// after an intentional contract change and review the diff — the golden IS the
+// contract (ADR 0004).
+var updateGolden = flag.Bool("update", false, "regenerate the model golden file instead of comparing")
 
 // buildKnownModel constructs a fixed ProjectModel used by the golden-file test.
 // It exercises every interesting JSON shape: a stamped schema version, a table
@@ -114,6 +121,15 @@ func buildKnownModel() *ProjectModel {
 	// producer uses — so the golden can never disagree with the mapping.
 	pm.AddFinding(Finding{Kind: FindingDeadRoutes, Severity: SeverityFor(FindingDeadRoutes), Count: 2, Label: "2 dead routes", View: "findings"})
 	pm.AddFinding(Finding{Kind: FindingDisagreements, Severity: SeverityFor(FindingDisagreements), Count: 2, Label: "2 disagreements", View: "findings"})
+
+	// Two Middlewares — a framework built-in then an applied-but-undeclared name —
+	// to lock the new 1.10.0 "middlewares" array shape (issue #64, ADR 0012). The
+	// first (auth) exercises the framework-origin tier and the non-nil empty
+	// "groups": []; the second (tenant) exercises the unknown-origin tier and the
+	// omitempty behavior of the absent "class" field (there is no class to guess).
+	// Together they pin the serialized node shape and the tiered emit order.
+	pm.AddMiddleware(NewMiddleware("auth", OriginFramework))
+	pm.AddMiddleware(NewMiddleware("tenant", OriginUnknown))
 	return pm
 }
 
@@ -141,6 +157,7 @@ func TestNewStampsSchemaVersion(t *testing.T) {
 		{"Controllers", pm.Controllers == nil, len(pm.Controllers)},
 		{"DeadRoutes", pm.DeadRoutes == nil, len(pm.DeadRoutes)},
 		{"Findings", pm.Findings == nil, len(pm.Findings)},
+		{"Middlewares", pm.Middlewares == nil, len(pm.Middlewares)},
 	}
 	for _, c := range collections {
 		if c.isNil {
@@ -255,6 +272,69 @@ func TestFindingSerializesFieldsInOrder(t *testing.T) {
 	}
 }
 
+// TestNewMiddlewareHasNonNilGroups verifies NewMiddleware initializes a non-nil
+// empty Groups slice so a group-less middleware serializes "groups": [] not
+// null, and stamps the given alias and origin.
+func TestNewMiddlewareHasNonNilGroups(t *testing.T) {
+	m := NewMiddleware("auth", OriginFramework)
+
+	if m.Alias != "auth" {
+		t.Errorf("NewMiddleware() Alias = %q, want %q", m.Alias, "auth")
+	}
+	if m.Origin != OriginFramework {
+		t.Errorf("NewMiddleware() Origin = %q, want %q", m.Origin, OriginFramework)
+	}
+	if m.Groups == nil {
+		t.Error("NewMiddleware() Groups is nil, want non-nil empty slice")
+	}
+}
+
+// TestAddMiddlewarePreservesEmitOrder verifies AddMiddleware appends in call
+// order and returns the receiver for chaining, so the tiered emit order (ADR
+// 0012) survives into the serialized contract.
+func TestAddMiddlewarePreservesEmitOrder(t *testing.T) {
+	pm := New("blog", "11.x")
+
+	got := pm.AddMiddleware(NewMiddleware("auth", OriginFramework)).
+		AddMiddleware(NewMiddleware("tenant", OriginUnknown))
+
+	if got != pm {
+		t.Error("AddMiddleware() did not return the receiver for chaining")
+	}
+	if len(pm.Middlewares) != 2 {
+		t.Fatalf("AddMiddleware() produced %d middlewares, want 2", len(pm.Middlewares))
+	}
+	if pm.Middlewares[0].Alias != "auth" || pm.Middlewares[1].Alias != "tenant" {
+		t.Errorf("AddMiddleware() order = [%q, %q], want [auth, tenant]",
+			pm.Middlewares[0].Alias, pm.Middlewares[1].Alias)
+	}
+}
+
+// TestMiddlewareOmitsClassWhenAbsent verifies an unknown-origin middleware (no
+// class to resolve) has no "class" key in the serialized output (omitempty on
+// the empty Class), while its "groups" and "origin" keys are always present.
+func TestMiddlewareOmitsClassWhenAbsent(t *testing.T) {
+	pm := New("blog", "11.x").AddMiddleware(NewMiddleware("tenant", OriginUnknown))
+
+	out, err := pm.ToJSON()
+	if err != nil {
+		t.Fatalf("ToJSON() error: %v", err)
+	}
+
+	want := `"middlewares": [
+    {
+      "alias": "tenant",
+      "groups": [],
+      "origin": "unknown",
+      "global": false,
+      "priority": 0
+    }
+  ]`
+	if !bytes.Contains(out, []byte(want)) {
+		t.Errorf("ToJSON() middlewares block does not match expected shape.\n--- got ---\n%s\n--- want substring ---\n%s", out, want)
+	}
+}
+
 // TestNewTableHasNonNilColumns verifies NewTable initializes a non-nil empty
 // Columns slice so a column-less table serializes "columns": [] not null.
 func TestNewTableHasNonNilColumns(t *testing.T) {
@@ -300,7 +380,16 @@ func TestToJSONMatchesGolden(t *testing.T) {
 		t.Fatalf("ToJSON() returned error: %v", err)
 	}
 
-	wantRaw, err := os.ReadFile(filepath.Join("testdata", "golden.json"))
+	goldenPath := filepath.Join("testdata", "golden.json")
+	if *updateGolden {
+		if err := os.WriteFile(goldenPath, append(got, '\n'), 0o644); err != nil {
+			t.Fatalf("regenerating golden: %v", err)
+		}
+		t.Logf("regenerated %s", goldenPath)
+		return
+	}
+
+	wantRaw, err := os.ReadFile(goldenPath)
 	if err != nil {
 		t.Fatalf("reading golden file: %v", err)
 	}

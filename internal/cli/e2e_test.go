@@ -25,6 +25,7 @@ import (
 	"github.com/Mawsis/Un-La-ravel/internal/detector"
 	"github.com/Mawsis/Un-La-ravel/internal/extract/controller"
 	formrequestextract "github.com/Mawsis/Un-La-ravel/internal/extract/formrequest"
+	middlewareextract "github.com/Mawsis/Un-La-ravel/internal/extract/middleware"
 	modelextract "github.com/Mawsis/Un-La-ravel/internal/extract/model"
 	routeextract "github.com/Mawsis/Un-La-ravel/internal/extract/route"
 	"github.com/Mawsis/Un-La-ravel/internal/extract/schema"
@@ -229,8 +230,8 @@ func TestE2E_FixtureApp_RouteShape(t *testing.T) {
 	if usersIndex.FQN != "App\\Http\\Controllers\\UserController" {
 		t.Errorf("GET /admin/users FQN = %q, want resolved UserController", usersIndex.FQN)
 	}
-	if !equalStrings(usersIndex.Middleware, []string{"auth:sanctum", "throttle:api"}) {
-		t.Errorf("GET /admin/users middleware = %v, want [auth:sanctum throttle:api]", usersIndex.Middleware)
+	if !equalStrings(usersIndex.Middleware, []string{"auth:sanctum", "throttle:api", "tenant"}) {
+		t.Errorf("GET /admin/users middleware = %v, want [auth:sanctum throttle:api tenant]", usersIndex.Middleware)
 	}
 
 	// Exactly one dead route: DELETE /admin/users/{id} → UserController@destroy,
@@ -432,6 +433,13 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 	}
 	for _, fr := range formRequests {
 		pm.AddFormRequest(fr)
+	}
+	// Assemble the Middleware node set from the resolved routes (issue #64, ADR
+	// 0012) exactly as the engine's buildProjectModel does, so the golden pins the
+	// same "middlewares" array the real `unlaravel analyze` emits — the built-in
+	// backstop unioned with the routes' applied-but-undeclared names.
+	for _, mw := range middlewareextract.Extract(routes) {
+		pm.AddMiddleware(mw)
 	}
 	// Compute the itemized health verdict last, over the fully assembled model,
 	// exactly as the engine's buildProjectModel does (internal/findings), so the

@@ -7,13 +7,17 @@
 // built-in alias the Kernel did not declare (the backstop table in
 // internal/model, origin "framework") ∪ every middleware name actually applied
 // on a Route that nothing declares (origin "unknown"), so the reverse index a
-// consumer derives ("which routes apply this middleware") never dangles. Reading
-// the Kernel's own alias→class→group→global→priority mapping from
-// app/Http/Kernel.php (Laravel ≤10, issue #66) happens in ReadKernel (kernel.go,
-// the only file here that touches the filesystem, all AST access through
-// internal/phpast); Laravel 11+'s bootstrap/app.php closure layers on later
-// (issue #67). A nil Kernel (no ≤10 file) collapses the union to the original
-// tracer-bullet behaviour: backstop ∪ applied.
+// consumer derives ("which routes apply this middleware") never dangles.
+//
+// The declared alias→class→group→global→priority mapping is read from whichever
+// layout the project uses, into one source-agnostic Kernel value: ReadKernel
+// (kernel.go) reads the Laravel ≤10 app/Http/Kernel.php properties (issue #66),
+// and ReadBootstrap (bootstrap.go) reads the Laravel 11+ bootstrap/app.php
+// ->withMiddleware() closure (issue #67). Those two are the only files here that
+// touch the filesystem, and all their AST access goes through internal/phpast.
+// A nil Kernel — neither layout present, or a bootstrap file that declares
+// nothing — collapses the union to the original tracer-bullet behaviour:
+// backstop ∪ applied.
 //
 // Extract itself performs no I/O and no AST work: it is a pure function of the
 // already-extracted routes, the constant backstop table, and the already-read

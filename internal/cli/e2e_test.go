@@ -50,6 +50,14 @@ const (
 	goldenJSONRel     = "testdata/fixture-app.golden.json"
 	goldenMermaidRel  = "testdata/fixture-app.golden.mermaid"
 	goldenRouteMapRel = "testdata/fixture-app.golden.routemap"
+	// fixtureApp11Rel / golden11JSONRel are the Laravel 11+ fixture and its
+	// committed Project Model. This fixture has NO app/Http/Kernel.php and
+	// configures middleware in bootstrap/app.php's ->withMiddleware() closure
+	// instead (issue #67), so its golden is what byte-pins the 11+ reader. Only
+	// the JSON is pinned: the ER / route-map / OpenAPI renderers are unaffected
+	// by which file the middleware came from, and fixture-app already pins them.
+	fixtureApp11Rel = "testdata/fixture-app11"
+	golden11JSONRel = "testdata/fixture-app11.golden.json"
 	// goldenOpenAPIRel is the committed OpenAPI 3 spec the renderer produces from
 	// the assembled model — the sixth-node showpiece output pinned as a contract.
 	goldenOpenAPIRel = "testdata/fixture-app.openapi.json"
@@ -86,6 +94,26 @@ func TestE2E_FixtureApp_Pipeline(t *testing.T) {
 	assertGolden(t, filepath.Join(root, goldenMermaidRel), gotMermaid)
 	assertGolden(t, filepath.Join(root, goldenRouteMapRel), gotRouteMap)
 	assertGolden(t, filepath.Join(root, goldenOpenAPIRel), gotOpenAPI)
+}
+
+// TestE2E_FixtureApp11_Pipeline runs the full pipeline against the Laravel 11+
+// fixture and pins the serialized Project Model byte-for-byte. This is what
+// makes the bootstrap/app.php middleware reader (issue #67) a contract rather
+// than an assertion: any drift in the aliases, classes, groups, globals, or
+// priorities read out of the ->withMiddleware() closure shows up as a golden
+// diff. Regenerate deliberately with the same `-update` flag as the ≤10 golden.
+func TestE2E_FixtureApp11_Pipeline(t *testing.T) {
+	root := repoRoot(t)
+
+	pm := analyzeFixture(t, filepath.Join(root, fixtureApp11Rel))
+
+	gotJSON, err := pm.ToJSON()
+	if err != nil {
+		t.Fatalf("serialize project model to JSON: %v", err)
+	}
+	gotJSON = append(gotJSON, '\n')
+
+	assertGolden(t, filepath.Join(root, golden11JSONRel), gotJSON)
 }
 
 // TestE2E_FixtureApp_ModelShape asserts the structural facts that make the
@@ -434,14 +462,18 @@ func analyzeFixture(t *testing.T, fixtureApp string) *model.ProjectModel {
 	for _, fr := range formRequests {
 		pm.AddFormRequest(fr)
 	}
-	// Assemble the Middleware node set from the fixture's Laravel-10 Kernel and the
-	// resolved routes (issues #64/#66, ADR 0012) exactly as the engine's
+	// Assemble the Middleware node set from the fixture's declared middleware and
+	// the resolved routes (issues #64/#66/#67, ADR 0012) exactly as the engine's
 	// buildProjectModel does, so the golden pins the same "middlewares" array the
-	// real `unlaravel analyze` emits — the Kernel-declared aliases (origin "app",
+	// real `unlaravel analyze` emits — the declared aliases (origin "app",
 	// resolved) unioned with the built-in backstop and the routes' applied names.
-	kernel, err := middlewareextract.ReadKernel(fixtureApp)
+	//
+	// ReadDeclared, not ReadKernel: it applies the same ≤10-Kernel-wins precedence
+	// the engine does (ADR 0012 §1a), so this helper reads the Laravel 11+
+	// fixture's bootstrap/app.php rather than silently finding no declared tier.
+	kernel, err := middlewareextract.ReadDeclared(fixtureApp)
 	if err != nil {
-		t.Fatalf("read HTTP Kernel: %v", err)
+		t.Fatalf("read declared middleware: %v", err)
 	}
 	for _, mw := range middlewareextract.Extract(routes, kernel) {
 		pm.AddMiddleware(mw)

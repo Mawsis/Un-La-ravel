@@ -307,6 +307,105 @@ func TestAnalyze_FixtureApp_Middlewares(t *testing.T) {
 	}
 }
 
+// TestAnalyze_FixtureApp11_Middlewares is the end-to-end proof of the Laravel
+// 11+ path (issue #67): the same three-tier Middleware union, assembled for a
+// project that has NO app/Http/Kernel.php and configures middleware in
+// bootstrap/app.php's ->withMiddleware() closure instead.
+//
+// fixture-app11 declares four aliases (auth, guest, throttle, tenant) via
+// ->alias(), so those emit FIRST as origin "app" in declaration order with
+// resolved classes; then the built-in backstop for the undeclared aliases; then
+// `audit.log` — applied in routes/api.php, declared nowhere, and not a Laravel
+// built-in — as the one origin-"unknown" node, proving the applied tier still
+// fires on 11+.
+func TestAnalyze_FixtureApp11_Middlewares(t *testing.T) {
+	root := repoRoot(t)
+	fixtureApp := filepath.Join(root, "testdata", "fixture-app11")
+
+	pm, err := engine.Analyze(fixtureApp)
+	if err != nil {
+		t.Fatalf("engine.Analyze(%q): %v", fixtureApp, err)
+	}
+
+	// Tier 1: the ->alias() map, in its declaration order.
+	declaredTier := []string{"auth", "guest", "throttle", "tenant"}
+	declaredSet := map[string]bool{}
+	for _, a := range declaredTier {
+		declaredSet[a] = true
+	}
+	// Tier 2: the built-in backstop minus what bootstrap/app.php declared.
+	var frameworkTier []string
+	for _, a := range model.BuiltinMiddlewareAliases {
+		if !declaredSet[a] {
+			frameworkTier = append(frameworkTier, a)
+		}
+	}
+	// Tier 3: `audit.log` is applied but declared nowhere.
+	wantAliases := append(append([]string{}, declaredTier...), frameworkTier...)
+	wantAliases = append(wantAliases, "audit.log")
+
+	if len(pm.Middlewares) != len(wantAliases) {
+		t.Fatalf("Middlewares = %d nodes, want %d\ngot: %+v", len(pm.Middlewares), len(wantAliases), pm.Middlewares)
+	}
+	for i, wantAlias := range wantAliases {
+		if pm.Middlewares[i].Alias != wantAlias {
+			t.Errorf("Middlewares[%d].Alias = %q, want %q (tiered emit order)", i, pm.Middlewares[i].Alias, wantAlias)
+		}
+	}
+
+	idx := map[string]model.Middleware{}
+	for _, m := range pm.Middlewares {
+		idx[m.Alias] = m
+	}
+
+	// `auth` resolves from ->alias(), and its class is in ->priority().
+	auth := idx["auth"]
+	if auth.Origin != model.OriginApp {
+		t.Errorf("auth origin = %q, want %q (bootstrap-declared)", auth.Origin, model.OriginApp)
+	}
+	if auth.Class != `App\Http\Middleware\Authenticate` {
+		t.Errorf("auth class = %q, want the resolved FQN", auth.Class)
+	}
+	if auth.Priority != 2 {
+		t.Errorf("auth priority = %d, want 2 (its position in ->priority())", auth.Priority)
+	}
+
+	// `throttle`'s class joins the "api" group via ->appendToGroup().
+	throttle := idx["throttle"]
+	if g := throttle.Groups; len(g) != 1 || g[0] != "api" {
+		t.Errorf("throttle Groups = %v, want [api] (from ->appendToGroup)", g)
+	}
+
+	// `tenant` is app-origin with its class — the applied name no longer dangles.
+	tenant := idx["tenant"]
+	if tenant.Origin != model.OriginApp || tenant.Class != `App\Http\Middleware\EnsureTenant` {
+		t.Errorf("tenant = {origin:%q class:%q}, want {app, ...EnsureTenant}", tenant.Origin, tenant.Class)
+	}
+
+	// `audit.log` is applied but undeclared: unknown origin, class not guessed.
+	auditLog := idx["audit.log"]
+	if auditLog.Origin != model.OriginUnknown || auditLog.Class != "" {
+		t.Errorf("audit.log = {origin:%q class:%q}, want {unknown, \"\"}", auditLog.Origin, auditLog.Class)
+	}
+
+	// A built-in that bootstrap/app.php did NOT declare stays framework-origin.
+	signed := idx["signed"]
+	if signed.Origin != model.OriginFramework || signed.Class != "" {
+		t.Errorf("signed = {origin:%q class:%q}, want {framework, \"\"}", signed.Origin, signed.Class)
+	}
+}
+
+// TestAnalyze_FixtureApp11_NoKernelFile guards the premise of the test above:
+// fixture-app11 must have NO app/Http/Kernel.php, or it would be exercising the
+// ≤10 reader (which wins when both layouts are present) and silently stop
+// covering the bootstrap path it exists to prove.
+func TestAnalyze_FixtureApp11_NoKernelFile(t *testing.T) {
+	kernel := filepath.Join(repoRoot(t), "testdata", "fixture-app11", "app", "Http", "Kernel.php")
+	if _, err := os.Stat(kernel); !os.IsNotExist(err) {
+		t.Fatalf("fixture-app11 must not contain %s — the 11+ fixture would stop covering the bootstrap path", kernel)
+	}
+}
+
 // TestAnalyze_NonLaravelDir verifies that Analyze returns a non-nil error (and
 // no panic) when the target directory exists but is not a Laravel project.
 func TestAnalyze_NonLaravelDir(t *testing.T) {

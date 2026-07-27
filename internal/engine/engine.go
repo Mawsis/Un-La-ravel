@@ -143,14 +143,19 @@ func Analyze(projectPath string) (*model.ProjectModel, error) {
 	}
 	routes := analyze.LinkFormRequests(rp.routes, formRequests, rp.actionParams, rp.symbols, rp.controllerFiles)
 
-	// 7. Assemble the Middleware node set (ADR 0012): the HTTP Kernel's declared
-	//    aliases (Laravel ≤10 app/Http/Kernel.php, issue #66) unioned with the
-	//    built-in alias backstop and every middleware name the resolved routes
-	//    apply, so the reverse index a consumer derives never dangles. The Kernel
-	//    read is graceful — a project with no ≤10 Kernel yields a nil Kernel and
-	//    the union collapses to backstop ∪ applied (the issue #64 tracer bullet).
-	//    It runs after route resolution, when Route.Middleware is final.
-	kernel, err := middlewareextract.ReadKernel(projectPath)
+	// 7. Assemble the Middleware node set (ADR 0012): the project's declared
+	//    aliases unioned with the built-in alias backstop and every middleware
+	//    name the resolved routes apply, so the reverse index a consumer derives
+	//    never dangles. It runs after route resolution, when Route.Middleware is
+	//    final.
+	//
+	//    ReadDeclared supplies the declared tier from whichever layout the project
+	//    uses — Laravel ≤10's app/Http/Kernel.php (issue #66) or Laravel 11+'s
+	//    bootstrap/app.php closure (issue #67), the Kernel winning when both are
+	//    present (ADR 0012 §1a). It is graceful: a project that declares neither
+	//    yields a nil Kernel and the union collapses to backstop ∪ applied (the
+	//    #64 tracer bullet).
+	kernel, err := middlewareextract.ReadDeclared(projectPath)
 	if err != nil {
 		return nil, err
 	}

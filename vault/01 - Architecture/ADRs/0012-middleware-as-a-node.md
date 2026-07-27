@@ -61,6 +61,33 @@ own mapping from `app/Http/Kernel.php` (Laravel ≤10) or `bootstrap/app.php`
 (Laravel 11+) follows in issues #66/#67, at which point `class` / `groups` /
 `global` / `priority` fill in and the `app` origin appears.
 
+### 1a. When both declaration sites exist, the ≤10 Kernel wins
+
+Laravel 11 deleted `app/Http/Kernel.php` and moved its four middleware
+properties into the `->withMiddleware()` closure of `bootstrap/app.php`. A
+project mid-migration can have **both** files on disk, so the two readers need a
+precedence rule (issue #67).
+
+**`app/Http/Kernel.php` wins outright when it is present and readable.** The
+`bootstrap/app.php` closure supplies the declared tier only when there is no
+readable Kernel.
+
+The reason is that this matches what the application actually boots. Laravel 11's
+`bootstrap/app.php` only takes effect through the new skeleton; a project that
+still ships a `Kernel` class is still routing requests through it, and its
+properties are the live mapping. Preferring the newer *file* over the live
+*behaviour* would report middleware the running app does not use — the opposite
+of what a tool that exists to describe a real project should do.
+
+The cost is the inverse case: an app that has finished migrating its aliases into
+`bootstrap/app.php` but left a vestigial `Kernel.php` on disk reads stale. That
+is accepted because the vestigial file is itself the bug, and reading it is how
+the tool surfaces that the two sources disagree rather than silently picking one.
+
+Neither file present — or a closure from which nothing is statically readable —
+collapses the union to backstop ∪ applied, exactly as the issue #64 tracer bullet
+behaved.
+
 ### 2. The reverse index is derived, never serialized
 
 "Which routes apply this middleware" is **computed by the consumer** (a renderer

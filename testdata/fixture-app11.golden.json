@@ -1,0 +1,224 @@
+{
+  "schema_version": "1.11.0",
+  "project_name": "acme/blog-eleven",
+  "laravel_version": "^11.0",
+  "schemas": [
+    {
+      "name": "posts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigInteger",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false
+        }
+      ],
+      "indexes": []
+    }
+  ],
+  "models": [
+    {
+      "name": "Post",
+      "table": "posts",
+      "relationships": [],
+      "fillable": [
+        "title",
+        "body"
+      ],
+      "guarded": null,
+      "casts": []
+    }
+  ],
+  "disagreements": [],
+  "routes": [
+    {
+      "method": "GET",
+      "uri": "/posts",
+      "controller": "PostController",
+      "action": "index",
+      "middleware": [],
+      "auth": "unauthenticated",
+      "fqn": "App\\Http\\Controllers\\PostController"
+    },
+    {
+      "method": "POST",
+      "uri": "/posts",
+      "controller": "PostController",
+      "action": "store",
+      "middleware": [
+        "auth"
+      ],
+      "auth": "authenticated",
+      "fqn": "App\\Http\\Controllers\\PostController"
+    },
+    {
+      "method": "GET",
+      "uri": "/admin/posts",
+      "controller": "PostController",
+      "action": "adminIndex",
+      "middleware": [
+        "tenant",
+        "audit.log"
+      ],
+      "auth": "unknown",
+      "fqn": "App\\Http\\Controllers\\PostController"
+    }
+  ],
+  "controllers": [
+    {
+      "name": "PostController",
+      "fqn": "App\\Http\\Controllers\\PostController",
+      "actions": [
+        "index",
+        "store",
+        "adminIndex"
+      ]
+    }
+  ],
+  "dead_routes": [],
+  "form_requests": [],
+  "findings": [
+    {
+      "kind": "unauthenticated_read",
+      "severity": "warn",
+      "count": 1,
+      "label": "1 unauthenticated read route",
+      "view": "auth"
+    }
+  ],
+  "middlewares": [
+    {
+      "alias": "auth",
+      "class": "App\\Http\\Middleware\\Authenticate",
+      "groups": [],
+      "origin": "app",
+      "global": false,
+      "priority": 2
+    },
+    {
+      "alias": "guest",
+      "class": "App\\Http\\Middleware\\RedirectIfAuthenticated",
+      "groups": [],
+      "origin": "app",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "throttle",
+      "class": "Illuminate\\Routing\\Middleware\\ThrottleRequests",
+      "groups": [
+        "api"
+      ],
+      "origin": "app",
+      "global": false,
+      "priority": 3
+    },
+    {
+      "alias": "tenant",
+      "class": "App\\Http\\Middleware\\EnsureTenant",
+      "groups": [],
+      "origin": "app",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "auth.basic",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "auth.session",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "cache.headers",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "can",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "password.confirm",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "precognitive",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "signed",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "subscribed",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "verified",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "audit.log",
+      "groups": [],
+      "origin": "unknown",
+      "global": false,
+      "priority": 0
+    }
+  ]
+}

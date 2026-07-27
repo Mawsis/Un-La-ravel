@@ -168,6 +168,42 @@ class Kernel extends \Illuminate\Foundation\Http\Kernel
 	}
 }
 
+// TestReadKernel_DuplicatePriorityKeepsSourcePositions pins the priority
+// numbering against a $middlewarePriority that repeats a class — the case that
+// distinguishes index-based positioning from a running counter. A class's
+// position is its index in the SOURCE list, so a duplicate keeps its first
+// (highest) position AND still consumes its slot: in [A, B, A, C], C is 4, not
+// 3. Consumers read these numbers as "where this sits in the declared ordering",
+// so they must line up with what the source actually wrote.
+func TestReadKernel_DuplicatePriorityKeepsSourcePositions(t *testing.T) {
+	const dupes = `<?php
+namespace App\Http;
+class Kernel extends \Illuminate\Foundation\Http\Kernel
+{
+    protected $middlewarePriority = [
+        \App\A::class,
+        \App\B::class,
+        \App\A::class,
+        \App\C::class,
+    ];
+}
+`
+	k, err := middleware.ReadKernel(writeKernel(t, dupes))
+	if err != nil {
+		t.Fatalf("ReadKernel error = %v", err)
+	}
+	if k == nil {
+		t.Fatal("ReadKernel = nil, want a populated Kernel")
+	}
+
+	want := map[string]int{`App\A`: 1, `App\B`: 2, `App\C`: 4}
+	for class, wantPos := range want {
+		if got := k.PriorityFor(class); got != wantPos {
+			t.Errorf("PriorityFor(%s) = %d, want %d (index in the source list)", class, got, wantPos)
+		}
+	}
+}
+
 // TestExtract_KernelDeclaredTierFirst verifies the tiered emit order with a
 // Kernel present (ADR 0012): Kernel-declared aliases sort FIRST (in declaration
 // order, origin "app", class resolved), then the built-in backstop for aliases

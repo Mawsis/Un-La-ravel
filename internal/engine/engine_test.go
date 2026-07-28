@@ -64,10 +64,13 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 	// From fixture-app.golden.json:
 	//   "schemas": 4 tables  (users, posts, categories, lenses)
 	//   "models": 4 models   (Category, Lens, Post, User)
-	//   "routes": 12 routes (11 original + the deliberate public write /webhooks
-	//     added for issue #50's unauthenticated_write blocker path)
-	//   "controllers": 4 controllers
-	//   "dead_routes": 1
+	//   "routes": 14 routes (12 prior + the two sub-namespaced admin/dashboard
+	//     routes added for issue #63, which resolve to
+	//     App\Http\Controllers\Admin\AdminDashboardController — inline-FQN and
+	//     imported-short — and are NOT dead)
+	//   "controllers": 5 controllers (4 prior + Admin\AdminDashboardController)
+	//   "dead_routes": 1 (still only the deliberate UserController@destroy
+	//     missing_action; the admin routes resolve cleanly, proving #63's fix)
 	//   "form_requests": 1
 	//   "disagreements": 2 (Post.editor missing_fk_column; Post.lens
 	//     missing_table with the issue #36 did-you-mean suggestion)
@@ -78,8 +81,8 @@ func TestAnalyze_FixtureApp_NodeCounts(t *testing.T) {
 	}{
 		{"schemas (tables)", len(pm.Schemas), 4},
 		{"models", len(pm.Models), 4},
-		{"routes", len(pm.Routes), 12},
-		{"controllers", len(pm.Controllers), 4},
+		{"routes", len(pm.Routes), 14},
+		{"controllers", len(pm.Controllers), 5},
 		{"dead_routes", len(pm.DeadRoutes), 1},
 		{"form_requests", len(pm.FormRequests), 1},
 		{"disagreements", len(pm.Disagreements), 2},

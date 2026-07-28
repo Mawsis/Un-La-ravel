@@ -95,17 +95,19 @@ func routeURI(args []phpast.Vertex) string {
 	return phpast.NthStringArg(args, uriArgIndex)
 }
 
-// parseAction reads the controller short name and action from a verb call's
+// parseAction reads the controller reference and action from a verb call's
 // action argument (ROUTE_FACTS.md). Two shapes are recognised:
 //
-//   - an array callable [Controller::class, 'method'] — the controller short
-//     name is the last segment of the class-const, the action the string element;
+//   - an array callable [Controller::class, 'method'] — the controller reference
+//     is the class-const recorded verbatim, the action the string element;
 //   - a legacy string "Controller@method" — split once on '@' into controller and
 //     action.
 //
-// An unrecognised or missing action yields two empty strings, so the route is
-// still emitted (with an empty controller/action the caller can surface) rather
-// than dropped.
+// The controller reference is kept exactly as written (fully-qualified,
+// imported-short, or partially-qualified); phase-two resolution (ADR 0006)
+// qualifies it against the route file's `use` imports. An unrecognised or
+// missing action yields two empty strings, so the route is still emitted (with
+// an empty controller/action the caller can surface) rather than dropped.
 func parseAction(args []phpast.Vertex) (controller, action string) {
 	if c, a, ok := arrayCallableAction(args); ok {
 		return c, a
@@ -118,14 +120,17 @@ func parseAction(args []phpast.Vertex) (controller, action string) {
 
 // arrayCallableAction reads an [Controller::class, 'method'] action. It reports
 // ok=false when the action argument is not an array (so the caller can try the
-// legacy-string shape). The controller is reduced to its last backslash segment
-// so a fully-qualified [App\...\C::class, 'm'] still yields the short name.
+// legacy-string shape). The controller reference is recorded VERBATIM — exactly
+// as written at the route site — so a fully-qualified [App\...\C::class, 'm']
+// keeps its namespace and phase-two resolution (ADR 0006) can qualify it against
+// the route file's `use` imports (issue #63). Collapsing to the short name here
+// dropped the namespace and made sub-namespaced controllers look dead.
 func arrayCallableAction(args []phpast.Vertex) (controller, action string, ok bool) {
 	items := phpast.ArrayItems(phpast.ArgExpr(args, actionArgIndex))
 	if len(items) <= arrayCallableActionIndex {
 		return "", "", false
 	}
-	controller = lastSegment(phpast.ClassConstClass(items[arrayCallableControllerIndex]))
+	controller = phpast.ClassConstClass(items[arrayCallableControllerIndex])
 	action = phpast.StringLiteral(items[arrayCallableActionIndex])
 	if controller == "" && action == "" {
 		return "", "", false
@@ -186,15 +191,4 @@ func closureArgIndex(args []phpast.Vertex) int {
 		}
 	}
 	return len(args) - 1
-}
-
-// lastSegment returns the final backslash-delimited segment of a PHP class
-// reference — its bare short name (e.g. "App\Http\Controllers\PostController" ->
-// "PostController"). A name with no backslash is returned unchanged. Controllers
-// are recorded by short name at the route site; FQN resolution is phase two.
-func lastSegment(name string) string {
-	if i := strings.LastIndex(name, `\`); i >= 0 {
-		return name[i+1:]
-	}
-	return name
 }

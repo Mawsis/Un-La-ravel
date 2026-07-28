@@ -3,8 +3,9 @@ package route_test
 // External-behavior tests for the Route Extractor. They import the package as
 // route_test (black-box) and assert only on the public contract: given one or
 // more route-file paths, Extract returns the expected flat []domain.Route — each
-// route's Method, fully resolved URI, controller SHORT name, Action, Middleware
-// (in inherited-then-local order), and Name — in source order.
+// route's Method, fully resolved URI, controller reference (recorded VERBATIM,
+// not reduced to a short name), Action, Middleware (in inherited-then-local
+// order), and Name — in source order.
 //
 // The AST-walk internals and unexported helpers are deliberately untouched; only
 // the observable route slice is pinned down. Fixtures live under testdata/ and
@@ -92,6 +93,34 @@ func TestExtract(t *testing.T) {
 			pattern: "'LegacyController@show' legacy string action is split on '@' into controller + action; short name kept as written",
 			want: []domain.Route{
 				rt("GET", "/legacy", "LegacyController", "show"),
+			},
+		},
+		{
+			name:    "inline_fqn_array_callable_verbatim",
+			files:   []string{"inline_fqn.php"},
+			pattern: "[App\\Http\\Controllers\\Admin\\AdminDashboardController::class, 'index'] → the fully-qualified reference is recorded verbatim, NOT collapsed to the short name (issue #63)",
+			want: []domain.Route{
+				rt("GET", "/admin", `App\Http\Controllers\Admin\AdminDashboardController`, "index"),
+			},
+		},
+		{
+			name:    "resource_macro_fqn_verbatim",
+			files:   []string{"resource_fqn.php"},
+			pattern: "Route::apiResource('comments', App\\Http\\Controllers\\Admin\\CommentController::class) → the sub-namespaced controller survives verbatim on every expanded route (issue #63)",
+			want: []domain.Route{
+				rt("GET", "/comments", `App\Http\Controllers\Admin\CommentController`, "index"),
+				rt("POST", "/comments", `App\Http\Controllers\Admin\CommentController`, "store"),
+				rt("GET", "/comments/{id}", `App\Http\Controllers\Admin\CommentController`, "show"),
+				rt("PUT", "/comments/{id}", `App\Http\Controllers\Admin\CommentController`, "update"),
+				rt("DELETE", "/comments/{id}", `App\Http\Controllers\Admin\CommentController`, "destroy"),
+			},
+		},
+		{
+			name:    "legacy_string_action_preserves_namespace",
+			files:   []string{"legacy_namespaced.php"},
+			pattern: "'Admin\\AdminDashboardController@show' → the namespace segment is preserved through the '@' split, not dropped (issue #63)",
+			want: []domain.Route{
+				rt("GET", "/admin/legacy", `Admin\AdminDashboardController`, "show"),
 			},
 		},
 		{

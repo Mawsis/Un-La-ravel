@@ -196,6 +196,62 @@ Route::get('/posts', [PostController::class, 'index']);
 			}},
 			wantDead: nil,
 		},
+		{
+			// issue #63: an inline fully-qualified sub-namespaced controller
+			// resolves to that exact FQN and is NOT reported dead. Before the fix
+			// the extractor collapsed it to the short name and the default-namespace
+			// fallback rebuilt a wrong FQN under App\Http\Controllers.
+			name:   "inline sub-namespaced FQN resolves to that exact class",
+			routes: []model.Route{route("GET", "/admin", `App\Http\Controllers\Admin\AdminDashboardController`, "index")},
+			controllers: []model.Controller{
+				controllerWith("AdminDashboardController", `App\Http\Controllers\Admin\AdminDashboardController`, "index"),
+			},
+			wantRoutes: []model.Route{{
+				Method: "GET", URI: "/admin", Controller: `App\Http\Controllers\Admin\AdminDashboardController`, Action: "index",
+				FQN: `App\Http\Controllers\Admin\AdminDashboardController`,
+			}},
+			wantDead: nil,
+		},
+		{
+			// issue #63: a legacy 'Admin\Foo@m' string keeps its namespace segment,
+			// so it is already qualified and resolves as-is, matching the array-
+			// callable inline-FQN shape rather than falling back to the default
+			// namespace.
+			name:   "legacy namespaced string resolves as-is",
+			routes: []model.Route{route("GET", "/admin/legacy", `App\Http\Controllers\Admin\AdminDashboardController`, "show")},
+			controllers: []model.Controller{
+				controllerWith("AdminDashboardController", `App\Http\Controllers\Admin\AdminDashboardController`, "show"),
+			},
+			wantRoutes: []model.Route{{
+				Method: "GET", URI: "/admin/legacy", Controller: `App\Http\Controllers\Admin\AdminDashboardController`, Action: "show",
+				FQN: `App\Http\Controllers\Admin\AdminDashboardController`,
+			}},
+			wantDead: nil,
+		},
+		{
+			// issue #63, Case 3 — DOCUMENTED KNOWN LIMITATION (ADR 0002, glossary
+			// "Controller reference"). A partially-qualified reference like
+			// Admin\AdminDashboardController::class contains a separator, so the
+			// resolver treats it as already-qualified and skips the import map —
+			// yielding the bare "Admin\AdminDashboardController" rather than the
+			// full App\Http\Controllers\Admin\AdminDashboardController. Because that
+			// FQN names no declared class, the route is (correctly, given the input)
+			// reported as missing_controller. This test PINS the accepted behavior,
+			// it does not assert a fix.
+			name:   "case 3 partial qualification is the documented limitation",
+			routes: []model.Route{route("GET", "/admin", `Admin\AdminDashboardController`, "index")},
+			controllers: []model.Controller{
+				controllerWith("AdminDashboardController", `App\Http\Controllers\Admin\AdminDashboardController`, "index"),
+			},
+			wantRoutes: []model.Route{
+				{Method: "GET", URI: "/admin", Controller: `Admin\AdminDashboardController`, Action: "index"},
+			},
+			wantDead: []model.DeadRoute{{
+				Method: "GET", URI: "/admin", Controller: `Admin\AdminDashboardController`, Action: "index",
+				Reason: `controller "Admin\AdminDashboardController" not found`,
+				Kind:   model.DeadRouteMissingController,
+			}},
+		},
 	}
 
 	for _, tt := range tests {

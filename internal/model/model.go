@@ -88,7 +88,22 @@ import (
 // the new finding kinds append after the existing categories, and consumers that
 // ignore them are unaffected.
 //
-// Bumped to 1.10.0 when middleware became a first-class node (issue #64, ADR
+// Bumped to 1.10.0 when the controller-FQN fix (issue #63) changed the DOCUMENTED
+// MEANING of each Route's "controller" field: it now carries the controller
+// reference VERBATIM as written at the route site — fully-qualified
+// (App\Http\Controllers\Admin\FooController), imported-short (FooController), or
+// partially-qualified — rather than the bare last segment the extractor used to
+// collapse it to. Two-phase resolution (ADR 0006) qualifies that verbatim
+// reference against the route file's `use` imports, so sub-namespaced controllers
+// resolve to their true FQN and are no longer falsely reported as dead routes.
+// The field's key and type are unchanged (still a string named "controller"), but
+// its value shape changes for any route that names a namespaced controller, so
+// the golden files change and the version is bumped to signal it. A route that
+// wrote a bare short name is byte-for-byte identical to before; a route that wrote
+// a namespaced reference now serializes the full reference instead of the short
+// name.
+//
+// Bumped to 1.11.0 when middleware became a first-class node (issue #64, ADR
 // 0012): the contract gains a top-level "middlewares" array, appended last.
 // Each entry carries the middleware's "alias" (omitted when applied by class
 // with no alias), resolved "class" FQN (omitted when unread/unknown), the
@@ -105,23 +120,23 @@ import (
 // backward-compatible growth: the array is appended last, so existing consumers
 // are unaffected.
 //
-// Bumped to 1.11.0 when the Laravel ≤10 Kernel reader (issue #66) began
-// populating the middleware node fields that 1.10.0 introduced but always left
+// Bumped to 1.12.0 when the Laravel ≤10 Kernel reader (issue #66) began
+// populating the middleware node fields that 1.11.0 introduced but always left
 // at their zero values. On a project with an app/Http/Kernel.php, each declared
 // alias now resolves: "class" carries the FQN the alias maps to, "groups"
 // reflects the alias's class membership in $middlewareGroups, "global" is true
 // when that class is in the global $middleware stack, and "priority" is its
 // 1-based position in $middlewarePriority. A new "app"-origin tier (the origin
-// vocabulary 1.10.0 already reserved) is emitted FIRST in the tiered order —
+// vocabulary 1.11.0 already reserved) is emitted FIRST in the tiered order —
 // Kernel-declared, then the built-in backstop for aliases the Kernel did not
 // declare, then applied-but-undeclared names — so a declared built-in such as
 // "auth" appears once, carrying its resolved class, rather than as a bare
 // framework node. No struct field is added or removed and the emit order stays
 // map-free and deterministic: this is a backward-compatible enrichment of
-// existing fields, so consumers reading the 1.10.0 shape are unaffected. A
+// existing fields, so consumers reading the 1.11.0 shape are unaffected. A
 // project without a ≤10 Kernel (Laravel 11+, whose bootstrap/app.php reader is a
 // later slice) is unchanged — the fields stay at their zero values.
-const CurrentSchemaVersion = "1.11.0"
+const CurrentSchemaVersion = "1.12.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

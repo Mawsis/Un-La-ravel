@@ -75,18 +75,19 @@ type modelVisitor struct {
 // domain.Model. className is the class name; explicitTable is the value of an
 // explicit `protected $table` property when one is present (empty otherwise).
 //
-// fillable and guarded mirror domain.Model's nil-vs-empty contract exactly:
-// modelBuilder has no separate "declared" bool flags because the nil-ness of
-// the slice itself IS the signal. nil means the source declared neither
-// property; a non-nil (possibly empty) slice means it did. This state must
-// flow to buildModel uncoerced — see domain.Model's doc comment on Fillable
-// and Guarded for the full rationale.
+// fillable, guarded, and hidden mirror domain.Model's nil-vs-empty contract
+// exactly: modelBuilder has no separate "declared" bool flags because the
+// nil-ness of the slice itself IS the signal. nil means the source did not
+// declare that property; a non-nil (possibly empty) slice means it did. This
+// state must flow to buildModel uncoerced — see domain.Model's doc comment on
+// Fillable, Guarded, and Hidden for the full rationale.
 type modelBuilder struct {
 	className     string
 	explicitTable string
 	relationships []domain.Relationship
 	fillable      []string
 	guarded       []string
+	hidden        []string
 	casts         []domain.Cast
 }
 
@@ -134,18 +135,19 @@ func (v *modelVisitor) StmtClassMethod(n *ast.StmtClassMethod) {
 }
 
 // StmtProperty captures an explicit table name from `protected $table = '...'`,
-// and the mass-assignment / cast properties `$fillable`, `$guarded`, and
-// `$casts`. Only a string-literal initialiser on $table is recognised. For
-// $fillable and $guarded, phpast.ArrayStringItems is assigned directly to the
-// builder's slice: it returns nil when the RHS is not an array literal at all
-// (property "not declared" as an array — left nil, preserving the "not
-// declared" signal) and a non-nil, possibly-empty slice when the RHS IS an
-// array literal, including an empty one like `$guarded = []` (verified against
-// ArrayItems' — and by composition ArrayStringItems' — documented convention:
-// nil only for "not an *ast.ExprArray", non-nil empty for a zero-item array
-// literal). This is exactly the nil-vs-empty distinction domain.Model.Guarded
-// and .Fillable require, so no additional coercion is needed here. Properties
-// outside an Eloquent class (current nil) are skipped.
+// the mass-assignment properties `$fillable` and `$guarded`, the serialization
+// property `$hidden`, and `$casts`. Only a string-literal initialiser on $table
+// is recognised. For $fillable, $guarded, and $hidden, phpast.ArrayStringItems
+// is assigned directly to the builder's slice: it returns nil when the RHS is
+// not an array literal at all (property "not declared" as an array — left nil,
+// preserving the "not declared" signal) and a non-nil, possibly-empty slice
+// when the RHS IS an array literal, including an empty one like `$guarded = []`
+// (verified against ArrayItems' — and by composition ArrayStringItems' —
+// documented convention: nil only for "not an *ast.ExprArray", non-nil empty
+// for a zero-item array literal). This is exactly the nil-vs-empty distinction
+// domain.Model.Guarded, .Fillable, and .Hidden require, so no additional
+// coercion is needed here. Properties outside an Eloquent class (current nil)
+// are skipped.
 func (v *modelVisitor) StmtProperty(n *ast.StmtProperty) {
 	if v.current == nil {
 		return
@@ -159,6 +161,8 @@ func (v *modelVisitor) StmtProperty(n *ast.StmtProperty) {
 		v.current.fillable = phpast.ArrayStringItems(n.Expr)
 	case "guarded":
 		v.current.guarded = phpast.ArrayStringItems(n.Expr)
+	case "hidden":
+		v.current.hidden = phpast.ArrayStringItems(n.Expr)
 	case "casts":
 		v.current.casts = castsFromPairs(phpast.ArrayStringPairs(n.Expr))
 	}

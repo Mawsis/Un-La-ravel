@@ -70,11 +70,11 @@ type Model struct {
 	// source-declaration order.
 	Relationships []Relationship `json:"relationships"`
 
-	// Fillable, Guarded, and Casts deliberately DEPART from this file's usual
-	// non-nil-slice convention (contrast Relationships above, and NewModel
-	// below). The nil-ness of Fillable and Guarded is load-bearing and carries
-	// distinct Laravel mass-assignment semantics that must survive to JSON and
-	// to any consumer of this Model:
+	// Fillable, Guarded, Hidden, and Casts deliberately DEPART from this file's
+	// usual non-nil-slice convention (contrast Relationships above, and NewModel
+	// below). The nil-ness of Fillable, Guarded, and Hidden is load-bearing and
+	// carries distinct Laravel semantics that must survive to JSON and to any
+	// consumer of this Model:
 	//
 	//   - Fillable == nil AND Guarded == nil means the model declared NEITHER
 	//     property. Laravel's default in this state is guarded-by-omission:
@@ -86,10 +86,33 @@ type Model struct {
 	//     needs to be able to tell the two apart from the JSON alone.
 	//   - The same nil-vs-empty distinction applies symmetrically to Fillable.
 	//
+	// Hidden carries the SAME exception for the serialization sense rather than
+	// the mass-assignment one — `protected $hidden`, the columns Laravel strips
+	// when a model is serialized to an API response:
+	//
+	//   - Hidden == nil means the model never declared `$hidden`. Laravel's
+	//     default is to hide nothing, so every column is serialized.
+	//   - Hidden == []string{} (non-nil, empty) means the source explicitly
+	//     wrote `protected $hidden = [];`.
+	//
+	// Note the rationale here is deliberately WEAKER than Guarded's, and the
+	// difference is worth being honest about: `$guarded = []` changes Laravel's
+	// runtime behavior (everything becomes mass-assignable), so a doctor rule
+	// MUST tell it from nil. `$hidden = []` and an absent `$hidden` behave
+	// identically at runtime; they differ only as STATEMENTS about the author's
+	// intent — an explicit "nothing here is secret" versus never having
+	// considered the question. Hidden is preserved anyway because this tool
+	// reports what the source SAYS and lets the reader judge (ADR 0002,
+	// precision over coverage): flattening the two would render an author's
+	// decision indistinguishable from an omission, which is a claim the
+	// extractor has no basis to make. This is the bar a future field must clear
+	// to join the exception — a real difference in what the source states, not
+	// merely a convenient absence of one.
+	//
 	// Consequently, nothing in the extraction path (visitor, builder,
-	// buildModel) may coerce a nil Fillable or Guarded to []string{}, or vice
-	// versa. This is the one exception to the package's "non-nil slices by
-	// default" rule.
+	// buildModel) may coerce a nil Fillable, Guarded, or Hidden to []string{},
+	// or vice versa. These three are the exception to the package's "non-nil
+	// slices by default" rule.
 	//
 	// Casts does NOT carry this exception: it stays non-nil-preferred
 	// (empty []Cast{} rather than nil) like Relationships, because there is no
@@ -97,6 +120,7 @@ type Model struct {
 	// worth preserving.
 	Fillable []string `json:"fillable"`
 	Guarded  []string `json:"guarded"`
+	Hidden   []string `json:"hidden"`
 	Casts    []Cast   `json:"casts"`
 }
 
@@ -135,9 +159,10 @@ type Disagreement struct {
 // NewModel returns a Model with the given class name and non-nil
 // Relationships and Casts slices, so JSON serialization yields
 // "relationships": [] and "casts": [] rather than null for a model that has
-// not yet had either appended. Fillable and Guarded are deliberately left at
-// their zero value (nil): per the field-level doc comment above, nil vs. an
-// empty slice is load-bearing for those two and must not be coerced here.
+// not yet had either appended. Fillable, Guarded, and Hidden are deliberately
+// left at their zero value (nil): per the field-level doc comment above, nil
+// vs. an empty slice is load-bearing for those three and must not be coerced
+// here.
 func NewModel(name string) Model {
 	return Model{
 		Name:          name,

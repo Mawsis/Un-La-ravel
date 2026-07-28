@@ -6,6 +6,8 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -143,6 +145,25 @@ func buildKnownModel() *ProjectModel {
 	return pm
 }
 
+// TestCurrentSchemaVersionIsBumpedForHidden pins the contract version LITERALLY,
+// which the other version assertions in this file deliberately cannot: they
+// compare against CurrentSchemaVersion, so they hold at any value and would pass
+// unchanged if a contract-shaping slice forgot its bump. Adding "hidden" to the
+// Model node (issue #65) is exactly such a slice, so this test names the number
+// out loud. It is meant to FAIL on the next shape change — that failure is the
+// prompt to add the doc paragraph and regenerate the goldens, per CLAUDE.md's
+// "a contract change is not complete until the version bump, the golden
+// regeneration, and the affected renderer tests all land in the same PR".
+func TestCurrentSchemaVersionIsBumpedForHidden(t *testing.T) {
+	const want = "1.13.0"
+
+	if CurrentSchemaVersion != want {
+		t.Errorf("CurrentSchemaVersion = %q, want %q — if this change intentionally "+
+			"reshapes the contract, bump the const, add its doc paragraph, regenerate "+
+			"the goldens, and update this literal", CurrentSchemaVersion, want)
+	}
+}
+
 // TestNewStampsSchemaVersion verifies the constructor sets the versioned
 // contract field (ADR 0004) to CurrentSchemaVersion without the caller doing
 // anything, and initializes Schemas, Models, Disagreements, Routes,
@@ -191,6 +212,63 @@ func TestNewModelHasNonNilRelationships(t *testing.T) {
 	if m.Relationships == nil {
 		t.Error("NewModel() Relationships is nil, want non-nil empty slice")
 	}
+	// Hidden joins Fillable and Guarded in the deliberate nil-vs-empty exception
+	// (see Model's doc comment): NewModel must NOT coerce it to []string{}, or
+	// "declared empty" becomes indistinguishable from "never declared".
+	if m.Hidden != nil {
+		t.Errorf("NewModel() Hidden = %v, want nil (not declared)", m.Hidden)
+	}
+}
+
+// TestModelHiddenNilVsEmptySerialization pins the load-bearing distinction on
+// Hidden through JSON, the boundary consumers actually read: an undeclared
+// $hidden must serialize as null, while an explicit `protected $hidden = [];`
+// must serialize as []. Coercing either direction would erase the difference
+// between "hides nothing by omission" and "was explicitly declared to hide
+// nothing" — the same reason Fillable and Guarded carry this exception.
+func TestModelHiddenNilVsEmptySerialization(t *testing.T) {
+	t.Run("not_declared_serializes_null", func(t *testing.T) {
+		m := NewModel("Post")
+
+		data, err := json.Marshal(m)
+		if err != nil {
+			t.Fatalf("json.Marshal() error = %v", err)
+		}
+		if !strings.Contains(string(data), `"hidden":null`) {
+			t.Errorf("serialized Model = %s, want it to contain \"hidden\":null", data)
+		}
+	})
+
+	t.Run("declared_empty_serializes_empty_array", func(t *testing.T) {
+		m := NewModel("PublicProfile")
+		m.Hidden = []string{}
+
+		data, err := json.Marshal(m)
+		if err != nil {
+			t.Fatalf("json.Marshal() error = %v", err)
+		}
+		if !strings.Contains(string(data), `"hidden":[]`) {
+			t.Errorf("serialized Model = %s, want it to contain \"hidden\":[]", data)
+		}
+	})
+
+	t.Run("declared_values_round_trip", func(t *testing.T) {
+		m := NewModel("Account")
+		m.Hidden = []string{"password", "remember_token"}
+
+		data, err := json.Marshal(m)
+		if err != nil {
+			t.Fatalf("json.Marshal() error = %v", err)
+		}
+
+		var decoded Model
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		if !reflect.DeepEqual(decoded.Hidden, m.Hidden) {
+			t.Errorf("round-tripped Hidden = %v, want %v", decoded.Hidden, m.Hidden)
+		}
+	})
 }
 
 // TestAddModelPreservesDiscoveryOrder verifies AddModel appends in call order

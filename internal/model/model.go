@@ -136,7 +136,19 @@ import (
 // existing fields, so consumers reading the 1.11.0 shape are unaffected. A
 // project without a ≤10 Kernel (Laravel 11+, whose bootstrap/app.php reader is a
 // later slice) is unchanged — the fields stay at their zero values.
-const CurrentSchemaVersion = "1.12.0"
+//
+// Bumped to 1.13.0 when the Model node gained "hidden" (issue #65): the
+// `protected $hidden` array a model declares, the columns Laravel strips when
+// the model is serialized to an API response. It is read as an array literal by
+// the model extractor and lands beside "fillable" and "guarded", carrying the
+// SAME load-bearing nil-vs-empty semantics those two established — `null` means
+// the property was never declared, `[]` means the source explicitly wrote
+// `protected $hidden = [];` — so a consumer can tell an omission from a
+// deliberate "nothing here is secret". A backward-compatible growth: the key is
+// inserted after "guarded", every existing model gains it, and consumers that
+// ignore it are unaffected. A prefactor for the Model page's mass-assignment
+// overlay (issue #70), landed as contract + extractor before the page reads it.
+const CurrentSchemaVersion = "1.13.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.

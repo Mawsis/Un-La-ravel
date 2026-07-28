@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.12.0",
+  "schema_version": "1.13.0",
   "project_name": "acme/blog-eleven",
   "laravel_version": "^11.0",
   "schemas": [
@@ -55,6 +55,7 @@
         "body"
       ],
       "guarded": null,
+      "hidden": null,
       "casts": []
     }
   ],

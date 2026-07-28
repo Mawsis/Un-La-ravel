@@ -236,6 +236,40 @@ func TestExtract_MassAssignmentAndCasts(t *testing.T) {
 		}
 	})
 
+	t.Run("hidden_declared", func(t *testing.T) {
+		got := extractOne(t, "hidden.php")
+
+		if got.Hidden == nil {
+			t.Fatal("Hidden is nil; want a declared non-nil slice")
+		}
+		want := []string{"password", "remember_token"}
+		if !reflect.DeepEqual(got.Hidden, want) {
+			t.Errorf("Hidden = %v, want %v", got.Hidden, want)
+		}
+	})
+
+	t.Run("hidden_declared_empty", func(t *testing.T) {
+		got := extractOne(t, "hidden_declared_empty.php")
+
+		if got.Hidden == nil {
+			t.Fatal("Hidden is nil; want a non-nil empty slice (explicit `$hidden = []`)")
+		}
+		if len(got.Hidden) != 0 {
+			t.Errorf("Hidden = %v, want empty", got.Hidden)
+		}
+	})
+
+	t.Run("hidden_not_declared", func(t *testing.T) {
+		// $hidden follows Fillable/Guarded's nil-vs-empty contract: a model that
+		// never wrote the property must stay nil, so a consumer can tell "hides
+		// nothing by omission" from the explicit `$hidden = []` above.
+		got := extractOne(t, "guarded_declared_empty.php")
+
+		if got.Hidden != nil {
+			t.Errorf("Hidden = %v, want nil (not declared)", got.Hidden)
+		}
+	})
+
 	t.Run("casts_property", func(t *testing.T) {
 		got := extractOne(t, "casts_property.php")
 
@@ -294,6 +328,7 @@ func TestExtractDir(t *testing.T) {
 		"Author", "Comment", "Supplier", "User", "Order",
 		"Photo", "BlogPost", "Setting", "Box",
 		"Post", "Category", "Account", "Invoice", "Widget",
+		"Credential", "PublicProfile",
 	}
 	for _, name := range wantNames {
 		if _, ok := byName[name]; !ok {

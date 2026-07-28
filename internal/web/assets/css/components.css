@@ -740,6 +740,14 @@ table.routes tr.dead {
   background: var(--surface-raised);
   color: var(--text-dim);
 }
+/* The danger variant completes the ok/warn/dim set, for the mass-assignment
+   overlay's "unguarded" column verdict (issue #70) — a column mass-assignable
+   only because `$guarded = []` was never actually chosen, so it must not read
+   as the calm green of a deliberate $fillable entry. */
+.pill.danger {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -1006,4 +1014,86 @@ table.routes tr.dead {
   font-size: var(--text-2xs);
   font-weight: 600;
   text-transform: lowercase;
+}
+
+/* Model graph (issue #70): the model-centric diagram on the Model page. It
+   deliberately REUSES the ER diagram's box chrome — .er-box paints these nodes,
+   and .er-node.er-settling above animates them — so a model graph resolves on
+   screen exactly the way the ER diagram does (ADR 0009). What is styled here is
+   only what differs: a model box carries a class name and its mapped table
+   rather than a column table, and its edges are Eloquent relationships labeled
+   by kind, with no schema/eloquent origin split to distinguish. */
+.model-graph {
+  height: 320px;
+  margin-top: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+.model-svg {
+  width: 100%;
+  height: 100%;
+}
+.model-node-name {
+  fill: var(--text);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.model-node-table {
+  fill: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+}
+/* The center node is the subject of the page, so its box carries the resolved
+   green — the one visual claim that separates "the model you are reading about"
+   from "a model it relates to". Green, not the logo cyan: per ADR 0011 resolved
+   is the app's emphasis hue and --logo-accent stays on the logo alone. */
+.model-node-center .er-box {
+  stroke: var(--resolved);
+  stroke-width: 2;
+}
+/* An unresolved node names a model class the extractor never found. Dashed
+   says "declared, not verified" without inventing a severity for it. */
+.model-node-unresolved .er-box {
+  stroke-dasharray: 4 3;
+  stroke: var(--border-strong);
+}
+.model-node-unresolved .model-node-table {
+  font-style: italic;
+}
+.model-edge {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+.model-edge-label {
+  fill: var(--text-dim);
+  font-family: var(--mono);
+  font-size: var(--text-2xs);
+}
+
+/* .col-list wraps the Table section's column rows and the overlay's (both in
+   model-detail.js / model-overlay.js). It had no rule at all — the class was
+   emitted and styled nothing — so the rows ran together with no separation
+   from the section around them. One rule now serves both call sites. */
+.col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-2);
+}
+
+/* Mass-assignment overlay rows (issue #70): the join between a table's columns
+   and what the Model says about each. Built on .col-row (the Table section's
+   column list) so a column reads the same in both places; the extra rule only
+   spaces the verdict pills that follow the name and type. */
+.overlay-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.overlay-row .col-name {
+  min-width: 12ch;
 }

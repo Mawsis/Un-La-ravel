@@ -8,6 +8,11 @@
 import { $, escapeHtml } from "../dom.js";
 import { hrefFor } from "../links.js";
 import { dangerFlag } from "../chip.js";
+// The four-state fillable/guarded classifier lives in model-overlay.js, where
+// the Model page's per-column verdicts are derived from it. Imported rather
+// than re-derived here so this list and that page can never disagree about
+// what state a model is in.
+import { massAssignmentState } from "./model-overlay.js";
 
 export function renderModels(models, schemas, filter, onFilterChange, currentParams) {
   const unguardedCount = models.filter(
@@ -23,23 +28,6 @@ export function renderModels(models, schemas, filter, onFilterChange, currentPar
   const filterInput = $("#model-filter");
   if (filterInput.value !== (filter || "")) filterInput.value = filter || "";
   filterInput.oninput = (e) => onFilterChange(e.target.value);
-}
-
-// massAssignmentState classifies a model's fillable/guarded pair into one of
-// four states. null vs. [] is load-bearing here (see the doc comment on
-// Fillable/Guarded in internal/model/eloquent.go): a bare "|| []" coercion
-// would erase the distinction between "declared empty" and "not declared".
-function massAssignmentState(m) {
-  if (Array.isArray(m.guarded) && m.guarded.length === 0) {
-    return "unguarded";
-  }
-  if (Array.isArray(m.fillable)) {
-    return "fillable";
-  }
-  if (Array.isArray(m.guarded)) {
-    return "guarded";
-  }
-  return "protected";
 }
 
 // massAssignmentHtml renders a model's mass-assignment section. Pure (model

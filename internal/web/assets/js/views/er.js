@@ -13,7 +13,7 @@
 import { $ } from "../dom.js";
 import { buildElkGraph } from "./er-graph.js";
 import { renderSvg } from "./er-svg.js";
-import { diagramCenter, settleOffset } from "./er-settle.js";
+import { runSettle } from "./er-settle.js";
 import { downloadSvg, downloadPng } from "./er-export.js";
 import { prefersReducedMotion, SETTLE_CLEANUP_MS } from "../motion.js";
 
@@ -152,51 +152,10 @@ function maybePlaySettle(svgEl, laidOut) {
 
   if (prefersReducedMotion()) return;
 
-  const center = diagramCenter(laidOut || {});
-  const placedById = new Map(((laidOut && laidOut.children) || []).map((c) => [c.id, c]));
-
-  const nodes = Array.from(svgEl.querySelectorAll("g.er-node"));
-  const staged = [];
-  for (const g of nodes) {
-    const placed = placedById.get(g.getAttribute("data-table"));
-    if (!placed) continue;
-    const { dx, dy } = settleOffset(placed, center);
-    // Start displaced outward and faded; arm the transition so the flip eases.
-    g.style.transform = `translate(${placed.x + dx}px, ${placed.y + dy}px)`;
-    g.style.opacity = "0";
-    g.classList.add("er-settling");
-    staged.push({ g, placed });
-  }
-  if (staged.length === 0) return;
-
-  // Next frame: flip to resolved positions so the armed transition animates the
-  // change. rAF (not a synchronous write) is what gives the browser a start
-  // frame to interpolate from.
-  requestAnimationFrame(() => {
-    for (const { g, placed } of staged) {
-      g.style.transform = `translate(${placed.x}px, ${placed.y}px)`;
-      g.style.opacity = "1";
-    }
-    // After the settle, drop the inline overrides so nothing lingers to fight
-    // pan-zoom or a later focus. Listening for the transform transition's end
-    // is exact; a duration-matched fallback covers a browser that drops the
-    // event (e.g. tab backgrounded mid-transition).
-    const cleanup = () => {
-      for (const { g } of staged) {
-        g.classList.remove("er-settling");
-        g.style.transform = "";
-        g.style.opacity = "";
-      }
-    };
-    let done = false;
-    const once = () => {
-      if (done) return;
-      done = true;
-      cleanup();
-    };
-    staged[0].g.addEventListener("transitionend", once, { once: true });
-    setTimeout(once, SETTLE_CLEANUP_MS);
-  });
+  // The choreography itself lives in er-settle.js beside its geometry, shared
+  // with the Model page's graph (issue #70). What stays HERE is the policy the
+  // ER diagram alone has: the once-per-page-session gate above.
+  runSettle(svgEl, "g.er-node", "data-table", laidOut, SETTLE_CLEANUP_MS);
 }
 
 // exportControlsWired ensures the SVG/PNG export buttons are bound exactly once

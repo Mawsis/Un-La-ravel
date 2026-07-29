@@ -13,6 +13,9 @@
 import { $, escapeHtml } from "../dom.js";
 import { entityChip } from "../chip.js";
 import { severityFor } from "./findings.js";
+import { buildModelGraph } from "./model-graph.js";
+import { composeColumnOverlay, massAssignmentState, overlayHtml } from "./model-overlay.js";
+import { renderModelGraph } from "./model-graph-view.js";
 
 // DOT_CLASS bridges the contract severity to the status-dot CSS class, matching
 // findings.js exactly (blocker → the red danger dot; warn/info → the amber warn
@@ -47,12 +50,45 @@ export function modelDetailHtml(d) {
   return (
     '<div class="detail-page">' +
     '<div class="detail-head"><h2 tabindex="-1">' + escapeHtml(d.name) + "</h2></div>" +
+    graphSection(d) +
     relationsSection(d) +
+    overlayHtml(d.overlay, d.massAssignment) +
     routesSection(d) +
     formRequestsSection(d) +
     tableSection(d) +
     findingsSection(d) +
     "</div>"
+  );
+}
+
+// graphSection emits the model graph's MOUNT POINT only — an empty, labeled
+// container the async ELK layout fills in after the page's markup is in the DOM
+// (renderModelDetail drives that). The template stays a pure string function
+// that way, rather than becoming async and blocking the rest of the page on a
+// layout engine.
+//
+// The heading names it "Model graph" and says what it draws, because the ER
+// diagram is one click away and the two must never be read as the same picture:
+// this one's nodes are Eloquent models, the ER diagram's are schema tables.
+function graphSection(d) {
+  const g = d.graph || {};
+  const nodes = g.nodes || [];
+  if (nodes.length <= 1) {
+    // A model with no related models has nothing to draw. A one-box diagram
+    // would be visual noise implying a graph exists; the note says the true
+    // thing instead.
+    return (
+      '<section class="detail-section"><div class="subhead">Model graph</div>' +
+      '<div class="empty-note">This model declares no relationships, and none point at it &mdash; ' +
+      "nothing to graph.</div></section>"
+    );
+  }
+  return (
+    '<section class="detail-section"><div class="subhead">Model graph</div>' +
+    '<div class="empty-note">Eloquent models directly related to ' + escapeHtml(d.name) +
+    ", labeled by relationship kind. Distinct from the " +
+    '<a href="#/er" data-view="er">ER diagram</a>, whose nodes are database tables.</div>' +
+    '<div id="model-graph" class="model-graph"></div></section>'
   );
 }
 
@@ -75,6 +111,12 @@ export function renderModelDetail(name, projectModel) {
   body.innerHTML = modelDetailHtml(d);
   body.hidden = false;
   if (list) list.hidden = true;
+  // The model graph is laid out by ELK, which is async, so it fills its mount
+  // point AFTER the rest of the page is already in the DOM — the page never
+  // waits on a layout engine to show its text. Fire-and-forget: renderModelGraph
+  // owns its own failure state (a calm note in the mount point), so a layout
+  // error degrades that one section rather than rejecting here.
+  renderModelGraph(d.graph);
   // Focus is NOT moved here: activateView (main.js) runs right after this and is
   // the single focus authority — it detects the now-visible detail body and
   // focuses its heading, so the screen reader announces the model just opened.
@@ -247,6 +289,20 @@ export function composeModelDetail(name, projectModel) {
     findings: findingsFor(name, self, pm.disagreements || []),
     routes,
     formRequests: formRequestsFor(routes, pm.form_requests || []),
+    // The model-centric graph (issue #70): Model↔Model relationships around
+    // this one, bounded to its direct neighbours. Deliberately NOT the ER
+    // diagram's table-centric graph — see model-graph.js for why the two stay
+    // apart.
+    graph: buildModelGraph(name, pm),
+    // The mass-assignment overlay (issue #70): the join between the mapped
+    // table's columns and what this model says about each of them. An absent
+    // table yields an empty overlay (with its declared-but-absent names still
+    // reported), never a fabricated column list.
+    overlay: self ? composeColumnOverlay(self, (table && table.columns) || []) : [],
+    // The four-state classification the per-column verdicts were derived under.
+    // Carried alongside so the page can explain the verdicts rather than
+    // re-deriving the state and risking a disagreement with the overlay.
+    massAssignment: self ? massAssignmentState(self) : "protected",
   };
 }
 

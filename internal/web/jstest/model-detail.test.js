@@ -316,6 +316,112 @@ test("owning routes are ranked strongest-match-first and deduped", () => {
   );
 });
 
+// --- Model graph + mass-assignment overlay (issue #70) ---------------------
+//
+// The detail page gained two sections that are joins across node types: a
+// model-centric GRAPH (Model↔Model relationships, distinct from the
+// table-centric ER diagram) and the mass-assignment OVERLAY (what the Model
+// says about each of the Schema's columns). Their internals are tested in
+// model-graph.test.js and model-overlay.test.js; what is pinned here is that
+// composeModelDetail actually composes them onto the view-model, correctly
+// wired to THIS model.
+
+test("the composed detail carries a model-centric graph centered on this model", () => {
+  const pm = projectModel({
+    models: [
+      { name: "Post", table: "posts", relationships: [{ kind: "belongsTo", method: "author", target: "User" }] },
+      { name: "User", table: "users", relationships: [] },
+    ],
+  });
+
+  const detail = composeModelDetail("Post", pm);
+
+  assert.equal(detail.graph.center, "Post");
+  assert.deepEqual(detail.graph.nodes.map((n) => n.name), ["Post", "User"]);
+  assert.equal(detail.graph.edges.length, 1);
+  assert.equal(detail.graph.edges[0].label, "belongsTo");
+});
+
+test("the graph is the MODEL graph, not the ER table graph", () => {
+  // The distinction the ticket exists to protect: nodes are model class names,
+  // never the tables those models map to. A graph keyed by "posts"/"users"
+  // would be the ER diagram wearing the Model page's label.
+  const pm = projectModel({
+    models: [
+      { name: "Post", table: "posts", relationships: [{ kind: "belongsTo", method: "author", target: "User" }] },
+      { name: "User", table: "users", relationships: [] },
+    ],
+    schemas: [{ name: "posts", columns: [], indexes: [] }, { name: "users", columns: [], indexes: [] }],
+  });
+
+  const names = composeModelDetail("Post", pm).graph.nodes.map((n) => n.name);
+  assert.deepEqual(names, ["Post", "User"]);
+  assert.ok(!names.includes("posts"), "graph nodes are models, not tables");
+});
+
+test("the mass-assignment overlay annotates the MAPPED table's columns", () => {
+  const pm = projectModel({
+    models: [
+      {
+        name: "User",
+        table: "users",
+        relationships: [],
+        fillable: ["email", "password"],
+        hidden: ["password"],
+        // Cast{Column, Type} — the field is `column`, not `name`.
+        casts: [{ column: "email_verified_at", type: "datetime" }],
+      },
+    ],
+    schemas: [
+      {
+        name: "users",
+        columns: [{ name: "id" }, { name: "email" }, { name: "password" }, { name: "email_verified_at" }],
+        indexes: [],
+      },
+    ],
+  });
+
+  const overlay = new Map(composeModelDetail("User", pm).overlay.map((c) => [c.name, c]));
+
+  assert.equal(overlay.get("email").fillable, true);
+  assert.equal(overlay.get("id").fillable, false);
+  assert.equal(overlay.get("password").hidden, true);
+  assert.equal(overlay.get("email_verified_at").cast, "datetime");
+});
+
+test("a model whose table is absent from the schema still composes an empty overlay", () => {
+  // The section must degrade to "no columns to annotate", never to a crash or a
+  // fabricated column list.
+  const pm = projectModel({
+    models: [{ name: "Ghost", table: "ghosts", relationships: [], fillable: ["x"] }],
+    schemas: [],
+  });
+
+  const detail = composeModelDetail("Ghost", pm);
+
+  assert.equal(detail.table, null);
+  assert.deepEqual(detail.overlay.map((c) => c.name), []);
+  assert.deepEqual(detail.overlay.unmatched, [{ name: "x", source: "fillable" }]);
+});
+
+test("the composed detail names the model's mass-assignment state", () => {
+  // The per-column verdicts only make sense against the state that produced
+  // them, so the state travels with the overlay rather than being re-derived.
+  const pm = projectModel({
+    models: [{ name: "Post", table: "posts", relationships: [], guarded: [] }],
+  });
+
+  assert.equal(composeModelDetail("Post", pm).massAssignment, "unguarded");
+});
+
+test("an unknown model composes an empty graph and overlay, not undefined", () => {
+  const detail = composeModelDetail("Ghost", projectModel({}));
+
+  assert.equal(detail.found, false);
+  assert.deepEqual(detail.graph.nodes, []);
+  assert.deepEqual(detail.overlay, []);
+});
+
 test("form requests validating the model's writes are composed from its owning routes", () => {
   const pm = projectModel({
     models: [{ name: "Post", table: "posts", relationships: [] }],

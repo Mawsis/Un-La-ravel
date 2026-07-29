@@ -15,6 +15,12 @@ class Category extends Model
     // $guarded (non-nil, empty) from a model that never declares it (nil).
     protected $guarded = [];
 
+    // DELIBERATE: declared-but-empty $hidden (issue #65), the same nil-vs-empty
+    // contrast one field over. Serializes as [] — "nothing here is secret",
+    // stated — where Post, which never declares the property, serializes as
+    // null. Do not "tidy" this into an omission; the distinction is the fixture.
+    protected $hidden = [];
+
     // hasMany Post: a category has many posts. The posts table has a
     // "category_id" foreign key (added by a later migration), so this
     // relationship AGREES with the schema.

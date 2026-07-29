@@ -17,6 +17,15 @@ class User extends Authenticatable
         return $this->hasMany(Post::class);
     }
 
+    // Serialization-hidden columns, as Laravel's own stock User model declares
+    // them. Fixture for the $hidden extraction path (issue #65): a DECLARED,
+    // non-empty $hidden. Category covers the declared-empty case, Post the
+    // never-declared one, so all three states appear in the goldens.
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     // Laravel 11-style casts() method — fixture for the casts() extraction
     // path, which takes precedence over a $casts property when both exist.
     protected function casts(): array

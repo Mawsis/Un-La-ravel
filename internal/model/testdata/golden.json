@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.9.0",
+  "schema_version": "1.12.0",
   "project_name": "blog",
   "laravel_version": "11.x",
   "schemas": [
@@ -148,6 +148,32 @@
       "count": 2,
       "label": "2 disagreements",
       "view": "findings"
+    }
+  ],
+  "middlewares": [
+    {
+      "alias": "session",
+      "class": "Illuminate\\Session\\Middleware\\StartSession",
+      "groups": [
+        "web"
+      ],
+      "origin": "app",
+      "global": true,
+      "priority": 1
+    },
+    {
+      "alias": "auth",
+      "groups": [],
+      "origin": "framework",
+      "global": false,
+      "priority": 0
+    },
+    {
+      "alias": "tenant",
+      "groups": [],
+      "origin": "unknown",
+      "global": false,
+      "priority": 0
     }
   ]
 }

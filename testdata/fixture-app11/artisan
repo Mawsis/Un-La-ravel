@@ -1,0 +1,3 @@
+#!/usr/bin/env php
+<?php
+// Minimal artisan stub. DetectLaravel only checks that this file exists.

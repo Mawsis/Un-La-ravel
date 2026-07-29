@@ -30,6 +30,7 @@ import (
 	"github.com/Mawsis/Un-La-ravel/internal/detector"
 	"github.com/Mawsis/Un-La-ravel/internal/extract/controller"
 	formrequestextract "github.com/Mawsis/Un-La-ravel/internal/extract/formrequest"
+	middlewareextract "github.com/Mawsis/Un-La-ravel/internal/extract/middleware"
 	modelextract "github.com/Mawsis/Un-La-ravel/internal/extract/model"
 	routeextract "github.com/Mawsis/Un-La-ravel/internal/extract/route"
 	"github.com/Mawsis/Un-La-ravel/internal/extract/schema"
@@ -142,8 +143,26 @@ func Analyze(projectPath string) (*model.ProjectModel, error) {
 	}
 	routes := analyze.LinkFormRequests(rp.routes, formRequests, rp.actionParams, rp.symbols, rp.controllerFiles)
 
-	// 7. Assemble the Project Model.
-	return buildProjectModel(project, tables, models, disagreements, routes, rp.controllers, rp.deadRoutes, formRequests), nil
+	// 7. Assemble the Middleware node set (ADR 0012): the project's declared
+	//    aliases unioned with the built-in alias backstop and every middleware
+	//    name the resolved routes apply, so the reverse index a consumer derives
+	//    never dangles. It runs after route resolution, when Route.Middleware is
+	//    final.
+	//
+	//    ReadDeclared supplies the declared tier from whichever layout the project
+	//    uses — Laravel ≤10's app/Http/Kernel.php (issue #66) or Laravel 11+'s
+	//    bootstrap/app.php closure (issue #67), the Kernel winning when both are
+	//    present (ADR 0012 §1a). It is graceful: a project that declares neither
+	//    yields a nil Kernel and the union collapses to backstop ∪ applied (the
+	//    #64 tracer bullet).
+	kernel, err := middlewareextract.ReadDeclared(projectPath)
+	if err != nil {
+		return nil, err
+	}
+	middlewares := middlewareextract.Extract(routes, kernel)
+
+	// 8. Assemble the Project Model.
+	return buildProjectModel(project, tables, models, disagreements, routes, rp.controllers, rp.deadRoutes, formRequests, middlewares), nil
 }
 
 // routePipeline bundles the artifacts the two-phase Route pipeline produces that
@@ -466,11 +485,11 @@ func collectModelFiles(projectPath string) ([]string, error) {
 }
 
 // buildProjectModel assembles a Project Model from the detected project and the
-// extracted tables, models, disagreements, routes, controllers, dead routes, and
-// form requests, choosing the best available project name. Insertion order is
-// preserved for deterministic output. Finally it computes the itemized health
-// verdict (internal/findings) over the assembled model and appends it, so the
-// findings array reflects every node the model carries.
+// extracted tables, models, disagreements, routes, controllers, dead routes,
+// form requests, and middlewares, choosing the best available project name.
+// Insertion order is preserved for deterministic output. Finally it computes the
+// itemized health verdict (internal/findings) over the assembled model and
+// appends it, so the findings array reflects every node the model carries.
 func buildProjectModel(
 	project *detector.LaravelProject,
 	tables []model.Table,
@@ -480,6 +499,7 @@ func buildProjectModel(
 	controllers []model.Controller,
 	deadRoutes []model.DeadRoute,
 	formRequests []model.FormRequest,
+	middlewares []model.Middleware,
 ) *model.ProjectModel {
 	pm := model.New(projectName(project), project.Version)
 	for _, t := range tables {
@@ -507,6 +527,9 @@ func buildProjectModel(
 	}
 	for _, fr := range formRequests {
 		pm.AddFormRequest(fr)
+	}
+	for _, mw := range middlewares {
+		pm.AddMiddleware(mw)
 	}
 
 	// Compute the itemized health verdict LAST, over the fully assembled model:

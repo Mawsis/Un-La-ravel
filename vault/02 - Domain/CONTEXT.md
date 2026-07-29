@@ -44,6 +44,14 @@ A single `database/migrations/*.php` file describing a change to the **Schema**.
 An Eloquent model class (`app/Models/*.php`), with its inferred table and its **Relationships** to other **Models**.
 _Avoid_: Entity, table (a Model *maps to* a table; it is not the table)
 
+**Model graph** (a.k.a. model-centric diagram):
+The diagram on a **Model**'s detail page: the **Model** at the center, edges to its *directly-related* **Models** labeled by **Relationship** kind (`hasMany`/`belongsTo`/…), and the columns of its mapped **Schema** table **annotated with mass-assignment state** (fillable / guarded / hidden). It is a **Renderer** over the **Model** and **Schema** nodes — *distinct from the ER diagram*, which is **table-centric** (nodes are tables with columns; a **Relationship** is drawn as an edge between table nodes). The Model graph is **model-centric** (the node *is* the Model; fillable/guarded/hidden are the overlay a plain ER can't show). It **reuses the ER's visual chrome** (node/edge boxes, the [[ADR 0009 - ER settle animation and diagram export|settle animation]]) but not its table-centric graph builder. Calling it "the ER diagram" re-introduces the **Schema**↔**Model** conflation this glossary exists to prevent.
+_Avoid_: ER diagram (that is the table-centric Schema renderer), entity diagram
+
+**Mass-assignment state**:
+A per-column annotation fusing **Schema** and **Model**: whether a mapped table column is **fillable** (mass-assignable), **guarded** (protected from mass assignment), or **hidden** (excluded from serialization) per the **Model**'s `$fillable`/`$guarded`/`$hidden`. Invisible in a plain **ER diagram** (a Schema-only view); surfaced on the **Model graph** because mass-assignment protection is a correctness/security fact a reader of Laravel wants at a glance.
+_Avoid_: protected (overloaded — say guarded), whitelist/blacklist
+
 **Relationship**:
 An Eloquent association a **Model** declares on another **Model**, via a `$this-><kind>(...)` call wrapped in one of the Model's own methods. The kinds we model are `hasMany`, `hasOne`, `belongsTo`, and `belongsToMany`. A Relationship carries the declaring method name, the target Model, and any explicit foreign/local key the source supplied. It is the **Edge** between two **Models**.
 _Avoid_: association (acceptable casually, but **Relationship** is canonical), link, foreign key (the FK is a *column* the Relationship may reference, not the Relationship itself)
@@ -57,16 +65,24 @@ A single HTTP endpoint declared in `routes/*.php` — method + URI + the **Contr
 _Avoid_: Endpoint (acceptable casually, but **Route** is canonical), path
 
 **Controller** (and **Action**):
-A controller **class** in `app/Http/Controllers`. An **Action** is one public method on it that a **Route** points to. We say "Controller" for the class, "Action" for the method.
+A controller **class** in `app/Http/Controllers`, at any nesting depth — a class in a subdirectory carries that subdirectory as a namespace segment (`App\Http\Controllers\Admin\AdminDashboardController`). An **Action** is one public method on it that a **Route** points to. We say "Controller" for the class, "Action" for the method.
 _Avoid_: handler
+
+**Controller reference**:
+The controller as written *at the route site* — the class-const in `[C::class, 'm']` or the class part of a legacy `"C@m"` string. It is recorded **verbatim** by the route extractor (fully-qualified, imported-short, or partially-qualified exactly as the source wrote it), never reduced to a bare short name, so that **[[ADR 0006 - Two-phase extraction with a symbol table|two-phase resolution]]** can qualify it against the route file's `use` imports. Collapsing it to the last segment and rebuilding an FQN from the **default controller namespace** (`App\Http\Controllers`) is the bug that produced false **Dead Routes** for sub-namespaced controllers: `App\Http\Controllers\Admin\AdminDashboardController` was reported not-found as `App\Http\Controllers\AdminDashboardController`. One shape remains unresolved and is a documented limitation: a *partially*-qualified reference (`Admin\C::class` under `use App\Http\Controllers;`), because it is qualified enough to skip the import map yet not a full FQN — rare in route files (ADR 0002 precision-over-coverage).
+_Avoid_: controller short name (the reference is NOT reduced to a short name anymore)
 
 **Dead Route**:
 A **Route** whose **Controller** or **Action** can't be resolved — the two-phase symbol-table resolution ([[ADR 0006 - Two-phase extraction with a symbol table]]) could not match the route's controller reference to a declared **Controller** class (`missing_controller`), or matched the class but not the named **Action** method (`missing_action`). A Dead Route is a dangling **Edge** in the **Project Model**, surfaced as a **finding**, not an error — the tool reports it; it does not fail on it. Like a **Disagreement**, it is a fact about two valid sources (the route files and the controller classes) that don't line up.
 _Avoid_: broken route, 404 (a 404 is a *runtime* miss; a Dead Route is a *static* dangling edge), error, bug
 
 **Middleware**:
-A request/response pipeline stage. Its **alias** is declared in the HTTP **Kernel**; its **application** is declared on a **Route** or route group.
-_Avoid_: filter, interceptor
+A request/response pipeline stage, and — since [[ADR 0012 - Middleware as a node]] — a first-class **Node** in the **Project Model** (the `middlewares` array, contract `1.11.0`). Its **alias** is declared in the HTTP **Kernel** (the `auth` in `$middlewareAliases`); its **application** is declared on a **Route** or route group (the `auth` in `->middleware('auth')`). The node carries what the tool knows about the middleware *itself*, distinct from any Route's application of it: its `alias`, resolved `class` FQN, the `groups` it belongs to, an **origin** (`framework` = a Laravel built-in, `app` = declared in this project's Kernel, `unknown` = applied on a Route but declared nowhere we can read), a `global` flag (does it run on every request?), and a `priority` ordering. The node set is the *union* of Laravel's built-in alias backstop, the Kernel's declared aliases, and every name applied on a **Route** — an applied-but-undeclared name still gets an `unknown`-origin node (no guessed class, [[ADR 0002 - Six-node MVP scope|precision over coverage]]), so the reverse index never dangles. The **reverse index** ("which **Routes** apply this middleware") is *derived* by a consumer joining Routes against the nodes on **base alias** (the parameter after `:` stripped, so `auth:sanctum` counts against `auth`), never serialized onto the node; a **direct** application (the route named the alias) and a **group-transitive** one (the route named a group that contains it) are kept as distinct, labeled relations.
+_Avoid_: filter, interceptor; "the middleware's routes" as a stored field (the reverse index is derived, not serialized — [[ADR 0012 - Middleware as a node]])
+
+**Kernel** (HTTP Kernel):
+The source of truth for a project's **Middleware** alias→class→group→global→priority mapping. In Laravel ≤10 it is the `app/Http/Kernel.php` class (its `$middlewareAliases`/`$routeMiddleware`, `$middlewareGroups`, `$middleware`, and `$middlewarePriority` properties); in Laravel 11+ that class is gone and the same mapping lives in the `->withMiddleware(...)` closure of `bootstrap/app.php`. A **Middleware** node's `app`-origin facets are read from whichever the project has; a **built-in alias backstop** fills in `framework`-origin nodes even when no Kernel is present, so the tool works on a project before the Kernel reader runs (or on one with neither layout). Reading the Kernel itself is a slice after the node lands (issues #66/#67).
+_Avoid_: config, bootstrap (too generic — the Kernel is the *middleware* mapping specifically); router
 
 **Auth state**:
 A **Route**'s answer to "does its flattened **Middleware** stack authenticate?" — one of `authenticated`, `unauthenticated`, or `unknown`. Computed from the middleware names alone by matching Laravel's *conventional* auth middleware (`auth`, `auth:<guard>`, `auth.basic`, Sanctum/Passport guards). Unrecognized custom middleware is `unknown`, never guessed ([[ADR 0002 - Six-node MVP scope|precision over coverage]]): a custom guard we can't read might or might not authenticate, and pretending to know either way would either hide a real hole or cry wolf. The state is stamped onto every Route in the contract, so the dashboard reads it rather than re-classifying ([[ADR 0008 - Findings model and the doctor gate]]).
@@ -112,6 +128,7 @@ A suspected performance problem (N+1, missing eager-load). Deferred — static d
 - A **Renderer** reads the **Project Model** and emits an output; it never reads source files
 - A **Migration** contributes to the **Schema**; a **Model** maps to a table in the **Schema**
 - A **Route** binds to exactly one **Action** (on a **Controller**) and zero-or-more **Middleware**
+- A **Middleware** is a **Node**; a **Route** *applies* it (directly, or transitively via a group), and that application — recorded only on the **Route** — is joined at read-time into the derived reverse index ([[ADR 0012 - Middleware as a node]])
 - A **Route** may bind to one **FormRequest** (via its **Action**'s type-hinted argument)
 - A **Model** relates to other **Models** via **Relationships** (`hasMany`, `hasOne`, `belongsTo`, `belongsToMany`)
 - A **Relationship** that references a table or foreign-key column the **Schema** lacks produces a **Disagreement** finding

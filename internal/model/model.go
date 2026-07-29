@@ -87,7 +87,56 @@ import (
 // backward-compatible growth: the new route key is appended after "middleware",
 // the new finding kinds append after the existing categories, and consumers that
 // ignore them are unaffected.
-const CurrentSchemaVersion = "1.9.0"
+//
+// Bumped to 1.10.0 when the controller-FQN fix (issue #63) changed the DOCUMENTED
+// MEANING of each Route's "controller" field: it now carries the controller
+// reference VERBATIM as written at the route site — fully-qualified
+// (App\Http\Controllers\Admin\FooController), imported-short (FooController), or
+// partially-qualified — rather than the bare last segment the extractor used to
+// collapse it to. Two-phase resolution (ADR 0006) qualifies that verbatim
+// reference against the route file's `use` imports, so sub-namespaced controllers
+// resolve to their true FQN and are no longer falsely reported as dead routes.
+// The field's key and type are unchanged (still a string named "controller"), but
+// its value shape changes for any route that names a namespaced controller, so
+// the golden files change and the version is bumped to signal it. A route that
+// wrote a bare short name is byte-for-byte identical to before; a route that wrote
+// a namespaced reference now serializes the full reference instead of the short
+// name.
+//
+// Bumped to 1.11.0 when middleware became a first-class node (issue #64, ADR
+// 0012): the contract gains a top-level "middlewares" array, appended last.
+// Each entry carries the middleware's "alias" (omitted when applied by class
+// with no alias), resolved "class" FQN (omitted when unread/unknown), the
+// "groups" it belongs to (non-nil), its "origin" ("framework" / "app" /
+// "unknown"), a "global" flag, and its "priority" ordering. The node set is the
+// union of Laravel's built-in alias backstop (origin "framework") and every
+// middleware name actually applied on a Route that is otherwise undeclared
+// (origin "unknown", base alias with the parameter stripped), so the derived
+// reverse index ("which routes apply this middleware") never dangles. Emit order
+// is tiered and map-free — built-in canonical order, then applied-first-
+// appearance — so the array is deterministic for golden-file tests. Reading the
+// Kernel's own alias→class→group→global→priority mapping layers on in later
+// slices; until then class/groups/global/priority carry their zero values. A
+// backward-compatible growth: the array is appended last, so existing consumers
+// are unaffected.
+//
+// Bumped to 1.12.0 when the Laravel ≤10 Kernel reader (issue #66) began
+// populating the middleware node fields that 1.11.0 introduced but always left
+// at their zero values. On a project with an app/Http/Kernel.php, each declared
+// alias now resolves: "class" carries the FQN the alias maps to, "groups"
+// reflects the alias's class membership in $middlewareGroups, "global" is true
+// when that class is in the global $middleware stack, and "priority" is its
+// 1-based position in $middlewarePriority. A new "app"-origin tier (the origin
+// vocabulary 1.11.0 already reserved) is emitted FIRST in the tiered order —
+// Kernel-declared, then the built-in backstop for aliases the Kernel did not
+// declare, then applied-but-undeclared names — so a declared built-in such as
+// "auth" appears once, carrying its resolved class, rather than as a bare
+// framework node. No struct field is added or removed and the emit order stays
+// map-free and deterministic: this is a backward-compatible enrichment of
+// existing fields, so consumers reading the 1.11.0 shape are unaffected. A
+// project without a ≤10 Kernel (Laravel 11+, whose bootstrap/app.php reader is a
+// later slice) is unchanged — the fields stay at their zero values.
+const CurrentSchemaVersion = "1.12.0"
 
 // jsonIndent is the indentation used for the serialized contract. Two spaces
 // keeps golden-file diffs small and deterministic.
@@ -112,13 +161,15 @@ type ProjectModel struct {
 	DeadRoutes     []DeadRoute    `json:"dead_routes"`
 	FormRequests   []FormRequest  `json:"form_requests"`
 	Findings       []Finding      `json:"findings"`
+	Middlewares    []Middleware   `json:"middlewares"`
 }
 
 // New constructs a ProjectModel for the named project, stamping it with the
 // CurrentSchemaVersion. Every slice is initialized to a non-nil empty slice so
 // an analysis that finds none of a given kind serializes "schemas": [],
 // "models": [], "disagreements": [], "routes": [], "controllers": [],
-// "dead_routes": [], "form_requests": [], and "findings": [] rather than null.
+// "dead_routes": [], "form_requests": [], "findings": [], and
+// "middlewares": [] rather than null.
 func New(projectName, laravelVersion string) *ProjectModel {
 	return &ProjectModel{
 		SchemaVersion:  CurrentSchemaVersion,
@@ -132,6 +183,7 @@ func New(projectName, laravelVersion string) *ProjectModel {
 		DeadRoutes:     []DeadRoute{},
 		FormRequests:   []FormRequest{},
 		Findings:       []Finding{},
+		Middlewares:    []Middleware{},
 	}
 }
 
@@ -197,6 +249,15 @@ func (p *ProjectModel) AddFormRequest(f FormRequest) *ProjectModel {
 // unguarded) and is preserved in the serialized output.
 func (p *ProjectModel) AddFinding(f Finding) *ProjectModel {
 	p.Findings = append(p.Findings, f)
+	return p
+}
+
+// AddMiddleware appends a Middleware node in the extractor's tiered emit order
+// (built-in canonical order, then applied-first-appearance) and returns the
+// receiver so calls can be chained. Insertion order is meaningful and is
+// preserved in the serialized output (ADR 0012's determinism requirement).
+func (p *ProjectModel) AddMiddleware(m Middleware) *ProjectModel {
+	p.Middlewares = append(p.Middlewares, m)
 	return p
 }
 

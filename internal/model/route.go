@@ -47,8 +47,14 @@ type Route struct {
 	// URI is the fully resolved request path, with all enclosing group prefixes
 	// already applied (for example "/admin/comments").
 	URI string `json:"uri"`
-	// Controller is the controller short name exactly as written at the route
-	// site (for example "PostController"), before FQN resolution.
+	// Controller is the controller reference recorded VERBATIM exactly as written
+	// at the route site, before FQN resolution — a bare short name
+	// ("PostController"), a fully-qualified name
+	// ("App\\Http\\Controllers\\Admin\\AdminDashboardController"), or an
+	// imported-short name resolved against the route file's `use` imports in phase
+	// two (ADR 0006, issue #63). Keeping the namespace here is what lets
+	// sub-namespaced controllers resolve to their true FQN rather than being
+	// falsely reported as dead routes.
 	Controller string `json:"controller"`
 	// Action is the controller method the route dispatches to (for example
 	// "index").

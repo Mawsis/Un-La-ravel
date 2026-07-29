@@ -99,6 +99,34 @@
         }
       }
     },
+    "/admin/dashboard": {
+      "get": {
+        "operationId": "App\\Http\\Controllers\\Admin\\AdminDashboardController_index",
+        "tags": [
+          "App\\Http\\Controllers\\Admin\\AdminDashboardController"
+        ],
+        "summary": "App\\Http\\Controllers\\Admin\\AdminDashboardController@index",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/admin/dashboard/stats": {
+      "get": {
+        "operationId": "AdminDashboardController_stats",
+        "tags": [
+          "AdminDashboardController"
+        ],
+        "summary": "AdminDashboardController@stats",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/admin/users": {
       "get": {
         "operationId": "UserController_index",

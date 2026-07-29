@@ -20,6 +20,7 @@ Architecture Decision Records — *why* the project is shaped the way it is. Eac
 | [[ADR 0009 - ER settle animation and diagram export\|0009]] | ER settle animation + SVG/PNG export | ✅ accepted | A once-per-session settle is the un-ravel metaphor, not decoration; a narrow recorded exception to #25's no-settle rule, done as a token-timed transition so the motion tests don't loosen |
 | [[ADR 0010 - Design system and the thread metaphor\|0010]] | Design system: thread roles, warmed OKLCH, modular scale | ✅ accepted | PRODUCT.md/DESIGN.md become the committed intention; red/cyan turn into `unresolved`/`resolved` state roles, neutrals warm off the Tailwind ramp, and six grep-able anti-references gate every visual PR |
 | [[ADR 0011 - Palette pivot: resolved goes green, cyan retires to the logo\|0011]] | Palette pivot: `--resolved` green, cyan = logo accent only | ✅ accepted | Owner call: red/green like Laravel's ecosystem; one-token re-skin thanks to ADR 0010's token layer; colorblind redundancy (no red-vs-green by hue alone) becomes a hard rule |
+| [[ADR 0012 - Middleware as a node\|0012]] | Middleware is a node; reverse index is derived, not serialized | ✅ accepted | The last MVP node type gains a node (`middlewares`, contract `1.11.0`); "which routes apply this" is a read-time join over the routes, never a stored edge, so it can't drift; direct vs group-transitive stay distinct labeled relations |
 
 ## How these connect
 
@@ -34,6 +35,8 @@ flowchart TD
     a5 -.reinforced by.-> a7
     a1 --> a8["0008 Findings + doctor"]
     a4 --> a8
+    a2 --> a12["0012 Middleware as a node"]
+    a4 --> a12
 ```
 
 ## Decisions that did NOT get an ADR (and why)

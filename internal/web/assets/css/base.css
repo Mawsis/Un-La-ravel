@@ -22,11 +22,18 @@ body {
   color: var(--text);
   font-family: var(--sans);
   font-size: var(--text-base);
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 a {
   color: var(--resolved);
+}
+/* Selection carries the resolved green at low alpha — the thread role, kept as
+   a quiet identity touch on an otherwise neutral shell. */
+::selection {
+  background: var(--resolved-selection);
+  color: var(--text);
 }
 
 /* Skip-link: visually hidden until focused, so keyboard users can jump past

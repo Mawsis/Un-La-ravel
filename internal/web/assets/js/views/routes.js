@@ -96,13 +96,13 @@ export function routeRowHtml(r, isDead) {
     r.controller || r.action
       ? (r.controller
           ? entityChip({ kind: "controller", name: r.controller })
-          : "—") +
+          : "·") +
         "@" +
-        escapeHtml(r.action || "—")
+        escapeHtml(r.action || "·")
       : '<span class="mw">(closure / view route)</span>';
   const mw = (r.middleware || []).length
     ? '<span class="mw">' + escapeHtml(r.middleware.join(", ")) + "</span>"
-    : '<span class="mw">—</span>';
+    : '<span class="mw">·</span>';
   return (
     '<tr class="' + (isDead ? "dead" : "") + '">' +
     '<td class="method m-' + escapeHtml(r.method || "") + '">' + escapeHtml(r.method || "") + "</td>" +

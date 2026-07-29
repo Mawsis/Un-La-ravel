@@ -56,7 +56,7 @@ export function massAssignmentHtml(m) {
     return (
       '<span class="status-dot danger" aria-hidden="true"></span>' +
       dangerFlag("unguarded", "Unguarded") +
-      '<div class="empty-note">$guarded = [] — every column is mass-assignable</div>'
+      '<div class="empty-note">$guarded = [], so every column is mass-assignable</div>'
     );
   }
   if (state === "fillable") {
@@ -64,7 +64,7 @@ export function massAssignmentHtml(m) {
     if (cols.length === 0) {
       return (
         '<span class="pill ok">Fillable (0)</span>' +
-        '<div class="empty-note">declared empty — nothing mass-assignable</div>'
+        '<div class="empty-note">declared empty, so nothing is mass-assignable</div>'
       );
     }
     return (
@@ -81,7 +81,7 @@ export function massAssignmentHtml(m) {
   }
   return (
     '<span class="pill dim">Protected</span>' +
-    '<div class="empty-note">no $fillable or $guarded declared — mass assignment fully guarded</div>'
+    '<div class="empty-note">no $fillable or $guarded declared, so mass assignment is fully guarded</div>'
   );
 }
 

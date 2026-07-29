@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Un(la)ravel — Laravel project explorer</title>
+  <title>Un(la)ravel · Laravel project explorer</title>
 
   <link rel="stylesheet" href="/css/fonts.css" />
   <link rel="stylesheet" href="/css/tokens.css" />
@@ -155,9 +155,16 @@
         </div>
 
         <div class="panel" data-panel="er">
-          <h2 class="sr-only">Entity-Relationship diagram</h2>
+          <!-- Editorial view header (ADR 0012): an oversized mono index numeral,
+               the display-face title, a dim standfirst. The <h2> is preserved as
+               the visible title so the AT heading structure is unchanged. -->
+          <header class="view-header">
+            <span class="vh-index" aria-hidden="true">02</span>
+            <h2 class="vh-title">Schema map</h2>
+            <p class="vh-standfirst">Every table and the relationships between them, resolved from your migrations and Eloquent models.</p>
+          </header>
           <div class="er-toolbar">
-            <p class="er-hint">Scroll to zoom · drag to pan · double-click to zoom in · +/− controls bottom-right · <a href="#/models" data-view="models">see mass assignment &amp; casts in Models</a></p>
+            <p class="er-hint">Scroll to zoom, drag to pan, double-click to zoom in. Zoom controls sit bottom-right. <a href="#/models" data-view="models">Mass assignment and casts live in Models.</a></p>
             <div class="er-export" role="group" aria-label="Export diagram">
               <button type="button" id="er-export-svg" class="er-export-btn">Export SVG</button>
               <button type="button" id="er-export-png" class="er-export-btn">Export PNG</button>
@@ -167,11 +174,15 @@
         </div>
 
         <div class="panel" data-panel="models">
-          <h2 class="sr-only">Models</h2>
+          <header class="view-header">
+            <span class="vh-index" aria-hidden="true">03</span>
+            <h2 class="vh-title">Models</h2>
+            <p class="vh-standfirst">Each Eloquent model, its table, mass-assignment posture, casts, and indexes.</p>
+          </header>
           <!-- The flat model list. Hidden while a model detail page
                (#/models/{name}, issue #51) is open; shown otherwise. -->
           <div id="models-list">
-            <div class="filter-row"><input id="model-filter" type="text" placeholder="Filter by model or table name..." aria-label="Filter models" /></div>
+            <div class="filter-row"><input id="model-filter" type="text" placeholder="Filter by model or table name…" aria-label="Filter models" /></div>
             <div id="models-body"></div>
           </div>
           <!-- The model detail page: composed client-side over the loaded model
@@ -181,7 +192,11 @@
         </div>
 
         <div class="panel" data-panel="routes">
-          <h2 class="sr-only">Routes</h2>
+          <header class="view-header">
+            <span class="vh-index" aria-hidden="true">04</span>
+            <h2 class="vh-title">Routes</h2>
+            <p class="vh-standfirst">Every registered route, its verb, controller action, and middleware stack.</p>
+          </header>
           <div class="filter-row"><input id="route-filter" type="text" placeholder="Filter routes by URI, method, or controller…" aria-label="Filter routes" /></div>
           <div class="table-scroll">
             <table class="routes">
@@ -192,20 +207,31 @@
         </div>
 
         <div class="panel" data-panel="api">
-          <h2 class="sr-only">API Docs</h2>
-          <p class="swagger-caption">Renders in light mode.</p>
+          <header class="view-header">
+            <span class="vh-index" aria-hidden="true">05</span>
+            <h2 class="vh-title">API reference</h2>
+            <p class="vh-standfirst">An OpenAPI 3 document derived from your routes and form requests. Renders in light mode.</p>
+          </header>
           <div class="swagger-frame">
             <div id="swagger-ui"></div>
           </div>
         </div>
 
         <div class="panel" data-panel="findings">
-          <h2 class="sr-only">Findings</h2>
+          <header class="view-header">
+            <span class="vh-index" aria-hidden="true">06</span>
+            <h2 class="vh-title">Findings</h2>
+            <p class="vh-standfirst">Where the static read of your code disagrees with itself: dead routes, model and schema mismatches, unguarded mass assignment.</p>
+          </header>
           <div id="findings-body"></div>
         </div>
 
         <div class="panel" data-panel="auth">
-          <h2 class="sr-only">Auth coverage</h2>
+          <header class="view-header">
+            <span class="vh-index" aria-hidden="true">07</span>
+            <h2 class="vh-title">Auth coverage</h2>
+            <p class="vh-standfirst">Which routes sit behind authentication middleware, and which are exposed.</p>
+          </header>
           <div id="auth-body"></div>
         </div>
       </div>

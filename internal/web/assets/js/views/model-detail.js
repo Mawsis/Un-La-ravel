@@ -111,8 +111,8 @@ function relationsSection(d) {
     : '<div class="empty-note">No inbound relations point at this model.</div>';
 
   return (
-    '<section class="detail-section"><div class="subhead">Relations &mdash; outbound</div>' + forwardRows + "</section>" +
-    '<section class="detail-section"><div class="subhead">Relations &mdash; inbound</div>' + reverseRows + "</section>"
+    '<section class="detail-section"><div class="subhead">Relations: outbound</div>' + forwardRows + "</section>" +
+    '<section class="detail-section"><div class="subhead">Relations: inbound</div>' + reverseRows + "</section>"
   );
 }
 
@@ -134,7 +134,7 @@ function routesSection(d) {
         .map(
           (r) =>
             '<div class="route-row">' +
-            '<span class="method ' + escapeHtml((r.method || "").toLowerCase()) + '">' + escapeHtml(r.method || "") + "</span> " +
+            '<span class="method m-' + escapeHtml((r.method || "").toUpperCase()) + '">' + escapeHtml(r.method || "") + "</span> " +
             '<span class="uri">' + escapeHtml(r.uri || "") + "</span> " +
             entityChip({ kind: "controller", name: r.controller }, r.controller ? r.controller + "::" + (r.action || "") : "") +
             ' <span class="match-tag">' + escapeHtml(MATCH_LABEL[r.match] || r.match || "") + "</span></div>"
@@ -198,7 +198,7 @@ function tableSection(d) {
         .join("")
     : '<div class="empty-note">No indexes declared.</div>';
   return (
-    '<section class="detail-section"><div class="subhead">Table &mdash; ' +
+    '<section class="detail-section"><div class="subhead">Table: ' +
     entityChip({ kind: "table", name: t.name }) + "</div>" +
     '<div class="col-list">' + columns + "</div>" +
     '<div class="idx-list">' + indexes + "</div></section>"
@@ -370,7 +370,7 @@ function findingsFor(name, self, disagreements) {
       severity: severityFor("unguarded"),
       title: "Unguarded:",
       subject: name,
-      reason: "$guarded = [] — every column is mass-assignable",
+      reason: "$guarded = [], so every column is mass-assignable",
     });
   }
 

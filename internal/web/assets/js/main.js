@@ -73,7 +73,7 @@ async function runAnalysis(path, { fromRouter = false } = {}) {
     el.content.classList.remove("first-run");
     el.results.classList.remove("hidden");
     const routeCount = ((result.model || {}).routes || []).length;
-    announce("Analyzed " + path + " — " + routeCount + " route(s) found.");
+    announce("Analyzed " + path + ". Found " + routeCount + " route(s).");
     if (!fromRouter) {
       // A fresh analysis from the form is new navigation intent — reflect it
       // in the URL so refresh/Back/share work from here on. A hash-driven
@@ -221,7 +221,7 @@ function activateView(name) {
     heading.focus();
   }
   const label = document.querySelector('.nav-views a[data-view="' + name + '"]');
-  document.title = (label ? label.textContent.trim() : "Un(la)ravel") + " — Un(la)ravel";
+  document.title = (label ? label.textContent.trim() : "Un(la)ravel") + " · Un(la)ravel";
 }
 
 // Any static link that switches views WITHOUT going through hrefFor()

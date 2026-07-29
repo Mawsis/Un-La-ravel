@@ -1,35 +1,42 @@
-/* Reusable components (stat card, pill, chip, finding card, table row states,
-   empty/error/loading states). Every color, space, and radius reads from a
-   design token (css/tokens.css) — the only raw color literal in this file is
-   the deliberate #fff of the Swagger light frame, documented at its use site.
+/* Reusable components — the "editorial atlas" makeover (ADR 0012). Every view's
+   components restyled as a set analytical report: dramatic frame, calm data.
+   Every color, space, and radius reads from a design token (css/tokens.css) —
+   the only raw color literal in this file is the deliberate #fff of the Swagger
+   light frame, documented at its use site.
 
    Status hues follow the token semantics: --ok for healthy, --warn for
    caution, --danger for problems. Brand red never appears here — brand red is
    reserved for the wordmark; component danger states use the cooler --danger
-   so a real problem is never confused with brand chrome. */
+   so a real problem is never confused with brand chrome.
 
-/* First-run hero (issue #29) — the logo-led empty state. The inline SVG mark
-   in index.html reads --brand/--resolved itself, so everything here is layout
-   plus the two identity type moments (wordmark, value prop), which carry the
-   display face. main.js hides the hero after the first successful analysis. */
+   Loud frame, sharp data (PRODUCT.md dual register): headers, hero, empty
+   states, and the section furniture carry the editorial scale and the display
+   face; the data rows (routes, model cards, findings) stay tight, mono, and
+   legible for hours of work. */
+
+/* ── First-run hero (issue #29) — the cover of the atlas ─────────────────────
+   The logo-led empty state, recomposed at display scale. The inline SVG mark in
+   index.html reads --brand/--resolved itself; everything here is layout plus the
+   two identity type moments (wordmark, value prop) in the display face. main.js
+   hides the hero after the first successful analysis. */
 .hero {
-  padding: 0 0 var(--space-5);
+  padding: 0 0 var(--space-6);
 }
 .hero-logo {
-  width: min(400px, 100%);
+  width: min(440px, 100%);
   height: auto;
 }
 .hero-copy {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-5);
 }
 .hero-wordmark {
   font-family: var(--display);
-  font-size: var(--text-hero);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
+  font-size: var(--text-display);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
   margin: 0;
   text-wrap: balance;
 }
@@ -41,30 +48,38 @@
 }
 .hero-valueprop {
   font-family: var(--display);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
+  font-weight: 500;
   color: var(--text-dim);
   margin: 0;
+  max-width: 30ch;
+  text-wrap: balance;
 }
 .hero-valueprop code {
   font-family: var(--mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-lg);
+  color: var(--text);
 }
 
-/* The evaluator's shortcut under the hero: quieter than the resolved-green Analyze
-   button (the primary action), but clearly interactive. */
+/* The evaluator's shortcut under the hero: quieter than the resolved-green
+   Analyze button (the primary action), but clearly interactive. */
 .sample-btn {
   align-self: flex-start;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--resolved);
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: border-color var(--motion-fast) var(--motion-ease);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 .sample-btn:hover {
   border-color: var(--resolved);
+  transform: translateY(-1px);
 }
 
 .hint {
@@ -79,17 +94,18 @@
   font-size: var(--text-xs);
 }
 
+/* Recents — a small set list on the atlas cover. */
 #recents {
-  margin-top: var(--space-5);
-  max-width: 480px;
+  margin-top: var(--space-2);
+  max-width: 520px;
 }
 .recents-list {
   list-style: none;
-  margin: var(--space-1) 0 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .recents-list li {
   display: flex;
@@ -129,8 +145,6 @@
   color: var(--danger);
   background: var(--surface-raised);
 }
-/* A recent entry is name (the human handle) over path (the machine truth):
-   three projects named acme/blog were previously indistinguishable. */
 .recent-name {
   display: block;
   font-family: var(--sans);
@@ -144,9 +158,8 @@
   color: var(--text-dim);
 }
 
-/* Sidebar search affordance (issue #44): it had no styles at all and fell
-   back to the native light button inside the dark shell. It reads as what it
-   is — a search field you can press — with the shortcut as a quiet kbd. */
+/* Sidebar search affordance (issue #44) — reads as a field you can press, with
+   the shortcut as a quiet kbd. Sits on the shell's own tokens. */
 .search-button {
   margin-top: auto;
   display: flex;
@@ -156,7 +169,7 @@
   background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text-dim);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-3);
   border-radius: var(--radius-md);
   font-family: var(--sans);
   font-size: var(--text-sm);
@@ -179,61 +192,72 @@
   padding: 1px 5px;
 }
 
+/* ── Overview — the one loud surface (issue #44 + overdrive, ADR 0012) ────────
+   The project meta reads as an editorial byline; the constellation is the
+   centerpiece; the tally figures are the shock. */
 .proj-meta {
   color: var(--text-dim);
-  font-size: var(--text-base);
-  margin: var(--space-1) 0 0;
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.01em;
+  margin: 0 0 var(--space-5);
 }
 .proj-meta strong {
   color: var(--text);
+  font-weight: 600;
 }
 
-/* The Overview tally (issue #44): bare figures, not boxed tiles — five
-   identical cards in a row were the banned identical-card-grid. These
-   numbers are the un-ravel tally (the sanctioned stat moment, anti-ref #4):
-   they advance with the constellation and read as one strip of counts. */
+/* The un-ravel tally (issue #44 + overdrive): bare display figures, not boxed
+   tiles. These numbers are the count of what un-raveled (the sanctioned stat
+   moment, anti-ref #4): they advance with the constellation and read as one
+   editorial strip of counts, at genuinely dramatic scale. */
 .cards {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-8);
-  margin: var(--space-5) 0 var(--space-2);
+  gap: var(--space-5) var(--space-12);
+  margin: var(--space-8) 0 var(--space-6);
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 .card .n {
   font-family: var(--mono);
-  font-size: var(--text-2xl);
+  font-size: var(--text-mega);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 .card .l {
-  font-size: var(--text-xs);
+  font-family: var(--display);
+  font-size: var(--text-base);
+  font-weight: 500;
   color: var(--text-dim);
-  margin-top: 2px;
+  letter-spacing: 0.01em;
 }
 .card.warn .n {
   color: var(--danger);
 }
 
-/* Overview wow moment (issue #39 variant A, committed via #44). The one
-   brand-register surface: the canvas draws the mark un-raveling into the
-   project's constellation, and the cards below ARE the tally — their numbers
-   advance with the settled fraction and carry the unresolved red until their
-   kind has fully resolved (the sanctioned stat animation, anti-ref #4).
-   Under reduced motion overview-wow.js draws the static end-state and never
-   adds these classes. */
+/* Overview wow moment (issue #39 variant A, overdriven). The canvas draws the
+   mark un-raveling into the project's constellation; the tally below advances
+   with the settled fraction, carrying the unresolved red until each kind has
+   fully resolved (the sanctioned stat animation, anti-ref #4). Under reduced
+   motion overview-wow.js draws the static end-state and adds none of these
+   classes. */
 .overview-wow {
   position: relative; /* anchors the hover-name tip (issue #52) */
-  margin: var(--space-4) 0 var(--space-2);
+  margin: var(--space-4) calc(var(--gutter) * -0.5);
+  padding: var(--space-4) calc(var(--gutter) * 0.5) 0;
 }
 #overview-canvas {
   display: block;
   width: 100%;
-  height: min(46vh, 440px);
+  height: min(58vh, 560px);
 }
-/* Hover-name label for the constellation dots (issue #52): a small mono chip —
-   entity names are project identifiers, the machine voice — floating just above
-   the dot under the pointer. The entity name IS the payload, so it reads in the
-   same mono register as every other identifier in the app. */
 .constellation-tip {
   position: absolute;
   z-index: 2;
@@ -246,9 +270,8 @@
   font-family: var(--mono);
   font-size: var(--text-xs);
   white-space: nowrap;
-  pointer-events: none; /* the label must never eat the pointer it describes */
+  pointer-events: none;
 }
-/* Near the right edge, anchor from the right so the label never spills off. */
 .constellation-tip.flip {
   transform: translate(-100%, calc(-100% - 10px));
 }
@@ -256,9 +279,8 @@
   color: var(--unresolved);
   transition: color var(--motion-settle) var(--motion-ease);
 }
-/* The verdict is the wow's closing line: held back while the constellation
-   settles, resolving in as the tally completes. Without the wow (reduced
-   motion, revisits) it is simply present. */
+/* The verdict is the wow's closing line: held while the constellation settles,
+   resolving in as the tally completes. Without the wow it is simply present. */
 .verdict.wow-pending {
   opacity: 0;
   transform: translateY(6px);
@@ -271,14 +293,18 @@
     transform var(--motion-settle) var(--motion-ease);
 }
 
-/* Health verdict (issue #27): leads the Overview so problems out-shout the
-   inventory grid below. Clean state is calm; problems carry the danger token. */
+/* Health verdict (issue #27) — the atlas's lede sentence. Leads the Overview so
+   problems out-shout the inventory. Clean state is a calm display line; problems
+   read as a set of danger links. */
 .verdict {
-  margin: var(--space-4) 0 var(--space-2);
+  margin: var(--space-8) 0 var(--space-2);
 }
 .verdict-clean {
-  color: var(--text-dim);
-  font-size: var(--text-base);
+  color: var(--text);
+  font-family: var(--display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 .verdict-problems {
@@ -292,37 +318,33 @@
 .verdict-item {
   display: flex;
 }
-/* A verdict problem borrows .entity-chip for the dynamic in-app-link behavior
-   (the delegated navigation handler in main.js keys on .entity-chip[data-view])
-   and its mono/hover/focus styling, but a problem is not a neutral reference —
-   it must read as danger, not the resolved green. The compound .entity-chip.verdict-link
-   selector (specificity 0,2,0) deliberately beats the later, single-class
-   .entity-chip color rule (0,1,0) so danger wins in both rest and hover. */
 .entity-chip.verdict-link {
   color: var(--danger);
   font-weight: 600;
+  font-size: var(--text-base);
 }
 .entity-chip.verdict-link:hover {
   color: var(--danger);
   border-bottom-color: currentColor;
 }
 
+/* ── ER diagram (issue #26/#30) ──────────────────────────────────────────────
+   The toolbar sits under the editorial header; the diagram is a framed plate. */
 .er-hint {
   color: var(--text-dim);
   font-size: var(--text-xs);
   margin: 0 0 var(--space-2);
 }
-/* Export toolbar (issue #30): the pan/zoom hint on the left, the SVG/PNG export
-   controls on the right, sharing one baseline above the diagram. */
 .er-toolbar {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
+  margin-bottom: var(--space-3);
 }
 .er-toolbar .er-hint {
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;
 }
 .er-export {
   display: flex;
@@ -333,14 +355,17 @@
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   font-family: var(--sans);
   font-size: var(--text-xs);
   cursor: pointer;
-  transition: border-color var(--motion-fast) var(--motion-ease);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 .er-export-btn:hover {
   border-color: var(--resolved);
+  transform: translateY(-1px);
 }
 .er-export-btn:focus-visible {
   outline: 2px solid var(--resolved);
@@ -349,23 +374,18 @@
 #er-diagram {
   background: var(--surface-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  height: 75vh;
+  border-radius: var(--radius-xl);
+  height: 76vh;
   overflow: hidden;
   position: relative;
 }
-/* The owned ER SVG fills the fixed-height container; svg-pan-zoom drives the
-   viewport. max-width:none guards against any inline sizing shrinking it. */
 #er-diagram svg.er-svg {
   width: 100%;
   height: 100%;
   max-width: none !important;
 }
 
-/* ER diagram styling (issue #26): the hand-rolled SVG renderer is themed
-   entirely from the design tokens, so the diagram reads as part of the tool
-   rather than a foreign embed. Entity boxes sit one surface step up from the
-   panel, with a mono stack for the code identifiers (table/column names). */
+/* ER SVG theming (issue #26) — entity boxes read as part of the tool. */
 .er-box {
   fill: var(--surface-raised);
   stroke: var(--border-strong);
@@ -392,15 +412,16 @@
   font-family: var(--mono);
   font-size: var(--text-xs);
 }
-/* Key badges: PK/FK/UK read at a glance via color, PK carrying the brand
-   accent as the strongest marker (matching PK > FK > UK precedence). */
 .er-badge {
   font-family: var(--mono);
   font-size: var(--text-xs);
   font-weight: 700;
 }
 .er-badge-pk {
-  fill: var(--brand);
+  /* Brighter brand-red shade: true --brand is 3.88:1 on --surface-raised
+     (below AA for a 12px bold glyph); --brand-legible reads at ~4.9:1 and
+     stays red, keeping the PK marker's brand read (tokens.css). */
+  fill: var(--brand-legible);
 }
 .er-badge-fk {
   fill: var(--resolved);
@@ -408,11 +429,8 @@
 .er-badge-uk {
   fill: var(--warn);
 }
-/* Relationship edges carry the thread roles (issue #38): a resolved edge is
-   the --resolved green (schema FK solid, Eloquent relation dashed, both kept
-   and distinguishable by dash); an edge the reconciliation pass had to
-   repair (issue #36's unresolved flag) is the --unresolved red — the one
-   place in the working views a repaired relationship is visibly distinct. */
+/* Relationship edges carry the thread roles (issue #38): resolved green, or the
+   unresolved red for a repaired relationship, distinguishable by dash. */
 .er-edge {
   stroke: var(--resolved);
   stroke-width: 1.5;
@@ -423,17 +441,13 @@
 .er-edge-unresolved {
   stroke: var(--unresolved);
 }
-/* Crow's-foot markers inherit the edge color via currentColor-style fill so
-   they match the line they terminate. */
 .er-marker {
   fill: none;
   stroke: var(--text-dim);
   stroke-width: 1.5;
 }
-/* Temporary highlight applied to a focused entity's box (ER cross-navigation,
-   PR 5). Flat and matte per the design system — a fading resolved-green outline, NOT a
-   glow/drop-shadow. Defined here so the highlight lives with the rest of the
-   component layer even though the class is first used later in the rollout. */
+/* Temporary highlight on a focused entity's box — a fading resolved-green
+   outline, flat and matte, NOT a glow/drop-shadow. */
 .er-focus-highlight {
   animation: er-focus-pulse var(--motion-highlight) ease-out 1;
 }
@@ -448,33 +462,23 @@
   }
 }
 
-/* ER settle (issue #30, ADR 0009): on first render each entity box eases from a
-   rough, unresolved offset into its laid-out position — the un-ravel metaphor
-   at the moment structure resolves. er-settle.js sets each node's inline
-   transform to its offset start, adds .er-settling (which arms this
-   transition), then flips the inline transform to the resolved position on the
-   next frame so the box glides in. A FLIP-style transition, NOT a @keyframes:
-   the node's resolved position lives in its transform="translate(x,y)", so a
-   keyframe animating the transform property would clobber that placement — the
-   transition eases the inline transform we control instead. The base.css
-   reduced-motion guard collapses the duration to an instant snap. */
+/* ER settle (issue #30, ADR 0009): each entity box eases from a rough offset
+   into its laid-out position on first render. A FLIP-style transition on the
+   inline transform, armed by .er-settling. reduced-motion guard collapses it. */
 .er-node.er-settling {
   transition:
     transform var(--motion-settle) var(--motion-ease),
     opacity var(--motion-settle) var(--motion-ease);
 }
 
-/* Sidebar thread-mark (issue #39, ADR 0010): the settle in miniature, the
-   app's signature kept scarce. Steady state is the resolved green thread with
-   its end point; thread-mark.js replays the gesture once per new analysis by
-   snapping to the tangled red state (.tm-tangled-start, no transition — an
-   instant start frame) and then arming .tm-resolving so the crossfade back to
-   resolved runs on the settle token. Opacity/transform only; base.css's
-   reduced-motion guard collapses it, and thread-mark.js skips the replay
-   entirely under reduced motion, leaving the static resolved end-state. */
+/* Sidebar thread-mark (issue #39, ADR 0010): the settle in miniature, replayed
+   once per new analysis. Steady state is the resolved green thread; thread-mark.js
+   snaps to the tangled red state then arms the crossfade back on the settle
+   token. Opacity/transform only; reduced-motion guarded (thread-mark.js skips
+   the replay entirely). */
 .thread-mark {
-  width: 72px;
-  height: 14px;
+  width: 84px;
+  height: 16px;
   display: block;
   margin-top: var(--space-2);
 }
@@ -507,16 +511,17 @@
     transform var(--motion-settle) var(--motion-ease);
 }
 
+/* ── Filters ─────────────────────────────────────────────────────────────── */
 .filter-row {
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 .filter-row input {
   background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  width: 320px;
+  width: 360px;
   max-width: 100%;
   font-size: var(--text-sm);
   transition: border-color var(--motion-fast) var(--motion-ease);
@@ -525,13 +530,14 @@
   border-color: var(--resolved);
 }
 
-/* Long tables scroll inside this container so the header can pin (issue #28):
-   position: sticky pins against the nearest scroll container, and overflow-x
-   already makes .table-scroll one — so it must own the vertical scroll too
-   (max-height), or the header would never stick while the page scrolls. */
+/* ── Routes table — sharp data (issue #28) ──────────────────────────────────
+   The frame is loud; the table itself stays tight, mono, and scannable. Long
+   tables scroll inside .table-scroll so the header can pin. */
 .table-scroll {
   overflow: auto;
-  max-height: 75vh;
+  max-height: 76vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 table.routes {
   width: 100%;
@@ -541,20 +547,26 @@ table.routes {
 table.routes th,
 table.routes td {
   text-align: left;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
+table.routes tbody tr:last-child td {
+  border-bottom: 0;
+}
 table.routes th {
   color: var(--text-dim);
+  font-family: var(--mono);
   font-weight: 600;
   font-size: var(--text-xs);
+  letter-spacing: 0.04em;
   /* Sticky header (issue #28) — pins to .table-scroll's top edge. The opaque
-     surface background is load-bearing: without it, scrolled rows show
-     through the pinned header. z-index keeps it above the chips in rows. */
+     surface background is load-bearing so scrolled rows don't show through.
+     Column-header character comes from the mono face + dim color + weight, not
+     an uppercase transform (the reserved-for-section-headings rule). */
   position: sticky;
   top: 0;
-  background: var(--surface);
+  background: var(--surface-elevated);
   z-index: 1;
 }
 table.routes th button {
@@ -563,20 +575,37 @@ table.routes th button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  color: inherit;
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+table.routes th button:hover {
+  color: var(--text);
 }
 table.routes th button:focus-visible {
   outline: 2px solid var(--resolved);
   outline-offset: 2px;
   border-radius: 2px;
 }
+table.routes tbody tr {
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+table.routes tbody tr:hover {
+  background: var(--surface-elevated);
+}
 table.routes td.method {
   font-family: var(--mono);
   font-weight: 700;
   white-space: nowrap;
 }
-/* HTTP method color coding — resolved-green owns the "safe/interactive" methods (GET
-   reads, POST creates), warn/amber the mutating PUT/PATCH, danger the DELETE.
-   --ok stays green for GET so the read verb still reads as calm/safe. */
+/* The model-detail route rows carry the same method treatment as the table but
+   as an inline .method span in a wrapping .route-row rather than a cell. */
+.route-row .method {
+  font-family: var(--mono);
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* HTTP method color coding — --ok green for the safe GET read, resolved green
+   for POST, warn/amber for the mutating PUT/PATCH, danger for DELETE. */
 .m-GET {
   color: var(--ok);
 }
@@ -593,15 +622,14 @@ table.routes td.method {
 table.routes td.uri,
 table.routes td.action {
   font-family: var(--mono);
+  overflow-wrap: anywhere;
 }
 table.routes tr.dead {
   background: var(--danger-tint-soft);
 }
-/* Inline danger flag (issue #28): DEAD on a dead-route row, Unguarded on a
-   model card. Borrows .entity-chip for the delegated chip navigation (it
-   cross-links to its finding category) but must read as danger in rest AND
-   hover — same compound-selector precedent as .entity-chip.verdict-link
-   above, so the danger token wins over the resolved green in both states. */
+/* Inline danger flag (issue #28): DEAD on a dead-route row, Unguarded on a model
+   card. Borrows .entity-chip for the delegated chip navigation but reads danger
+   in rest AND hover. */
 .entity-chip.danger-flag {
   color: var(--danger);
   font-weight: 700;
@@ -620,30 +648,32 @@ table.routes tr.dead {
   font-size: var(--text-xs);
 }
 
-/* Severity reads as a leading status dot + a background tint (issue #38) —
-   never a colored side-stripe. The soft tints keep the cards calm; the dot is
-   the at-a-glance danger/warn marker. */
+/* ── Findings — sharp data with a leading dot ───────────────────────────────
+   Severity reads as a leading status dot + a background tint, never a colored
+   side-stripe. */
 .finding {
   background: var(--warn-tint-soft);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-3);
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.finding:hover {
+  border-color: var(--border-strong);
 }
 .finding.dead {
   background: var(--danger-tint-soft);
 }
 .finding .h {
   font-weight: 600;
+  font-size: var(--text-base);
 }
-/* Face split (DESIGN.md §2): the finding's subject is a project identifier
-   (route URI, Model::relation) — machine voice, mono. */
+/* Face split (DESIGN.md §2): the finding's subject is a project identifier —
+   machine voice, mono. */
 .finding .h a {
   font-family: var(--mono);
 }
-/* The shared severity dot: purely visual (aria-hidden in markup — the row's
-   text already says "Dead route:" / "Disagreement:"), colored by the status
-   tokens, sized to read at a glance without shouting. */
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -662,44 +692,55 @@ table.routes tr.dead {
 .finding .r {
   color: var(--text-dim);
   font-size: var(--text-sm);
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
+/* All-clear — a composed empty state, not blank space. */
 .all-clear {
   color: var(--ok);
   background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: var(--space-6);
+  padding: var(--space-12);
   text-align: center;
-  font-size: var(--text-base);
+  font-family: var(--display);
+  font-size: var(--text-xl);
+  font-weight: 500;
 }
 
-/* Auth view (issue #50): the verdict sentence leads in the tool's own human
-   voice (DESIGN.md §2 — body face, never mono), stated as a calm fact. */
+/* ── Auth view (issue #50) ──────────────────────────────────────────────────
+   The verdict leads in the tool's human voice, stated as a calm fact. */
 .auth-verdict {
-  font-size: var(--text-base);
+  font-family: var(--display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text);
-  margin-bottom: var(--space-5);
+  margin: 0 0 var(--space-8);
+  max-width: 30ch;
+  text-wrap: balance;
 }
-/* Each middleware-stack group heads its unauthenticated routes. The stack is a
-   list of middleware names — machine voice, mono — set dim and small so the
-   route rows below carry the weight. */
 .auth-group {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 .auth-stack {
   font-family: var(--mono);
   font-size: var(--text-sm);
   color: var(--text-dim);
-  margin-bottom: var(--space-2);
+  margin: 0 0 var(--space-3);
 }
 
+/* ── Model cards — sharp data ───────────────────────────────────────────────
+   Each model is a compact record; severity is dot + tint, never a side-stripe. */
 .model-card {
   background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-3);
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.model-card:hover {
+  border-color: var(--border-strong);
 }
 .model-card.risk {
   background: var(--danger-tint-soft);
@@ -707,22 +748,25 @@ table.routes tr.dead {
 .model-card .mh {
   font-family: var(--mono);
   font-weight: 700;
+  font-size: var(--text-base);
   margin-bottom: var(--space-2);
 }
-/* Card section heading — hierarchy from weight and the dim color, not from
-   the retired uppercase-micro-label treatment (issue #38). */
+/* Card section heading — hierarchy from weight and dim color, not the retired
+   uppercase-micro-label treatment. */
 .subhead {
   color: var(--text-dim);
-  font-size: var(--text-xs);
+  font-family: var(--display);
+  font-size: var(--text-sm);
   font-weight: 600;
-  margin: var(--space-2) 0 4px;
+  letter-spacing: 0.01em;
+  margin: var(--space-3) 0 var(--space-1);
 }
 .pill {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 2px 10px;
   border-radius: 20px;
-  /* 12px, not 11: the ok/warn variants color this text, and colored text
-     never sits at --text-2xs (the prior amber-at-11px legibility failure). */
+  /* 12px, not 11: the ok/warn variants color this text, and colored text never
+     sits at --text-2xs (the prior amber-at-11px legibility failure). */
   font-size: var(--text-xs);
   font-weight: 600;
   background: var(--surface-raised);
@@ -743,23 +787,20 @@ table.routes tr.dead {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
 }
 .chip {
   font-family: var(--mono);
   font-size: var(--text-xs);
   background: var(--surface-raised);
   border-radius: var(--radius-sm);
-  padding: 2px 7px;
-  margin-right: 4px;
-  margin-bottom: 4px;
+  padding: 2px 8px;
 }
 
-/* Entity-chip / cross-link (issue #24): the shared visual language for "this is
-   a thing you can jump to." Cyan is the --resolved thread role (see
-   tokens.css) — it's what distinguishes a jump-to-able reference from a passive
-   .chip. is-plain is the degraded, unlinkable form (unknown entity kind). */
+/* Entity-chip / cross-link (issue #24): the shared "jump to a thing" language.
+   The --resolved green distinguishes a jump-able reference from a passive chip.
+   is-plain is the degraded, unlinkable form. */
 .entity-chip {
   font-family: var(--mono);
   font-size: var(--text-xs);
@@ -770,11 +811,17 @@ table.routes tr.dead {
   cursor: pointer;
   transition:
     color var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease);
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 .entity-chip:hover {
   color: var(--resolved-hover);
   border-bottom-color: currentColor;
+}
+/* A chip you're pressing dips a hair — a physical, functional press cue, timed
+   on the fast token. Transform only; no re-fire on re-render (it's :active). */
+.entity-chip:active {
+  transform: translateY(0.5px);
 }
 .entity-chip:focus-visible {
   outline: 2px solid var(--resolved);
@@ -789,11 +836,8 @@ table.routes tr.dead {
   gap: var(--space-2);
   align-items: baseline;
   font-size: var(--text-sm);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
-/* Both kinds share the size: .unique is colored, so it sits at 12px (the
-   colored-small-text floor), and .plain matches rather than pairing at
-   mismatched sizes. */
 .idx-kind.unique {
   color: var(--ok);
   font-weight: 600;
@@ -810,7 +854,7 @@ table.routes tr.dead {
 .fk-hint {
   color: var(--warn);
   font-size: var(--text-xs);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .empty-note {
   color: var(--text-dim);
@@ -818,8 +862,8 @@ table.routes tr.dead {
   font-style: italic;
 }
 
-/* Swagger UI stays a light panel inside the dark shell (a token-consistent
-   frame around vendored, unstyled-by-us content). #fff here is a DELIBERATE
+/* ── Swagger frame ──────────────────────────────────────────────────────────
+   Swagger stays a light panel inside the dark shell. #fff here is a DELIBERATE
    raw literal — the swagger-ui vendor CSS assumes a white background, and
    color-scheme:light makes its native form controls render correctly. This is
    the one documented exception to "no raw hex outside the token file". */
@@ -830,20 +874,18 @@ table.routes tr.dead {
   overflow: hidden;
   color-scheme: light;
 }
-.swagger-caption {
-  color: var(--text-dim);
-  font-size: var(--text-xs);
-  margin: 0 0 var(--space-2);
-}
 #swagger-ui {
   background: #fff; /* see .swagger-frame — same deliberate light-panel exception */
 }
 
+/* ── Status states ──────────────────────────────────────────────────────────
+   Loading and error, composed rather than bare. */
 .loading,
 .error {
-  padding: var(--space-8);
+  padding: var(--space-12);
   text-align: center;
   color: var(--text-dim);
+  font-size: var(--text-base);
 }
 .error {
   color: var(--danger);
@@ -868,13 +910,13 @@ table.routes tr.dead {
   }
 }
 
-/* Command palette (Cmd/Ctrl+K), design.md "Search". role="dialog"
-   aria-modal="true" with a focus trap; opened from either the sidebar
-   button or the keyboard shortcut — never shortcut-only. */
+/* ── Command palette (Cmd/Ctrl+K) ───────────────────────────────────────────
+   role="dialog" aria-modal="true" with a focus trap; opened from the sidebar
+   button or the shortcut, never shortcut-only. */
 .search-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -883,20 +925,20 @@ table.routes tr.dead {
 }
 .search-dialog {
   background: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  width: min(560px, 92vw);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  width: min(620px, 92vw);
   max-height: 60vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-modal);
 }
 .search-input {
   all: unset;
   box-sizing: border-box;
   width: 100%;
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   font-size: var(--text-lg);
   color: var(--text);
   border-bottom: 1px solid var(--border);
@@ -910,7 +952,7 @@ table.routes tr.dead {
 .search-result {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -921,6 +963,7 @@ table.routes tr.dead {
 }
 .search-result .kind {
   color: var(--text-dim);
+  font-family: var(--mono);
   font-size: var(--text-xs);
   min-width: 64px;
 }
@@ -939,32 +982,29 @@ table.routes tr.dead {
 }
 
 /* ── Model detail page (issue #51) ──────────────────────────────────────────
-   A URL-addressable page (#/models/{name}) composed client-side over the
-   loaded model. Reuses the existing vocabulary — .subhead, .empty-note,
-   .finding, .status-dot, .entity-chip, .chip — and adds only the layout the
-   detail rows need. Facts, not alarms: calm surfaces, the danger token reserved
-   for genuine findings (which reuse .finding.dead). */
+   A URL-addressable page composed client-side. Reuses the shared vocabulary and
+   adds only the layout the detail rows need. Facts, not alarms. */
 .detail-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 .detail-head h2 {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: var(--text-lg);
+  font-size: var(--text-2xl);
+  letter-spacing: -0.01em;
   margin: 0;
 }
 .detail-section {
   background: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-5);
 }
 .detail-section .subhead:first-child {
   margin-top: 0;
 }
-/* One relation / route / column / form-request per line, wrapping gracefully. */
 .rel-row,
 .route-row,
 .col-row,
@@ -973,7 +1013,7 @@ table.routes tr.dead {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-1) var(--space-2);
   padding: 3px 0;
   font-size: var(--text-sm);
 }
@@ -987,6 +1027,7 @@ table.routes tr.dead {
 .route-row .uri,
 .col-name {
   font-family: var(--mono);
+  overflow-wrap: anywhere;
 }
 .fr-name {
   font-family: var(--mono);
@@ -995,11 +1036,10 @@ table.routes tr.dead {
 .fr-row {
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
+  gap: var(--space-1);
 }
 /* The route→model correlation confidence tag: a quiet, dim marker so the weak
-   URI-guess signal never reads as loudly as a controller-name certainty
-   (precision over coverage, ADR 0002). */
+   URI-guess signal never reads as loudly as a controller-name certainty. */
 .match-tag {
   margin-left: auto;
   color: var(--text-dim);

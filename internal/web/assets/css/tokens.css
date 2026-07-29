@@ -51,6 +51,9 @@
      (name kept: it describes the fill relationship, not the hue). */
   --resolved: oklch(0.75 0.17 152);
   --resolved-hover: oklch(0.82 0.14 152);
+  /* Low-alpha resolved green for text selection — the thread role as a quiet
+     identity touch on the neutral shell (base.css ::selection). */
+  --resolved-selection: oklch(0.75 0.17 152 / 0.25);
   --on-accent: oklch(0.145 0.008 25);
   --unresolved: oklch(0.62 0.2 27);
   /* Logo identity accent — the retired cyan, allowed ONLY on the logo SVG's
@@ -61,10 +64,27 @@
   --brand: #f53003;
   --brand-hover: #c42602;
   --brand-faded: #ffe2dd;
+  /* --brand-legible is a brighter on-dark shade of the brand red, for a SMALL
+     brand-colored glyph that must stay legible: the ER primary-key badge (12px
+     bold). True --brand (#f53003, ~oklch 0.58) lands at 3.88:1 on
+     --surface-raised — below WCAG AA for its size. This shade reads at ~4.9:1
+     there and stays red (hue ~30, not orange), so the PK marker keeps the
+     brand read without failing contrast. --brand itself is unchanged, so the
+     wordmark, logo, and the un-ravel moment keep the exact Laravel red. */
+  --brand-legible: oklch(0.68 0.19 30);
 
   /* Status — cooler red + amber, visually distinct from --unresolved. --ok is
      the "healthy/clean" signal (kept for verdict + method color coding). */
   --danger: #ef4444;
+  /* --danger-text is the lighter on-dark shade of --danger, for danger-colored
+     TEXT that sits on a --danger-tint fill (the sidebar health chip). --danger
+     itself is ~oklch(0.63) and lands at 4.11:1 on its own 14% tint over an
+     elevated surface — below WCAG AA. This shade reads at 5.3:1 there while
+     staying unmistakably the danger red. Same precedent as --warn below: the
+     small-on-dark colored text uses a lighter shade than the base status hue.
+     --danger (base) is unchanged, so the error panel, status dots, and the
+     DELETE method — already above AA — keep their exact color. */
+  --danger-text: oklch(0.7 0.19 27);
   /* Amber is the lighter on-dark shade (DESIGN.md §1): the darker #f59e0b
      failed legibility at small sizes on these surfaces. */
   --warn: #fbbf24;
@@ -78,6 +98,16 @@
   --warn-tint: rgba(251, 191, 36, 0.14);
   --warn-tint-soft: rgba(251, 191, 36, 0.07);
   --ok-tint: rgba(34, 197, 94, 0.14);
+
+  /* Command-palette overlay — the two neutral-black functional values DESIGN.md
+     §4 sanctions (a dimming scrim behind the modal, and the one shadow in the
+     app: the palette's matte lift, NOT a colored glow). Kept as tokens here for
+     the same reason as the tints above: the rgba() literals live in one place,
+     so components.css stays free of raw color outside the documented Swagger
+     #fff. Neutral black is deliberate — a scrim and a functional shadow are the
+     one place the warmed ramp doesn't apply. */
+  --scrim: rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.4);
 
   /* Type — three stacks with distinct jobs (issue #22), split by VOICE:
      --display is the human voice (the tool's sentences, headings, verdicts,
@@ -102,6 +132,20 @@
   --text-3xl: 38px; /* Overview hero / wordmark */
   --text-hero: clamp(38px, 6vw, 60px); /* the un-ravel wow number/mark */
 
+  /* Editorial display tier (ADR 0012, the "editorial atlas" makeover) — a
+     dramatic scale ABOVE the pinned body/data steps, for the loud frame only.
+     The dashboard is reframed as a set analytical report: each view opens with
+     an oversized display title in --display, so the frame reads editorial while
+     the data rows keep the calm --text-sm/base scale below (the dual register).
+     Fluid so a 27" monitor and a laptop both feel composed. These are new
+     tokens, not overrides — the modular scale below --text-3xl is untouched. */
+  --text-4xl: clamp(40px, 4.5vw, 54px); /* view titles, editorial */
+  --text-display: clamp(54px, 8vw, 104px); /* first-run wordmark, overview lede */
+  --text-mega: clamp(80px, 13vw, 190px); /* the un-ravel tally figure, the shock */
+  /* Oversized section index numeral that leads each view header (mono, dim,
+     tabular) — the "page number" of the atlas, hierarchy from scale not shouting. */
+  --text-index: clamp(28px, 3.4vw, 44px);
+
   /* Space (4/8/12/16/20/24/32/48) */
   --space-1: 4px;
   --space-2: 8px;
@@ -111,11 +155,20 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-12: 48px;
+  /* Editorial spacing tier (ADR 0012) — the wide margins and vertical breathing
+     the loud frame needs. --space-16/20 open the view headers and the first-run
+     spread; --gutter is the content's outer margin, generous like a page.
+     Fluid so the frame breathes more on a large display. Data rhythm still uses
+     the tight --space-1..6 above; these are for the frame only. */
+  --space-16: 64px;
+  --space-20: clamp(48px, 7vw, 96px);
+  --gutter: clamp(24px, 5vw, 88px);
 
   /* Radius */
   --radius-sm: 5px;
   --radius-md: 8px;
   --radius-lg: 10px;
+  --radius-xl: 16px; /* editorial panels, the wow canvas frame */
 
   /* Motion (issue #25) — functional only: state changes the user caused, at
      native-feeling speed. --motion-fast is hover/press feedback; --motion-view
@@ -126,6 +179,18 @@
   --motion-fast: 150ms;
   --motion-view: 200ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Editorial motion tier (ADR 0012) — the settle promoted to an app-wide
+     entrance system. --motion-reveal is the staged element/header entrance (a
+     little longer than a view switch so the editorial frame resolves rather
+     than snaps); --motion-stagger is the per-item delay step for list/row
+     reveals, kept small so a long table still resolves quickly. Both are
+     transform/opacity only and every use is behind the reduced-motion guard.
+     The values live here so the consumer sheets stay token-timed. */
+  --motion-reveal: 460ms;
+  --motion-stagger: 42ms;
+  /* A stronger ease for the editorial reveal — quintic ease-out, more drama in
+     the landing than the everyday --motion-ease, still no overshoot/bounce. */
+  --motion-ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
   /* Attention marker (ER entity-focus highlight): longer than the transition
      scale on purpose — it must survive the pan that precedes it and still be
      visible when the eye arrives. An attention hold, not a transition. */

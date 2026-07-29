@@ -23,12 +23,15 @@ import { buildConstellation, mulberry32, KIND_KEYS } from "./overview-constellat
 import { assignEntities, hitTest, entityListHtml } from "./overview-hit.js";
 import * as router from "../router.js";
 
-// Timeline (ms). The whole take is ~4s: cinematic for first contact, short
-// enough that a replay per analysis never feels like a loading screen.
-const T_HOLD = 500; // the mark, whole, in brand red
-const T_UNRAVEL = 1100; // strokes loosen into loose red points
-const T_SETTLE_SPAN = 1700; // stagger window for departures
-const T_NODE = 850; // one point's flight time
+// Timeline (ms). The take is the app's one cinematic moment (ADR 0012, the
+// editorial makeover): the whole mark holds long enough to register as the
+// Laravel identity, dissolves slowly, then the points resolve into the
+// constellation in staggered waves. ~5s of first-contact drama, still short
+// enough that a per-analysis replay never reads as a loading screen.
+const T_HOLD = 750; // the mark, whole, in brand red — held to register
+const T_UNRAVEL = 1400; // strokes loosen into loose red points, slow
+const T_SETTLE_SPAN = 2200; // wide stagger window: the constellation resolves in waves
+const T_NODE = 950; // one point's flight time
 const T_END = T_HOLD + T_UNRAVEL + T_SETTLE_SPAN + T_NODE;
 
 // The mark's own geometry (the same paths as the hero/sidebar SVG), sampled
@@ -235,8 +238,11 @@ function drawFrame(ctx, scene, t, w, h, colors) {
     const b = scene.nodes[bi];
     const p = Math.min(nodeProgress(a, settleClock), nodeProgress(b, settleClock));
     if (p <= 0) continue;
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = rgba(lerpC(colors.unresolved, colors.resolved, p), 0.1 + 0.16 * p);
+    // Resolved threads read stronger in the overdriven take: a touch thicker and
+    // brighter as they land, so the constellation's structure is legible from
+    // across a room. Still a flat stroke, no glow (anti-ref: no colored glow).
+    ctx.lineWidth = 1 + 0.6 * p;
+    ctx.strokeStyle = rgba(lerpC(colors.unresolved, colors.resolved, p), 0.12 + 0.24 * p);
     ctx.beginPath();
     ctx.moveTo(nodeX(a, settleClock), nodeY(a, settleClock));
     ctx.lineTo(nodeX(b, settleClock), nodeY(b, settleClock));
@@ -247,9 +253,22 @@ function drawFrame(ctx, scene, t, w, h, colors) {
     const p = nodeProgress(n, settleClock);
     const vis = Math.max(unravelT * 0.9, p > 0 ? 1 : 0);
     if (vis <= 0) continue;
-    ctx.fillStyle = rgba(lerpC(colors.unresolved, colors.resolved, p), 0.35 + 0.65 * Math.max(p, unravelT * 0.5));
+    const cx = nodeX(n, settleClock);
+    const cy = nodeY(n, settleClock);
+    const col = lerpC(colors.unresolved, colors.resolved, p);
+    const r = n.size * (0.9 + 0.6 * p);
+    // A soft flat halo under each resolved node — a second wider disc at low
+    // alpha, NOT a shadow/blur/glow (CSP-safe, anti-glow-safe). It gives the
+    // settled constellation more presence as the points land.
+    if (p > 0) {
+      ctx.fillStyle = rgba(col, 0.1 * p);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = rgba(col, 0.35 + 0.65 * Math.max(p, unravelT * 0.5));
     ctx.beginPath();
-    ctx.arc(nodeX(n, settleClock), nodeY(n, settleClock), n.size * (0.8 + 0.4 * p), 0, Math.PI * 2);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
   }
 

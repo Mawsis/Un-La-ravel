@@ -1,47 +1,58 @@
-/* Page shell: a persistent sidebar (design.md "Information architecture") +
-   a scrolling main content area. Sidebar links are real <a href="#/..."> —
-   native keyboard/AT navigation, no ARIA-tabs choreography (a11y baseline). */
+/* Page shell — the "editorial atlas" makeover (ADR 0012). The dashboard is
+   reframed as a set analytical report on your Laravel project: a masthead rail
+   on the left, a wide editorial page on the right. The rail is the running
+   masthead (wordmark, health, a numbered index of views); the page opens each
+   view with an oversized display title. Sidebar links stay real
+   <a href="#/..."> — native keyboard/AT navigation, no ARIA-tabs choreography
+   (a11y baseline). Loud frame, sharp data: the frame is dramatic, the data rows
+   below stay calm and legible (the dual register, PRODUCT.md). */
 
 .shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 264px 1fr;
   min-height: 100vh;
 }
 
+/* The masthead rail. Its own surface with a hairline seam; a faint vertical
+   rhythm from generous padding. Sticky so the masthead is always in view. */
 .sidebar {
   background: var(--surface-elevated);
   border-right: 1px solid var(--border);
-  padding: var(--space-5) var(--space-3);
+  padding: var(--space-8) var(--space-6);
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-8);
 }
 
 .brand {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0 var(--space-2);
+  gap: var(--space-2);
+  padding: 0;
 }
 .brand-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 .brand-mark {
-  width: 36px;
+  width: 44px;
   height: auto;
   flex: none;
 }
+/* The wordmark leads the masthead at real display scale — the frame's voice.
+   Instrument Sans, tight tracking, the Un…ravel halves in brand red. */
 .brand h1 {
   font-family: var(--display);
-  font-size: var(--text-lg);
+  font-size: var(--text-2xl);
+  font-weight: 700;
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 /* Wordmark — the primary brand moment, so it carries Laravel's brand red on
    the "Un…ravel" identity halves; the parenthetical "la" stays dimmed. This is
@@ -52,9 +63,13 @@
 .brand .la {
   color: var(--text-dim);
 }
+/* The masthead standfirst — a small editorial descriptor under the wordmark,
+   dim, tracked, the "publication" line of the atlas. */
 .brand .tag {
   color: var(--text-dim);
   font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  max-width: 22ch;
 }
 
 /* Persistent health chip (issue #23) — lives in the brand block so project
@@ -64,10 +79,11 @@
 .health-chip {
   align-self: flex-start;
   margin-top: var(--space-2);
-  padding: 2px 10px;
+  padding: var(--space-1) var(--space-3);
   border-radius: 20px;
   font-size: var(--text-xs);
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 .health-chip.is-clean {
   background: var(--ok-tint);
@@ -75,53 +91,65 @@
 }
 .health-chip.is-issues {
   background: var(--danger-tint);
-  color: var(--danger);
+  /* Lighter on-dark danger shade: --danger on this tint is 4.11:1 (below AA);
+     --danger-text reads at 5.3:1 while staying the danger red (tokens.css). */
+  color: var(--danger-text);
 }
 
+/* The view index — the masthead's table of contents. Two numbered groups
+   (Structure, then Health), understand-then-judge order (issue #23). */
 .nav-views {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 .nav-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
-/* Group headings are real <h2>s for AT; the small-caps label look is styling. */
+/* Group headings are real <h2>s for AT; the small-caps label look is styling
+   (the sanctioned section-heading exception to the uppercase ban). A hairline
+   under the heading gives the index its editorial ruled-list feel. */
 .nav-heading {
-  margin: 0 0 var(--space-1);
-  padding: 0 var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: 0 0 var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
   font-size: var(--text-2xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
+/* Each view is an index entry: the label and an optional count badge, set at a
+   comfortable reading size with a little slide-on-hover. The editorial numerals
+   live on the view headers (.vh-index), not here — nav stays a clean contents
+   list with no marker element (the banned side-stripe sliver, anti-ref #2). */
 .nav-views a {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  align-items: baseline;
+  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   color: var(--text-dim);
   text-decoration: none;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 500;
+  letter-spacing: -0.01em;
   transition:
     color var(--motion-fast) var(--motion-ease),
-    background-color var(--motion-fast) var(--motion-ease);
+    background-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 .nav-views a:hover {
   color: var(--text);
   background: var(--surface-raised);
+  transform: translateX(3px);
 }
-/* Active nav is a tinted fill plus full-strength label, nothing else (issue
-   #44). The previous leading-marker pseudo-element rendered as a cyan sliver
-   pinned to the item's left edge — perceptually the banned side-stripe
-   (anti-ref #2) — so the marker device is gone, not patched. Selection reads
-   by contrast and weight, which also keeps the thread colors out of nav
-   state (anti-ref #6). */
+/* Active view is a tinted fill plus a full-strength, heavier label — no marker
+   element, no left-edge sliver (anti-ref #2). Selection reads by contrast and
+   weight. */
 .nav-views a[aria-current="page"] {
   color: var(--text);
   background: var(--surface-raised);
@@ -129,10 +157,12 @@
 }
 .nav-views .badge {
   margin-left: auto;
+  align-self: center;
   background: var(--surface-raised);
   color: var(--text-dim);
   border-radius: 20px;
-  padding: 1px 8px;
+  padding: 1px var(--space-2);
+  font-family: var(--mono);
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -151,9 +181,12 @@
   color: var(--text);
 }
 
+/* The editorial page. A wide outer gutter like a printed margin, a capped
+   measure so long-form text never sprawls, generous top air so each view's
+   display title has room to land. */
 .content {
-  padding: var(--space-6) var(--space-8) var(--space-12);
-  max-width: 1200px;
+  padding: var(--space-16) var(--gutter) var(--space-20);
+  max-width: 1320px;
   min-width: 0;
 }
 
@@ -163,23 +196,23 @@
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
-/* First-run (issue #29, recomposed in #44): an asymmetric workbench, not a
-   centered stack. The tool's voice, the path form (the primary action), and
-   the intro extras hold a left column capped at a comfortable measure; the
-   mark anchors the right column at hero scale. main.js removes .first-run on
-   success and the same form settles into the compact header bar above. */
+/* First-run (issue #29, recomposed for the editorial makeover): the cover of
+   the atlas. An asymmetric spread — the tool's voice and the path form hold a
+   left column at a comfortable measure, the mark anchors the right at display
+   scale. main.js removes .first-run on success and the form settles into the
+   compact header bar above. */
 .first-run {
-  padding-top: var(--space-10);
+  padding-top: var(--space-16);
 }
 .first-run .hero {
   display: grid;
   grid-template-columns: minmax(0, 7fr) minmax(240px, 5fr);
-  column-gap: var(--space-8);
+  column-gap: var(--space-12);
   align-items: center;
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-12);
 }
 .first-run .hero-logo {
   grid-column: 2;
@@ -192,7 +225,7 @@
 }
 .first-run .content-header,
 .first-run #intro {
-  max-width: 620px;
+  max-width: 680px;
 }
 .first-run .content-header .path-form {
   max-width: none;
@@ -201,25 +234,26 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-5);
-  margin-top: var(--space-5);
+  gap: var(--space-6);
+  margin-top: var(--space-6);
 }
 .content-header .path-form {
   display: flex;
   gap: var(--space-2);
   flex: 1;
   min-width: 260px;
-  max-width: 560px;
+  max-width: 620px;
 }
 .content-header input {
   flex: 1;
   background: var(--surface-raised);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 9px 13px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   font-family: var(--mono);
   font-size: var(--text-sm);
+  transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .content-header input:focus-visible {
   border-color: var(--resolved);
@@ -229,43 +263,101 @@
   background: var(--resolved);
   color: var(--on-accent);
   border: none;
-  padding: 9px 18px;
+  padding: var(--space-3) var(--space-5);
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   font-size: var(--text-base);
-  transition: background-color var(--motion-fast) var(--motion-ease);
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 .content-header button:hover {
   background: var(--resolved-hover);
+  transform: translateY(-1px);
+}
+.content-header button:active {
+  transform: translateY(0);
 }
 .content-header button:disabled {
   opacity: 0.5;
   cursor: default;
+  transform: none;
 }
 
 .panel {
   display: none;
 }
 /* Panels toggle via display, which can't transition — the entering panel gets
-   a one-shot resolve-in instead. Issue #25's opacity-only restriction was
-   reversed by ADR 0010: the settle is now the app's signature gesture, so the
-   entering view resolves in from a slightly-tangled state — a small offset
-   easing to rest. Transform/opacity only, still --motion-view fast so daily
-   view switches stay calm (the loud register is Overview's alone). */
+   a one-shot resolve-in instead. The settle is the app's signature gesture
+   (ADR 0010), promoted here to the editorial reveal: the view resolves in from
+   a slightly-tangled offset, easing to rest on the stronger editorial curve.
+   Transform/opacity only; timed on --motion-reveal so the frame resolves like
+   a page being set rather than snapping. base.css's reduced-motion guard
+   collapses it to an instant. */
 .panel.active {
   display: block;
-  animation: panel-in var(--motion-view) var(--motion-ease) 1;
+  animation: panel-in var(--motion-view) var(--motion-ease-editorial) 1;
 }
 @keyframes panel-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
     transform: none;
   }
+}
+/* The view header rides in a touch slower than the panel so the oversized title
+   lands like a page being set. It reuses the panel-in keyframe (same
+   transform/opacity resolve) on the longer --motion-reveal duration; no new
+   keyframe and no raw timing, so the functional-motion allowlist and the
+   single-source timing rule are both untouched. base.css's reduced-motion guard
+   collapses it to an instant. */
+.panel.active .view-header {
+  animation: panel-in var(--motion-reveal) var(--motion-ease-editorial) 1 both;
+}
+
+/* View header — the editorial device that opens every working view (rendered
+   by the view modules into each panel). An oversized mono section index, then
+   the display-face title, then a dim standfirst. This is the "loud frame":
+   dramatic here, calm in the data rows below. */
+.view-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.view-header .vh-index {
+  font-family: var(--mono);
+  font-size: var(--text-index);
+  font-weight: 500;
+  color: var(--text-dim);
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  grid-row: 1 / span 2;
+}
+.view-header .vh-title {
+  font-family: var(--display);
+  font-size: var(--text-4xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 0;
+  color: var(--text);
+  text-wrap: balance;
+}
+.view-header .vh-standfirst {
+  grid-column: 2;
+  color: var(--text-dim);
+  font-size: var(--text-lg);
+  margin: 0;
+  max-width: 62ch;
 }
 
 @media (max-width: 860px) {
@@ -277,6 +369,8 @@
     height: auto;
     flex-direction: row;
     align-items: center;
+    gap: var(--space-5);
+    padding: var(--space-4);
     overflow-x: auto;
   }
   .nav-views,
@@ -286,15 +380,20 @@
   }
   .nav-heading {
     margin: 0;
+    padding: 0;
+    border-bottom: 0;
   }
   .content {
-    padding: var(--space-4);
+    padding: var(--space-6) var(--space-5) var(--space-12);
+  }
+  .view-header {
+    margin-bottom: var(--space-6);
   }
   /* Narrow screens stack the workbench: mark first at a modest size, copy
      and form flowing beneath, all left-aligned. */
   .first-run .hero {
     grid-template-columns: 1fr;
-    row-gap: var(--space-4);
+    row-gap: var(--space-5);
   }
   .first-run .hero-logo {
     grid-column: 1;

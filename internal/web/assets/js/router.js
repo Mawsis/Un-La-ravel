@@ -6,8 +6,24 @@
 //
 // Views are the seven sidebar destinations: overview, er, models, routes, api,
 // findings, auth (the auth-coverage view, issue #50).
+//
+// "controllers" is a valid view WITHOUT a sidebar entry: it exists only as the
+// host for the controller detail sub-route (#/controllers/{fqn}, issue #69),
+// which is reached by following a controller chip rather than by navigating to
+// a list. It must be in this set regardless — an unknown view falls back to the
+// default, so omitting it would make every controller deep link land on
+// Overview.
 
-const VALID_VIEWS = new Set(["overview", "er", "models", "routes", "api", "findings", "auth"]);
+const VALID_VIEWS = new Set([
+  "overview",
+  "er",
+  "models",
+  "routes",
+  "api",
+  "findings",
+  "auth",
+  "controllers",
+]);
 const DEFAULT_VIEW = "overview";
 
 const listeners = new Set();
@@ -27,10 +43,11 @@ let applying = false;
 // erroring, so a stale or hand-edited hash never leaves the page unnavigable.
 //
 // The path part may be one or two segments: "<view>" or "<view>/<detail>". The
-// detail segment addresses one entity within a view — today only the model
-// detail page (#/models/{name}, issue #51). A detail on an unknown view is
-// dropped along with the view (both fall back), so a bogus deep link degrades
-// cleanly rather than half-applying.
+// detail segment addresses one entity within a view: the model detail page
+// (#/models/{name}, issue #51), the route detail page (#/routes/{key}, issue
+// #68), and the controller detail page (#/controllers/{fqn}, issue #69). A
+// detail on an unknown view is dropped along with the view (both fall back), so
+// a bogus deep link degrades cleanly rather than half-applying.
 export function parse(rawHash) {
   const hash = (rawHash != null ? rawHash : location.hash).replace(/^#\/?/, ""); // strip "#" and a leading "/"
   const qIdx = hash.indexOf("?");

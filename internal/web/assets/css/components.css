@@ -569,7 +569,13 @@ table.routes th button:focus-visible {
   outline-offset: 2px;
   border-radius: 2px;
 }
-table.routes td.method {
+/* The method badge: mono and bold wherever it appears. Previously scoped to the
+   routes TABLE cell only, so the same badge on the Route and Controller detail
+   pages (issues #68/#69) rendered as unstyled inline text. The .method class is
+   now the single point of truth for the badge's type, and the .m-<METHOD>
+   color rules below apply to both. */
+table.routes td.method,
+.method {
   font-family: var(--mono);
   font-weight: 700;
   white-space: nowrap;
@@ -992,7 +998,11 @@ table.routes tr.dead {
   font-family: var(--mono);
   font-size: var(--text-xs);
 }
+/* .detail-head .uri covers the URI in a Route detail page's heading (issue
+   #68), which sits outside .route-row and would otherwise lose the mono face
+   that marks it as a machine identifier. */
 .route-row .uri,
+.detail-head .uri,
 .col-name {
   font-family: var(--mono);
 }

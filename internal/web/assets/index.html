@@ -182,13 +182,29 @@
 
         <div class="panel" data-panel="routes">
           <h2 class="sr-only">Routes</h2>
-          <div class="filter-row"><input id="route-filter" type="text" placeholder="Filter routes by URI, method, or controller…" aria-label="Filter routes" /></div>
-          <div class="table-scroll">
-            <table class="routes">
-              <thead><tr></tr></thead>
-              <tbody id="routes-body"></tbody>
-            </table>
+          <!-- The route table. Hidden while a route detail page
+               (#/routes/{key}, issue #68) is open; shown otherwise. -->
+          <div id="routes-list">
+            <div class="filter-row"><input id="route-filter" type="text" placeholder="Filter routes by URI, method, or controller…" aria-label="Filter routes" /></div>
+            <div class="table-scroll">
+              <table class="routes">
+                <thead><tr></tr></thead>
+                <tbody id="routes-body"></tbody>
+              </table>
+            </div>
           </div>
+          <!-- The route detail page: composed client-side over the loaded model
+               (issue #68). Populated by renderRouteDetail; empty and hidden
+               until a #/routes/{key} deep link or a route row opens it. -->
+          <div id="route-detail-body" hidden></div>
+        </div>
+
+        <!-- The controllers panel has no sidebar entry and no list: it exists
+             solely to host the controller detail page (#/controllers/{fqn},
+             issue #69), which is reached by following a controller chip. -->
+        <div class="panel" data-panel="controllers">
+          <h2 class="sr-only">Controller</h2>
+          <div id="controller-detail-body" hidden></div>
         </div>
 
         <div class="panel" data-panel="api">

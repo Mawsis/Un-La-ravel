@@ -16,6 +16,7 @@
 
 import { $, escapeHtml } from "../dom.js";
 import { entityChip, dangerFlag } from "../chip.js";
+import { routeKey } from "./route-detail.js";
 
 export const SORTABLE_COLUMNS = [
   { key: "method", label: "Method" },
@@ -92,10 +93,17 @@ export function routeRowHtml(r, isDead) {
   // The controller is a jump-to-able entity, so it renders as a cross-link
   // chip (issue #24); the @action suffix stays plain escaped text. A route
   // with no controller (closure/view route) has nothing to link to.
+  // The chip targets the RESOLVED FQN (Route.FQN) when phase two resolved one,
+  // falling back to the verbatim reference otherwise. The controller chip now
+  // lands on the controller detail page (issue #69), and that page resolves a
+  // short name only when it is unambiguous — so linking the verbatim reference
+  // would send two same-named controllers in different namespaces to the same
+  // ambiguous page. The FQN is the unambiguous key (issue #63).
+  const controllerRef = r.fqn || r.controller;
   const action =
     r.controller || r.action
-      ? (r.controller
-          ? entityChip({ kind: "controller", name: r.controller })
+      ? (controllerRef
+          ? entityChip({ kind: "controller", name: controllerRef }, r.controller || controllerRef)
           : "—") +
         "@" +
         escapeHtml(r.action || "—")
@@ -106,7 +114,17 @@ export function routeRowHtml(r, isDead) {
   return (
     '<tr class="' + (isDead ? "dead" : "") + '">' +
     '<td class="method m-' + escapeHtml(r.method || "") + '">' + escapeHtml(r.method || "") + "</td>" +
-    '<td class="uri">' + escapeHtml(r.uri || "") + (isDead ? " " + dangerFlag("dead_routes", "DEAD") : "") + "</td>" +
+    // The URI links through to this route's own detail page (#/routes/{key},
+    // issue #68) — its full binding, which the table row can only summarize.
+    '<td class="uri">' +
+    // encodeURIComponent already percent-encodes every HTML-significant
+    // character, so the href needs no further escaping (matching
+    // controller-detail.js). The data-entity-id carries the RAW key, which does
+    // need escapeHtml since it sits in an attribute unencoded.
+    '<a class="entity-chip" href="#/routes/' + encodeURIComponent(routeKey(r)) +
+    '" data-view="routes" data-entity-id="' + escapeHtml(routeKey(r)) + '">' +
+    escapeHtml(r.uri || "") + "</a>" +
+    (isDead ? " " + dangerFlag("dead_routes", "DEAD") : "") + "</td>" +
     '<td class="action">' + action + "</td>" +
     "<td>" + mw + "</td>" +
     "</tr>"

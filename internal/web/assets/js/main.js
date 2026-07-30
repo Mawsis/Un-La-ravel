@@ -31,6 +31,8 @@ import { renderOverview } from "./views/overview.js";
 import { renderER, focusTable } from "./views/er.js";
 import { renderModels } from "./views/models.js";
 import { renderModelDetail } from "./views/model-detail.js";
+import { renderRouteDetail } from "./views/route-detail.js";
+import { renderControllerDetail } from "./views/controller-detail.js";
 import { renderRoutes } from "./views/routes.js";
 import { renderFindings } from "./views/findings.js";
 import { renderAuth } from "./views/auth.js";
@@ -169,11 +171,15 @@ function renderCurrentView() {
     router.navigate(view, paramsFromRoutesState(params, newState), { replace: true });
   }, params);
 
-  // Model detail page (issue #51): #/models/{name} shows the detail composed
-  // over the loaded model; a bare #/models (detail null) restores the flat
-  // list. Only the models view has a detail sub-route today, so any detail on
-  // another view is ignored — renderModelDetail(null) closes any open page.
+  // Entity detail pages. Each is a sub-route of its owning view: #/models/{name}
+  // (issue #51), #/routes/{key} (issue #68), #/controllers/{fqn} (issue #69).
+  // A bare view hash (detail null) restores that view's list. Each renderer is
+  // called on EVERY render with the detail that belongs to it — passing null
+  // closes it — so navigating from one detail page to another can never leave
+  // the previous one open behind the new view.
   renderModelDetail(view === "models" ? detail : null, model);
+  renderRouteDetail(view === "routes" ? detail : null, model);
+  renderControllerDetail(view === "controllers" ? detail : null, model);
 
   activateView(view);
 }
@@ -213,7 +219,14 @@ function activateView(name) {
   // querySelector would otherwise match first and steal focus back to, making a
   // screen reader announce "Models" instead of the model just opened. Prefer the
   // visible detail heading; fall back to the panel's own when no detail is open.
-  const detailBody = document.querySelector("#model-detail-body");
+  // All three detail pages are checked, not just the model one: whichever is
+  // currently visible owns the announcement. Scoped to the ACTIVE panel so a
+  // detail page left mounted in a background panel can never steal focus from
+  // the view the user actually landed on.
+  const activePanel = document.querySelector(".panel.active");
+  const detailBody = activePanel
+    ? activePanel.querySelector("#model-detail-body, #route-detail-body, #controller-detail-body")
+    : null;
   const detailHeading = detailBody && !detailBody.hidden ? detailBody.querySelector("h2") : null;
   const heading = detailHeading || document.querySelector(".panel.active h2");
   if (heading) {
@@ -291,10 +304,12 @@ document.addEventListener("click", (e) => {
   const { params } = router.getCurrent();
   const next = new URLSearchParams();
   if (params.get("path")) next.set("path", params.get("path"));
-  // A model chip carries the model name in data-entity-id and lands on that
-  // model's detail page (#/models/{name}, issue #51). Every other chip kind
-  // switches to its owning view (focusing the specific entity lands later).
-  const detail = chip.dataset.view === "models" ? chip.dataset.entityId || null : null;
+  // A chip whose view has a detail sub-route carries its entity id in
+  // data-entity-id and lands on that entity's own page: models (#51), routes
+  // (#68), controllers (#69). Every other chip kind just switches to its owning
+  // view (focusing the specific entity lands later).
+  const DETAIL_VIEWS = new Set(["models", "routes", "controllers"]);
+  const detail = DETAIL_VIEWS.has(chip.dataset.view) ? chip.dataset.entityId || null : null;
   router.navigate(chip.dataset.view, next, { detail });
 });
 

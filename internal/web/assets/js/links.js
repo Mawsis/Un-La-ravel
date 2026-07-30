@@ -37,8 +37,11 @@ export function hrefFor(kind, value, currentParams) {
       return hash("routes", params);
     }
     case "controller": {
-      params.set("filter", value);
-      return hash("routes", params);
+      // A controller links to its own detail page (#/controllers/{fqn}, issue
+      // #69) — actions plus the routes dispatching to each — rather than
+      // filtering the Routes list, which only ever showed the routes half.
+      const qs = params.toString();
+      return "#/controllers/" + encodeURIComponent(value) + (qs ? "?" + qs : "");
     }
     case "model": {
       // A model links to its own detail page (#/models/{name}, issue #51), a

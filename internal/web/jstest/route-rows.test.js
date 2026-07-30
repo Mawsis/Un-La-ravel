@@ -52,5 +52,10 @@ test("a route row escapes attacker-shaped source strings", () => {
 test("a closure/view route renders a placeholder instead of a controller chip", () => {
   const html = routeRowHtml({ method: "GET", uri: "/health" }, false);
   assert.match(html, /\(closure \/ view route\)/);
-  assert.doesNotMatch(html, /data-view="routes"/);
+  // Scoped to the ACTION cell: since issue #68 the URI cell carries its own
+  // data-view="routes" link to the route detail page, so a bare document-wide
+  // doesNotMatch would now fail for a reason that has nothing to do with the
+  // controller chip this test is about.
+  const actionCell = /<td class="action">([\s\S]*?)<\/td>/.exec(html)[1];
+  assert.doesNotMatch(actionCell, /entity-chip/);
 });

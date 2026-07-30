@@ -37,10 +37,15 @@ test("a table reference targets the ER diagram, keyed by table name", () => {
   });
 });
 
-test("a controller reference targets the Routes view, keyed by class name", () => {
+test("a controller reference targets its own detail page, keyed by class name", () => {
+  // Was: the Routes view, filtered to the class name. Since issue #69 a
+  // controller has its own page (#/controllers/{fqn}) showing the actions AND
+  // the routes per action — strictly more than the filter conveyed — so the
+  // chip carries `detail` and lands there, exactly as a model chip does.
   assert.deepEqual(chipTarget({ kind: "controller", name: "UserController" }), {
-    view: "routes",
+    view: "controllers",
     id: "UserController",
+    detail: "UserController",
   });
 });
 

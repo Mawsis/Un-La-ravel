@@ -79,7 +79,12 @@ export function chipTarget(ref) {
     return { view: "er", id: name };
   }
   if (ref.kind === "controller" && name) {
-    return { view: "routes", id: name };
+    // A controller now has its own detail page (#/controllers/{fqn}, issue
+    // #69), so a chip lands there rather than filtering the Routes list — the
+    // page shows the actions AND the routes per action, which is strictly more
+    // than the filter conveyed. `detail` carries the id into the sub-route the
+    // same way a model chip does.
+    return { view: "controllers", id: name, detail: name };
   }
   if (ref.kind === "finding" && name) {
     // name carries the machine-readable Finding.Kind from the contract

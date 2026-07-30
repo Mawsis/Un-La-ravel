@@ -178,7 +178,16 @@ function routesSection(d) {
             '<div class="route-row">' +
             '<span class="method ' + escapeHtml((r.method || "").toLowerCase()) + '">' + escapeHtml(r.method || "") + "</span> " +
             '<span class="uri">' + escapeHtml(r.uri || "") + "</span> " +
-            entityChip({ kind: "controller", name: r.controller }, r.controller ? r.controller + "::" + (r.action || "") : "") +
+            // The chip targets the RESOLVED FQN when phase two produced one:
+            // since issue #69 a controller chip lands on the controller detail
+            // page, which resolves a short name only when it is unambiguous.
+            // Passing the bare reference would send two same-named controllers
+            // in different namespaces to the ambiguous page instead of to
+            // either one — the same reasoning as routes.js.
+            entityChip(
+              { kind: "controller", name: r.fqn || r.controller },
+              r.controller ? r.controller + "::" + (r.action || "") : ""
+            ) +
             ' <span class="match-tag">' + escapeHtml(MATCH_LABEL[r.match] || r.match || "") + "</span></div>"
         )
         .join("")

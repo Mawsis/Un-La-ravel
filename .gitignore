@@ -55,3 +55,5 @@ build/
 # changes — never intentionally run from the repo root, but ignored as a
 # backstop if it lands there)
 .playwright-cli/
+# Tool artifact from the impeccable design skill — not source.
+.impeccable/

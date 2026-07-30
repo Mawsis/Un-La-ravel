@@ -100,15 +100,58 @@ func TestDeadTag_ClassRetired(t *testing.T) {
 	}
 }
 
-// ruleBodyContains reports whether the CSS rule whose selector list ends with
-// selector has want inside its declaration block. Whitespace inside the
-// declaration block is normalized so formatting doesn't matter; the selector
-// must match exactly as written (including multi-selector lists).
+// ruleBodyContains reports whether a CSS rule that APPLIES TO selector has want
+// inside its declaration block. Whitespace inside the declaration block is
+// normalized so formatting doesn't matter.
+//
+// The selector may appear anywhere in a comma-separated selector list, not only
+// immediately before the "{". These tests assert what the sheet GUARANTEES for
+// an element ("the method column is monospace"), and grouping a selector with
+// others changes nothing about that guarantee — CSS applies the rule to every
+// selector in the list. An earlier version anchored the match to the "{", so
+// grouping `table.routes td.method` with `.method` (to style the same badge
+// outside the routes table, issues #68/#69) made this report "not monospace"
+// about a sheet that was still monospacing it. That is a false negative about
+// the property under test, so the matcher — not the assertion — was the thing
+// to fix.
 func ruleBodyContains(css, selector, want string) bool {
-	re := regexp.MustCompile(regexp.QuoteMeta(selector) + `\s*\{([^}]*)\}`)
+	// Strip comments from the WHOLE sheet first. The selector-list capture below
+	// reaches back to the previous "}", so it swallows any comment sitting above
+	// the rule — and this sheet comments nearly every rule. Removing them here
+	// rather than per-part is what keeps the first selector in a list from
+	// arriving glued to the tail of a comment.
+	css = regexp.MustCompile(`(?s)/\*.*?\*/`).ReplaceAllString(css, " ")
+
+	// Match the whole selector list preceding a declaration block, then check
+	// whether any comma-separated part equals the selector we're asking about.
+	re := regexp.MustCompile(`([^{}]+)\{([^}]*)\}`)
 	for _, m := range re.FindAllStringSubmatch(css, -1) {
-		body := regexp.MustCompile(`\s+`).ReplaceAllString(m[1], " ")
+		if !selectorListHas(m[1], selector) {
+			continue
+		}
+		body := regexp.MustCompile(`\s+`).ReplaceAllString(m[2], " ")
 		if strings.Contains(body, want) {
+			return true
+		}
+	}
+	return false
+}
+
+// selectorListHas reports whether a comma-separated CSS selector list contains
+// selector as one of its parts. Both sides are whitespace-normalized so a list
+// broken across lines matches a single-line selector argument. A caller may
+// still pass a multi-part selector ("a,\nb") — it is normalized the same way and
+// compared against the whole list, preserving the older exact-list behavior.
+func selectorListHas(list, selector string) bool {
+	norm := func(s string) string {
+		return strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(s, " "))
+	}
+	want := norm(selector)
+	if norm(list) == want {
+		return true
+	}
+	for _, part := range strings.Split(list, ",") {
+		if norm(part) == want {
 			return true
 		}
 	}
